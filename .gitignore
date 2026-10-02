@@ -1,0 +1,26 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Temporary DB files
+*.db-shm
+*.db-wal
+
+# IDE / Editor
+.vscode/
+.idea/
+.agents/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

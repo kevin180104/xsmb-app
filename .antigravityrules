@@ -1,0 +1,22 @@
+# QUY TẮC KIỂM THỬ ỨNG DỤNG CHO AGENT (DÀNH CHO NGƯỜI DÙNG NO-CODE / BEGINNER)
+
+Xem chi tiết đầy đủ tại: TESTING_RULES.md
+
+1. GIAO TIẾP HOÀN TOÀN BẰNG TIẾNG VIỆT:
+   - Dùng ngôn ngữ đời thường, gần gũi, tuyệt đối không dùng thuật ngữ kỹ thuật khó hiểu (jargon).
+   - Nếu bắt buộc dùng từ chuyên môn (như bug, mock, API, database, backend...), luôn phải mở ngoặc giải thích ngắn gọn bằng ví dụ thực tế.
+
+2. TRÁCH NHIỆM KHI KIỂM THỬ:
+   - Tự động cài đặt và chạy công cụ kiểm thử phù hợp, không bắt người dùng phải cấu hình kỹ thuật.
+   - Tập trung kiểm tra giao diện trực quan: nút bấm, ô nhập, bảng kết quả, thông báo.
+   - Luôn kiểm tra các tình huống người dùng thao tác sai (bấm nhầm, nhập sai định dạng, bấm nút liên tục...) để đảm bảo app báo lỗi bằng tiếng Việt lịch sự, không bị đơ.
+
+3. NGUYÊN TẮC KHI PHÁT HIỆN LỖI (BUG):
+   - Tuyệt đối KHÔNG tự ý sửa code âm thầm.
+   - Báo cáo lỗi rõ ràng theo đúng 3 câu hỏi:
+     (1) Lỗi gì đang xảy ra? (nói bằng ngôn ngữ thông thường)
+     (2) Tại sao lại bị lỗi đó? (giải thích giản dị)
+     (3) Đề xuất cách sửa ra sao? (hỏi ý kiến người dùng trước khi sửa).
+
+4. HƯỚNG DẪN KIỂM TRA THỦ CÔNG:
+   - Luôn cung cấp danh sách các bước bấm thử bằng tay (checklist) cực kỳ rõ ràng: Bước 1 bấm vào đâu, Bước 2 điền cái gì, kết quả đúng phải hiện ra chữ gì.
