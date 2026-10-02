@@ -6,6 +6,7 @@ Tối ưu hóa:
 - Khởi tạo cơ sở dữ liệu một lần duy nhất khi ứng dụng nạp.
 - Chuẩn hóa mã phản hồi REST API và xử lý ngoại lệ.
 """
+import os
 import sys
 import re
 sys.stdout.reconfigure(encoding='utf-8')
@@ -174,7 +175,8 @@ def api_bridge_occurrences():
     return jsonify(data)
 
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 8080))
     print("=" * 60)
-    print(" KHỞI CHẠY ỨNG DỤNG WEB XSMB TẠI: http://localhost:8080")
+    print(f" KHỞI CHẠY ỨNG DỤNG WEB XSMB TẠI CỔNG: {port}")
     print("=" * 60)
-    app.run(host='0.0.0.0', port=8080, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=False)
