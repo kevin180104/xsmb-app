@@ -3047,7 +3047,9 @@ def get_bridge_occurrences(bridge_key='date_sum', limit=60):
         hit_numbers = snap.get("hit_numbers", r.get("hit_numbers", []))
         is_de = snap.get("is_de", r.get("is_de", False))
 
-        if not predicted or predicted_display in ["-", ""]:
+        if r.get("is_current") or is_win is None:
+            status_label = "CHỜ QUAY"
+        elif not predicted or predicted_display in ["-", ""]:
             status_label = "CHỜ TÍN HIỆU"
         elif is_de:
             status_label = "TRÚNG ĐỀ"
@@ -3069,7 +3071,9 @@ def get_bridge_occurrences(bridge_key='date_sum', limit=60):
             "is_de": is_de,
             "status": status_label,
             "special_prize": r.get("actual_special", ""),
-            "actual_de": r.get("actual_de", "")
+            "actual_de": r.get("actual_de", ""),
+            "actual_loto": r.get("actual_loto", []),
+            "is_current": r.get("is_current", False)
         })
 
     sig_count = chosen_stats.get("signals", 0)

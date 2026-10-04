@@ -167,10 +167,13 @@ def api_bridge_occurrences():
     """Lấy dữ liệu thống kê và toàn bộ lịch sử các ngày đã xảy ra của bất kỳ cầu nào"""
     bridge_key = request.args.get('bridge', 'date_sum')
     limit = request.args.get('limit', '60')
-    try:
-        limit_val = int(limit)
-    except ValueError:
-        limit_val = 60
+    if limit == 'all':
+        limit_val = 'all'
+    else:
+        try:
+            limit_val = int(limit)
+        except ValueError:
+            limit_val = 60
     data = analyzer.get_bridge_occurrences(bridge_key=bridge_key, limit=limit_val)
     return jsonify(data)
 

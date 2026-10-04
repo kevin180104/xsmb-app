@@ -934,6 +934,9 @@
 
             // Render Bridge Cards according to active filter
             renderCatalogFilteredCards();
+
+            // Nạp bảng thống kê các ngày đã dự đoán trước đó
+            loadCatalogHistory();
         }
 
         function filterCatalogCategory(catId) {
@@ -1055,8 +1058,8 @@
                                 ${predChips}
                             </div>
                             <div class="flex items-center gap-1.5">
-                                <button onclick="openBridgeModal('${lookupKey}', 'occurrences')" class="text-xs px-2.5 py-1.5 rounded-lg bg-cyan-950/80 hover:bg-cyan-800 text-cyan-300 hover:text-white border border-cyan-700/60 transition flex items-center gap-1 shadow">
-                                    <i class="fa-solid fa-chart-column text-yellow-400"></i> Lịch Sử Nổ
+                                <button onclick="selectCatalogHistoryBridge('${b.code}')" class="text-xs px-2.5 py-1.5 rounded-lg bg-cyan-950/80 hover:bg-cyan-800 text-cyan-300 hover:text-white border border-cyan-700/60 transition flex items-center gap-1 shadow" title="Xem bảng thống kê các ngày đã dự đoán">
+                                    <i class="fa-solid fa-table-list text-yellow-400"></i> Bảng Lịch Sử
                                 </button>
                                 <button onclick="openBridgeModal('${lookupKey}', 'theory')" class="text-xs px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white transition flex items-center gap-1 shadow">
                                     <i class="fa-solid fa-circle-info"></i> Quy tắc
@@ -1066,6 +1069,328 @@
                     </div>
                 </div>
             `;
+        }
+
+        // =========================================================================
+        // BẢNG THỐNG KÊ CÁC NGÀY ĐÃ DỰ ĐOÁN TRƯỚC ĐÓ (23 THUẬT TOÁN SOI CẦU)
+        // =========================================================================
+        let currentCatalogHistoryBridge = 'all_synthesis';
+        let currentCatalogHistoryDays = '14';
+        let currentCatalogHistoryFilter = 'all';
+        let catalogHistoryData = null;
+        let catalogHistoryCache = {};
+
+        function selectCatalogHistoryBridge(bridgeKey) {
+            const select = document.getElementById('catalog-history-method-select');
+            if (select) {
+                select.value = bridgeKey;
+            }
+            onCatalogHistoryMethodChange(bridgeKey);
+            const sec = document.getElementById('catalog-history-section');
+            if (sec) {
+                sec.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        function onCatalogHistoryMethodChange(bridgeKey) {
+            currentCatalogHistoryBridge = bridgeKey;
+            loadCatalogHistory(false);
+        }
+
+        function changeCatalogHistoryDays(days) {
+            currentCatalogHistoryDays = String(days);
+            ['7', '14', '30', '60', 'all'].forEach(d => {
+                const btn = document.getElementById('cat-hist-p-' + d);
+                if (btn) {
+                    if (String(d) === String(days)) {
+                        btn.className = 'cat-hist-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-yellow-400 text-black border border-yellow-300 shadow transition';
+                    } else {
+                        btn.className = 'cat-hist-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-yellow-400 hover:text-yellow-400 transition';
+                    }
+                }
+            });
+            loadCatalogHistory(false);
+        }
+
+        function filterCatalogHistoryTable(filterType) {
+            currentCatalogHistoryFilter = filterType;
+            ['all', 'win', 'de', 'lose', 'pending'].forEach(f => {
+                const btn = document.getElementById('btn-filter-cathist-' + f);
+                if (btn) {
+                    if (f === filterType) {
+                        btn.className = 'px-3 py-1.5 rounded-lg font-bold bg-neutral-800 text-white transition';
+                    } else {
+                        let textCol = 'text-neutral-400';
+                        if (f === 'win') textCol += ' hover:text-emerald-400';
+                        else if (f === 'de') textCol += ' hover:text-yellow-400';
+                        else if (f === 'lose') textCol += ' hover:text-red-400';
+                        else if (f === 'pending') textCol += ' hover:text-cyan-400';
+                        btn.className = `px-3 py-1.5 rounded-lg font-semibold ${textCol} transition`;
+                    }
+                }
+            });
+            renderCatalogHistoryRows();
+        }
+
+        async function loadCatalogHistory(forceReload = false) {
+            const tbody = document.getElementById('catalogHistoryTableBody');
+            const msgEl = document.getElementById('cat-hist-status-msg');
+            const cacheKey = `${currentCatalogHistoryBridge}_${currentCatalogHistoryDays}`;
+
+            if (forceReload || !catalogHistoryCache[cacheKey]) {
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="py-12 text-center text-neutral-400">
+                                <i class="fa-solid fa-spinner fa-spin text-3xl text-yellow-400 mb-3 block"></i>
+                                <span class="font-bold text-xs">Đang đối chiếu lịch sử mở thưởng của thuật toán...</span>
+                            </td>
+                        </tr>
+                    `;
+                }
+                if (msgEl) {
+                    msgEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-yellow-400"></i> Đang tải dữ liệu...`;
+                }
+                try {
+                    const res = await fetch(`/api/bridge-occurrences?bridge=${encodeURIComponent(currentCatalogHistoryBridge)}&limit=${encodeURIComponent(currentCatalogHistoryDays)}`);
+                    const data = await res.json();
+                    if (data && data.status === 'SUCCESS') {
+                        catalogHistoryCache[cacheKey] = data;
+                        catalogHistoryData = data;
+                    } else {
+                        throw new Error(data ? data.message : 'Unknown error');
+                    }
+                } catch(e) {
+                    console.error("Lỗi khi tải lịch sử cầu:", e);
+                    if (tbody) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="7" class="py-10 text-center text-red-400">
+                                    <i class="fa-solid fa-circle-exclamation text-2xl mb-2 block"></i>
+                                    Không thể tải lịch sử dự đoán của thuật toán này. Vui lòng thử lại.
+                                </td>
+                            </tr>
+                        `;
+                    }
+                    if (msgEl) {
+                        msgEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-400"></i> Lỗi kết nối`;
+                    }
+                    return;
+                }
+            } else {
+                catalogHistoryData = catalogHistoryCache[cacheKey];
+            }
+
+            renderCatalogHistoryUI(catalogHistoryData);
+        }
+
+        function renderCatalogHistoryUI(data) {
+            if (!data) return;
+            const msgEl = document.getElementById('cat-hist-status-msg');
+            if (msgEl) {
+                msgEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i> Đã đối chiếu xong (${(data.occurrences || []).length} kỳ)`;
+            }
+
+            // Update badge title
+            const bridgeBadge = document.getElementById('catalog-history-bridge-badge');
+            if (bridgeBadge) {
+                bridgeBadge.innerText = data.bridge_name || currentCatalogHistoryBridge;
+            }
+
+            // Update KPIs
+            const stats = data.stats || {};
+            const kpiWin = document.getElementById('cat-hist-kpi-winrate');
+            const kpiWinSub = document.getElementById('cat-hist-kpi-winrate-sub');
+            const kpiHits = document.getElementById('cat-hist-kpi-hits');
+            const kpiHitsSub = document.getElementById('cat-hist-kpi-hits-sub');
+            const kpiDe = document.getElementById('cat-hist-kpi-de');
+            const kpiDeSub = document.getElementById('cat-hist-kpi-de-sub');
+            const kpiStreak = document.getElementById('cat-hist-kpi-streak');
+            const kpiStreakSub = document.getElementById('cat-hist-kpi-streak-sub');
+
+            if (kpiWin) kpiWin.innerText = (stats.win_rate !== undefined ? stats.win_rate : 0) + '%';
+            if (kpiWinSub) kpiWinSub.innerText = `${stats.win_count || 0}/${stats.signals_count || stats.total_tested || 0} kỳ phát tín hiệu`;
+            if (kpiHits) kpiHits.innerText = stats.total_hits || 0;
+            if (kpiHitsSub) kpiHitsSub.innerText = `TB ${stats.avg_hits_per_win || 0} nháy/kỳ trúng`;
+            if (kpiDe) kpiDe.innerText = stats.de_hits || 0;
+            if (kpiDeSub) kpiDeSub.innerText = `lần trúng 2 số cuối ĐB`;
+            if (kpiStreak) kpiStreak.innerText = stats.max_win_streak || 0;
+            if (kpiStreakSub) {
+                const cStreak = stats.current_streak;
+                const streakText = cStreak ? (cStreak.type === 'WIN' ? `Ăn ${cStreak.count} kỳ` : `Đứt ${cStreak.count} kỳ`) : '--';
+                kpiStreakSub.innerText = `kỳ liên tiếp (Hiện tại: ${streakText})`;
+            }
+
+            // Calculate filter counts
+            const occurrences = data.occurrences || [];
+            let countAll = occurrences.length;
+            let countWin = 0;
+            let countDe = 0;
+            let countLose = 0;
+            let countPending = 0;
+
+            occurrences.forEach(occ => {
+                const isPending = (occ.is_current || occ.status === 'CHỜ QUAY' || occ.is_win === null);
+                if (isPending) {
+                    countPending++;
+                } else if (occ.is_de || occ.status === 'TRÚNG ĐỀ') {
+                    countDe++;
+                    countWin++;
+                } else if (occ.is_win || occ.status === 'TRÚNG') {
+                    countWin++;
+                } else {
+                    countLose++;
+                }
+            });
+
+            const elAll = document.getElementById('count-cathist-all');
+            const elWin = document.getElementById('count-cathist-win');
+            const elDe = document.getElementById('count-cathist-de');
+            const elLose = document.getElementById('count-cathist-lose');
+            const elPend = document.getElementById('count-cathist-pending');
+            if (elAll) elAll.innerText = countAll;
+            if (elWin) elWin.innerText = countWin;
+            if (elDe) elDe.innerText = countDe;
+            if (elLose) elLose.innerText = countLose;
+            if (elPend) elPend.innerText = countPending;
+
+            renderCatalogHistoryRows();
+        }
+
+        function renderCatalogHistoryRows() {
+            const tbody = document.getElementById('catalogHistoryTableBody');
+            if (!tbody || !catalogHistoryData) return;
+
+            const occurrences = catalogHistoryData.occurrences || [];
+            let filtered = occurrences;
+
+            if (currentCatalogHistoryFilter === 'win') {
+                filtered = occurrences.filter(o => !o.is_current && o.status !== 'CHỜ QUAY' && (o.is_win || o.is_de || o.status === 'TRÚNG' || o.status === 'TRÚNG ĐỀ'));
+            } else if (currentCatalogHistoryFilter === 'de') {
+                filtered = occurrences.filter(o => !o.is_current && o.status !== 'CHỜ QUAY' && (o.is_de || o.status === 'TRÚNG ĐỀ'));
+            } else if (currentCatalogHistoryFilter === 'lose') {
+                filtered = occurrences.filter(o => !o.is_current && o.status !== 'CHỜ QUAY' && !o.is_win && !o.is_de && o.status !== 'TRÚNG' && o.status !== 'TRÚNG ĐỀ');
+            } else if (currentCatalogHistoryFilter === 'pending') {
+                filtered = occurrences.filter(o => o.is_current || o.status === 'CHỜ QUAY' || o.is_win === null);
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="py-10 text-center text-neutral-500 italic">
+                            Không có kết quả nào trong danh mục lọc này.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(occ => {
+                const isPending = (occ.is_current || occ.status === 'CHỜ QUAY' || occ.is_win === null);
+                const dow = occ.day_of_week || '';
+                const dateDisplay = occ.date_display || occ.target_date;
+                const methodName = catalogHistoryData.bridge_name || currentCatalogHistoryBridge;
+                
+                // Predicted numbers
+                let preds = occ.predicted || [];
+                if (!preds.length && occ.predicted_display && occ.predicted_display !== '-') {
+                    preds = occ.predicted_display.split(/[-,\s]+/).map(s => s.trim()).filter(Boolean);
+                }
+
+                const hitNumbers = occ.hit_numbers || [];
+                const predChips = preds.length > 0 ? preds.map(num => {
+                    const isNumHit = hitNumbers.includes(num);
+                    return `
+                        <span onclick="switchTab('days10'); toggleHighlight('${num}')"
+                              class="inline-block px-2.5 py-1 rounded-lg text-xs font-mono font-black cursor-pointer transition shadow ${isNumHit ? 'bg-yellow-400 text-black border-2 border-yellow-300 scale-105 ring-1 ring-yellow-400 font-black' : 'bg-black text-yellow-400 border border-neutral-700 hover:border-yellow-400'}"
+                              title="Bấm để xem Highlight trên bảng KQXS">
+                            ${num}
+                        </span>
+                    `;
+                }).join('') : `<span class="text-neutral-500 italic text-xs">Không báo số</span>`;
+
+                // Actual results
+                let actualHtml = '';
+                if (isPending) {
+                    actualHtml = `<div class="text-xs text-cyan-400 italic">Chờ mở thưởng 18h30</div>`;
+                } else {
+                    const sp = occ.special_prize || '';
+                    const de = occ.actual_de || (sp.length >= 2 ? sp.slice(-2) : '-');
+                    const spPrefix = sp.length > 2 ? sp.slice(0, -2) : '';
+                    actualHtml = `
+                        <div class="text-xs">
+                            <span class="text-neutral-400">ĐB:</span>
+                            <span class="font-mono font-bold text-white">${spPrefix}<b class="text-red-500 font-black">${de}</b></span>
+                        </div>
+                    `;
+                    if (occ.hits > 0 && hitNumbers.length > 0) {
+                        actualHtml += `
+                            <div class="text-[10px] text-emerald-400 font-semibold mt-0.5">
+                                Về: ${hitNumbers.join(', ')}
+                            </div>
+                        `;
+                    }
+                }
+
+                // Status Badge
+                let statusBadge = '';
+                if (isPending) {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-950 text-cyan-300 border border-cyan-600 animate-pulse">⏳ CHỜ QUAY</span>`;
+                } else if (occ.is_de || occ.status === 'TRÚNG ĐỀ') {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-yellow-950 text-yellow-300 border border-yellow-500 shadow-[0_0_12px_rgba(234,179,8,0.4)]">🏆 TRÚNG ĐỀ</span>`;
+                } else if (occ.is_win || occ.status === 'TRÚNG') {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-600">✅ TRÚNG LOTO</span>`;
+                } else if (occ.status === 'CHỜ TÍN HIỆU' || !preds.length) {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-neutral-800 text-neutral-400 border border-neutral-700">⚪ KHÔNG BÁO</span>`;
+                } else {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-950/70 text-red-400 border border-red-800/80">❌ TRƯỢT</span>`;
+                }
+
+                // Hits Column
+                let hitsHtml = '';
+                if (isPending) {
+                    hitsHtml = `<span class="text-neutral-500 text-xs italic">-</span>`;
+                } else if (occ.hits > 0) {
+                    hitsHtml = `<span class="text-xs font-black font-mono text-yellow-400 bg-black/80 px-2 py-1 rounded border border-yellow-500/50 shadow">${occ.hits} nháy</span>`;
+                } else {
+                    hitsHtml = `<span class="text-neutral-500 font-mono text-xs">0</span>`;
+                }
+
+                const firstNum = preds[0] || '';
+
+                return `
+                    <tr class="hover:bg-neutral-800/50 transition ${isPending ? 'bg-cyan-950/20' : ''}">
+                        <td class="p-3">
+                            <div class="font-bold text-white text-xs">${dow}, ${dateDisplay}</div>
+                            ${isPending ? '<span class="inline-block mt-0.5 text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-700 font-bold px-2 py-0.5 rounded-full animate-pulse">⏳ Kỳ Hôm Nay / Kế Tiếp</span>' : `<span class="text-[10px] text-neutral-400 font-mono">${occ.target_date}</span>`}
+                        </td>
+                        <td class="p-3">
+                            <div class="font-bold text-yellow-400 text-xs">${methodName}</div>
+                            <div class="text-[10px] text-neutral-400 font-mono uppercase">${currentCatalogHistoryBridge}</div>
+                        </td>
+                        <td class="p-3 text-center">
+                            <div class="flex flex-wrap items-center justify-center gap-1.5">
+                                ${predChips}
+                            </div>
+                        </td>
+                        <td class="p-3 text-center font-mono">
+                            ${actualHtml}
+                        </td>
+                        <td class="p-3 text-center">
+                            ${statusBadge}
+                        </td>
+                        <td class="p-3 text-center">
+                            ${hitsHtml}
+                        </td>
+                        <td class="p-3 text-right">
+                            <button onclick="switchTab('days10'); if('${firstNum}') toggleHighlight('${firstNum}');"
+                                    class="bg-neutral-800 hover:bg-yellow-400 hover:text-black text-neutral-300 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-neutral-700 transition shadow inline-flex items-center gap-1.5">
+                                <i class="fa-solid fa-magnifying-glass text-cyan-400"></i> Xem KQ
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function renderLatestTab() {

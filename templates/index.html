@@ -776,6 +776,186 @@
                 <!-- Cards populated dynamically via JavaScript -->
             </div>
 
+            <!-- Bảng Thống Kê Chi Tiết Các Ngày Đã Dự Đoán Trước Đó -->
+            <div id="catalog-history-section" class="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-2xl space-y-6">
+                <!-- Header Card & Title -->
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-neutral-800 pb-5">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <span class="px-2.5 py-0.5 rounded text-[11px] font-black uppercase bg-yellow-950 text-yellow-400 border border-yellow-700/60 flex items-center gap-1.5">
+                                <i class="fa-solid fa-chart-line"></i> ĐỐI CHIẾU LỊCH SỬ THỰC TẾ
+                            </span>
+                            <span id="catalog-history-bridge-badge" class="px-2.5 py-0.5 rounded text-[11px] font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">
+                                🌟 Tất Cả / Tổng Hợp Hội Tụ
+                            </span>
+                        </div>
+                        <h3 class="text-xl md:text-2xl font-black text-white flex items-center gap-2.5">
+                            <i class="fa-solid fa-table-list text-yellow-400"></i>
+                            BẢNG THỐNG KÊ CÁC NGÀY ĐÃ DỰ ĐOÁN TRƯỚC ĐÓ
+                        </h3>
+                        <p class="text-xs text-neutral-400 mt-1 max-w-3xl">
+                            Đối chiếu lịch sử dự đoán của từng thuật toán soi cầu với kết quả mở thưởng thực tế (tỷ lệ nổ trúng, số nháy loto, giải Đặc Biệt, chuỗi thông) theo từng kỳ quay.
+                        </p>
+                    </div>
+
+                    <!-- Action refresh -->
+                    <button onclick="loadCatalogHistory(true)" class="bg-yellow-400 hover:bg-yellow-300 text-neutral-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-2 transition shadow">
+                        <i class="fa-solid fa-arrows-rotate"></i> Làm Mới Bảng Lịch Sử
+                    </button>
+                </div>
+
+                <!-- Control Bar: Dropdown Thuật Toán + Chu Kỳ + Bộ Lọc Kết Quả -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center bg-black/60 p-4 rounded-xl border border-neutral-800">
+                    <!-- Dropdown chọn Thuật Toán (23 Thuật Toán + Gói Hội Tụ) -->
+                    <div class="lg:col-span-6 flex flex-col sm:flex-row sm:items-center gap-2">
+                        <label for="catalog-history-method-select" class="text-xs font-bold text-yellow-400 uppercase whitespace-nowrap flex items-center gap-1.5">
+                            <i class="fa-solid fa-microchip"></i> Thuật Toán:
+                        </label>
+                        <select id="catalog-history-method-select" onchange="onCatalogHistoryMethodChange(this.value)"
+                                class="w-full bg-neutral-900 border border-yellow-500/50 rounded-xl px-3.5 py-2 text-xs text-yellow-300 font-bold focus:outline-none focus:border-yellow-400 shadow-md">
+                            <optgroup label="🌟 Gói Dự Đoán Hội Tụ Đa Cầu">
+                                <option value="all_synthesis" selected>🌟 Tất Cả / Tổng Hợp Hội Tụ (Mặc Định)</option>
+                                <option value="chot_song_thu">🎯 Cặp Song Thủ Chốt (Xuôi - Lộn)</option>
+                                <option value="chot_bach_thu">🥇 Bạch Thủ Chốt Điểm Rơi</option>
+                                <option value="top_3_hoi_tu">🏆 Top 3 Số Hội Tụ Cao Nhất</option>
+                                <option value="top_5_hoi_tu">💎 Dàn Lô Top 5 Đẹp Nhất</option>
+                            </optgroup>
+                            <optgroup label="1. Tổ Hợp &amp; Hình Thái Bảng Giải">
+                                <option value="CAU_DONG_TO_HOP">🧭 01. Cầu Ghép Vị Trí (5.671 Cặp)</option>
+                                <option value="CAU_QUA_TRAM">👑 02. Cầu Quả Trám (Bảng Giải)</option>
+                                <option value="CAU_KEP_SO">🧩 03. Cầu Kẹp Số Bảng Giải</option>
+                                <option value="CAU_KHUYT_GOC">📐 04. Cầu Khuyết Góc</option>
+                                <option value="CAU_PASCAL">📐 05. Tam Giác Pascal (GĐB + G1)</option>
+                                <option value="CAU_TAM_GIAC_TAM">🔺 06. Tam Giác Định Vị</option>
+                                <option value="CAU_ROI_TU_DE">🔄 07. Cầu Loto Rơi Từ Đề</option>
+                                <option value="CAU_ROI_TU_LO">🔄 08. Cầu Loto Rơi Từ Lô</option>
+                            </optgroup>
+                            <optgroup label="2. Tín Hiệu Biên &amp; Bất Thường">
+                                <option value="CAU_DAU_CAM">🔇 09. Cầu Đầu Câm</option>
+                                <option value="CAU_DUOI_CAM">🔇 10. Cầu Đuôi (Đít) Câm</option>
+                                <option value="CAU_G7_GHEP">🔢 11. Cầu Biên Giải 7</option>
+                                <option value="CAU_BAO_KEP_DB">🎰 12. Báo Kép Giải ĐB</option>
+                                <option value="CAU_TAM_CANG_DB">🎯 13. Tâm Càng Giải ĐB</option>
+                                <option value="CAU_GHEP_G6_G7">🔗 14. Ghép Tầng Giải 6 &amp; 7</option>
+                                <option value="CAU_TIEN_KHUYT">📈 15. Cầu Lô Tiến Khuyết</option>
+                                <option value="CAU_NHIEU_NHAY">⚡ 16. Cầu Loto Nhiều Nháy / Lệch Tần Suất</option>
+                            </optgroup>
+                            <optgroup label="3. Bạc Nhớ &amp; Ngũ Hành">
+                                <option value="CAU_BONG_NGU_HANH">☯️ 17. Cầu Bóng Âm Dương Ngũ Hành</option>
+                                <option value="CAU_MAX_GAN">📊 18. Cầu Lô Gan Cực Đại</option>
+                                <option value="BAC_NHO_LOTO">🔮 19. Bạc Nhớ Theo Loto</option>
+                                <option value="BAC_NHO_THU">🗓️ 20. Bạc Nhớ Theo Thứ Trong Tuần</option>
+                                <option value="BAC_NHO_TONG_DB">🔢 21. Bạc Nhớ Tổng Giải ĐB</option>
+                                <option value="BAC_NHO_KEP_LECH_SAT">⚖️ 22. Bạc Nhớ Kép Lệch / Sát Kép</option>
+                            </optgroup>
+                            <optgroup label="4. Bộ Lọc Cắt Số &amp; Cầu Khác">
+                                <option value="CAU_LOAI_TRU_FILTER">🚫 23. Bộ Lọc Loại Trừ (Blacklist)</option>
+                                <option value="module_cau">🪟 Cầu Kẹp Bảng Giải (Sandwich)</option>
+                                <option value="cau_thu">🏛️ Cầu Theo Thứ &amp; Tỉnh Thành</option>
+                                <option value="date_sum">➕ Cầu Tổng Ngày (Ngày + Tháng + Năm)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <!-- Chu Kỳ Chọn Nhanh -->
+                    <div class="lg:col-span-6 flex flex-wrap items-center justify-start lg:justify-end gap-1.5">
+                        <span class="text-xs text-neutral-400 font-semibold mr-1">Chu kỳ:</span>
+                        <button onclick="changeCatalogHistoryDays(7)" id="cat-hist-p-7" class="cat-hist-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-yellow-400 hover:text-yellow-400 transition">
+                            7 Kỳ
+                        </button>
+                        <button onclick="changeCatalogHistoryDays(14)" id="cat-hist-p-14" class="cat-hist-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-yellow-400 text-black border border-yellow-300 shadow transition">
+                            14 Kỳ
+                        </button>
+                        <button onclick="changeCatalogHistoryDays(30)" id="cat-hist-p-30" class="cat-hist-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-yellow-400 hover:text-yellow-400 transition">
+                            30 Kỳ
+                        </button>
+                        <button onclick="changeCatalogHistoryDays(60)" id="cat-hist-p-60" class="cat-hist-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-yellow-400 hover:text-yellow-400 transition">
+                            60 Kỳ
+                        </button>
+                        <button onclick="changeCatalogHistoryDays('all')" id="cat-hist-p-all" class="cat-hist-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-yellow-400 hover:text-yellow-400 transition">
+                            Toàn Bộ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4 KPI Performance Badges for the selected algorithm -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="bg-black/60 border border-neutral-800 rounded-xl p-4 text-center">
+                        <div class="text-[11px] text-neutral-400 uppercase font-semibold">Tỷ Lệ Nổ Trúng</div>
+                        <div id="cat-hist-kpi-winrate" class="text-2xl font-black text-emerald-400 mt-1">--%</div>
+                        <div id="cat-hist-kpi-winrate-sub" class="text-[11px] text-neutral-400 mt-0.5">--/-- kỳ phát tín hiệu</div>
+                    </div>
+
+                    <div class="bg-black/60 border border-neutral-800 rounded-xl p-4 text-center">
+                        <div class="text-[11px] text-neutral-400 uppercase font-semibold">Tổng Số Nháy Ăn</div>
+                        <div id="cat-hist-kpi-hits" class="text-2xl font-black text-yellow-400 mt-1">--</div>
+                        <div id="cat-hist-kpi-hits-sub" class="text-[11px] text-neutral-400 mt-0.5">TB -- nháy/kỳ trúng</div>
+                    </div>
+
+                    <div class="bg-black/60 border border-neutral-800 rounded-xl p-4 text-center">
+                        <div class="text-[11px] text-neutral-400 uppercase font-semibold">Trúng Giải ĐB (Đề)</div>
+                        <div id="cat-hist-kpi-de" class="text-2xl font-black text-red-500 mt-1">--</div>
+                        <div id="cat-hist-kpi-de-sub" class="text-[11px] text-neutral-400 mt-0.5">lần trúng 2 số cuối ĐB</div>
+                    </div>
+
+                    <div class="bg-black/60 border border-neutral-800 rounded-xl p-4 text-center">
+                        <div class="text-[11px] text-neutral-400 uppercase font-semibold">Ăn Thông Dài Nhất</div>
+                        <div id="cat-hist-kpi-streak" class="text-2xl font-black text-cyan-400 mt-1">--</div>
+                        <div id="cat-hist-kpi-streak-sub" class="text-[11px] text-neutral-400 mt-0.5">kỳ liên tiếp</div>
+                    </div>
+                </div>
+
+                <!-- Filter Pills: Tất cả, Trúng, Trúng Đề, Trượt, Chờ quay -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-2">
+                    <div class="flex flex-wrap items-center gap-1.5 bg-black/60 p-1.5 rounded-xl border border-neutral-800 text-xs">
+                        <button onclick="filterCatalogHistoryTable('all')" id="btn-filter-cathist-all" 
+                                class="px-3 py-1.5 rounded-lg font-bold bg-neutral-800 text-white transition">
+                            Tất Cả (<span id="count-cathist-all">0</span>)
+                        </button>
+                        <button onclick="filterCatalogHistoryTable('win')" id="btn-filter-cathist-win" 
+                                class="px-3 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-emerald-400 transition">
+                            Trúng (<span id="count-cathist-win">0</span>)
+                        </button>
+                        <button onclick="filterCatalogHistoryTable('de')" id="btn-filter-cathist-de" 
+                                class="px-3 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-yellow-400 transition">
+                            Trúng Đề (<span id="count-cathist-de">0</span>)
+                        </button>
+                        <button onclick="filterCatalogHistoryTable('lose')" id="btn-filter-cathist-lose" 
+                                class="px-3 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-red-400 transition">
+                            Trượt (<span id="count-cathist-lose">0</span>)
+                        </button>
+                        <button onclick="filterCatalogHistoryTable('pending')" id="btn-filter-cathist-pending" 
+                                class="px-3 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-cyan-400 transition">
+                            Chờ Quay (<span id="count-cathist-pending">0</span>)
+                        </button>
+                    </div>
+
+                    <div id="cat-hist-status-msg" class="text-xs text-neutral-400 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-check text-emerald-400"></i> Dữ liệu sẵn sàng
+                    </div>
+                </div>
+
+                <!-- Bảng Dữ Liệu Lịch Sử Đối Chiếu -->
+                <div class="overflow-x-auto rounded-xl border border-neutral-800">
+                    <table class="w-full text-left text-xs text-neutral-300">
+                        <thead class="bg-black/90 text-neutral-400 uppercase font-semibold border-b border-neutral-800">
+                            <tr>
+                                <th class="p-3 whitespace-nowrap">Kỳ Mở Thưởng (Ngày)</th>
+                                <th class="p-3 whitespace-nowrap">Thuật Toán Soi Cầu</th>
+                                <th class="p-3 text-center whitespace-nowrap">Cặp Số Dự Đoán</th>
+                                <th class="p-3 text-center whitespace-nowrap">Kết Quả Mở Thưởng</th>
+                                <th class="p-3 text-center whitespace-nowrap">Tình Trạng</th>
+                                <th class="p-3 text-center whitespace-nowrap">Số Nháy Về</th>
+                                <th class="p-3 text-right whitespace-nowrap">Xem KQXS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="catalogHistoryTableBody" class="divide-y divide-neutral-800 font-mono">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </section>
 
 
