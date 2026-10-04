@@ -3103,36 +3103,90 @@ def get_bridge_occurrences(bridge_key='date_sum', limit=60):
         "occurrences": occurrences
     }
 
-def get_all_bridges_summary():
+def get_all_bridges_summary(target_date_str=None):
     """
-    Tổng hợp kết quả soi cầu từ tất cả các tab cầu chính:
+    Tổng hợp kết quả soi cầu từ tất cả các tab cầu chính cho ngày được chọn (hoặc ngày hôm nay):
     - Tab Cầu Tổng Ngày
     - Tab Cầu Theo Tuần (Theo Thứ)
     - Tab Phân Tích Cầu Ngắn Hạn (Song thủ, Bạch thủ, Top hội tụ, Cầu kẹp)
     - Tab Từ Điển 23 Cầu Loto (Các thuật toán đang báo nổ)
     - Xếp hạng tần số đồng thuận đa cầu
-    - Danh sách loại trừ Blacklist
+    - Đối chiếu kết quả thực tế nếu là ngày trong lịch sử đã mở thưởng
     """
-    draws = database.get_recent_results(limit=60)
-    if not draws:
-        return {"status": "ERROR", "message": "Chưa có dữ liệu kết quả XSMB"}
-
-    latest_draw = draws[0]
+    days_vn = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
     today_dt = datetime.now()
     today_str = today_dt.strftime("%Y-%m-%d")
-    days_vn = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
-    
-    if latest_draw["draw_date"] < today_str:
-        target_date = today_str
-        target_date_display = today_dt.strftime("%d/%m/%Y") + " (Hôm nay)"
-        target_dow = days_vn[today_dt.weekday()]
-    else:
-        next_dt = datetime.strptime(latest_draw["draw_date"], "%Y-%m-%d") + timedelta(days=1)
-        target_date = next_dt.strftime("%Y-%m-%d")
-        target_date_display = next_dt.strftime("%d/%m/%Y") + (" (Ngày mai)" if next_dt.date() > today_dt.date() else " (Hôm nay)")
-        target_dow = days_vn[next_dt.weekday()]
 
-    # Chạy 4 module phân tích với draws đã tải sẵn
+    available_dates = database.get_available_backtest_dates(include_pending=True)
+    if not available_dates:
+        return {"status": "ERROR", "message": "Chưa có dữ liệu kết quả XSMB"}
+
+    # Chuẩn hóa target_date_str
+    if target_date_str:
+        target_date_str = target_date_str.strip()
+        if "/" in target_date_str:
+            try:
+                target_date_str = datetime.strptime(target_date_str, "%d/%m/%Y").strftime("%Y-%m-%d")
+            except ValueError:
+                pass
+
+    latest_draw_in_db = database.get_recent_results(limit=1)[0]
+    is_today_or_pending = False
+
+    if not target_date_str or target_date_str == "today":
+        if latest_draw_in_db["draw_date"] < today_str:
+            target_date = today_str
+            target_date_display = today_dt.strftime("%d/%m/%Y") + " (Hôm nay)"
+            target_dow = days_vn[today_dt.weekday()]
+            is_today_or_pending = True
+        else:
+            next_dt = datetime.strptime(latest_draw_in_db["draw_date"], "%Y-%m-%d") + timedelta(days=1)
+            target_date = next_dt.strftime("%Y-%m-%d")
+            target_date_display = next_dt.strftime("%d/%m/%Y") + (" (Ngày mai)" if next_dt.date() > today_dt.date() else " (Hôm nay)")
+            target_dow = days_vn[next_dt.weekday()]
+            is_today_or_pending = True
+    else:
+        target_date = target_date_str
+        if target_date >= today_str:
+            try:
+                dt_tmp = datetime.strptime(target_date, "%Y-%m-%d")
+                target_date_display = dt_tmp.strftime("%d/%m/%Y") + (" (Hôm nay)" if target_date == today_str else " (Kỳ tới)")
+                target_dow = days_vn[dt_tmp.weekday()]
+            except Exception:
+                target_date_display = target_date
+                target_dow = ""
+            is_today_or_pending = True
+        else:
+            is_today_or_pending = False
+
+    actual_draw = None
+    if is_today_or_pending:
+        draws = database.get_recent_results(limit=60)
+        draw_time_status = "Chờ mở thưởng lúc 18h30"
+    else:
+        actual_draw = database.get_result_by_date(target_date)
+        draws = database.get_results_before_date(target_date, limit=60)
+        if not draws or len(draws) < 4:
+            return {"status": "ERROR", "message": f"Không đủ dữ liệu lịch sử trước ngày {target_date} để phân tích cầu"}
+        if actual_draw:
+            target_date_display = actual_draw.get("date_display", target_date)
+            target_dow = actual_draw.get("day_of_week", "")
+        else:
+            try:
+                dt_obj = datetime.strptime(target_date, "%Y-%m-%d")
+                target_date_display = dt_obj.strftime("%d/%m/%Y")
+                target_dow = days_vn[dt_obj.weekday()]
+            except Exception:
+                target_date_display = target_date
+                target_dow = ""
+        draw_time_status = "Đã có kết quả mở thưởng"
+
+    # Trích xuất kết quả thực tế nếu có
+    actual_lotos = actual_draw.get("loto_2digit", []) if actual_draw else []
+    special_prize = str(actual_draw.get("special_prize", "")).strip() if actual_draw else ""
+    actual_de = special_prize[-2:] if len(special_prize) >= 2 else ""
+
+    # Chạy 4 module phân tích với draws trước target_date
     short_res = analyze_short_term(draws=draws)
     weekly_res = analyze_weekly_bridges(draws=draws)
     date_sum_res = analyze_date_sum_bridge(draws=draws)
@@ -3151,12 +3205,50 @@ def get_all_bridges_summary():
                 number_consensus[n]["bridges"].append(bridge_name)
             number_consensus[n]["total_score"] += score
 
+    def evaluate_bridge_result(preds):
+        if is_today_or_pending or not actual_draw:
+            return {
+                "status_badge": "CHỜ QUAY",
+                "status_type": "pending",
+                "hits": 0,
+                "hit_numbers": [],
+                "is_de": False,
+                "is_win": None
+            }
+        hits = sum(actual_lotos.count(p) for p in preds)
+        hit_nums = [p for p in preds if p in actual_lotos]
+        is_de = any(p == actual_de for p in preds) if actual_de else False
+        is_win = (hits > 0)
+        if is_de:
+            status_text = "TRÚNG ĐỀ"
+            status_type = "de"
+        elif is_win:
+            status_text = f"TRÚNG ({hits} nháy)"
+            status_type = "win"
+        elif not preds:
+            status_text = "KHÔNG BÁO"
+            status_type = "none"
+        else:
+            status_text = "TRƯỢT"
+            status_type = "lose"
+
+        return {
+            "status_badge": status_text,
+            "status_type": status_type,
+            "hits": hits,
+            "hit_numbers": hit_nums,
+            "is_de": is_de,
+            "is_win": is_win
+        }
+
     # 1. Tab Cầu Tổng Ngày
-    ds_today = date_sum_res.get("today_prediction", {})
+    dt_prev = datetime.strptime(draws[0]["draw_date"], "%Y-%m-%d")
+    ds_calc = calc_date_sum(dt_prev)
     ds_stats = date_sum_res.get("stats", {})
-    ds_pairs = ds_today.get("predicted", [])
+    ds_pairs = ds_calc.get("predicted", [])
     if ds_pairs:
         record_prediction("Cầu Tổng Ngày", "date_sum", ds_pairs, score=85)
+        eval_ds = evaluate_bridge_result(ds_pairs)
         bridge_rows.append({
             "id": "date_sum",
             "tab_id": "date_sum",
@@ -3164,14 +3256,15 @@ def get_all_bridges_summary():
             "tab_icon": "fa-solid fa-calculator",
             "tab_badge": "Toán Học Lịch",
             "bridge_name": "Cầu Tổng Ngày (Ngày + Tháng + Năm)",
-            "rule_summary": f"Công thức: {ds_today.get('formula', '')}",
+            "rule_summary": f"Công thức: {ds_calc.get('formula', '')}",
             "predicted": ds_pairs,
             "predicted_display": " - ".join(ds_pairs),
             "score": 85,
             "signal": "ĐANG BÁO NỔ",
             "signal_type": "active",
             "stats_summary": f"Tỷ lệ nổ: {ds_stats.get('win_rate', 0)}% • Chuỗi: Ăn {ds_stats.get('current_streak', {}).get('count', 0)} kỳ",
-            "action_text": "Xem Tab Tổng Ngày"
+            "action_text": "Xem Tab Tổng Ngày",
+            **eval_ds
         })
 
     # 2. Tab Cầu Theo Tuần / Theo Thứ
@@ -3190,6 +3283,7 @@ def get_all_bridges_summary():
         all_w_pairs = w_pairs + sec_pairs[:2]
         if w_pairs:
             record_prediction(f"Cầu {w_matched.get('dow')}", "weekly", w_pairs, score=90)
+            eval_w = evaluate_bridge_result(all_w_pairs)
             bridge_rows.append({
                 "id": "weekly",
                 "tab_id": "weekly",
@@ -3204,7 +3298,8 @@ def get_all_bridges_summary():
                 "signal": "TÍN HIỆU CỰC MẠNH",
                 "signal_type": "strong",
                 "stats_summary": f"Độ ổn định: {w_matched.get('stability_pct', 0)}% • Thông {w_matched.get('recent_streak', 0)} tuần",
-                "action_text": "Xem Tab Cầu Tuần"
+                "action_text": "Xem Tab Cầu Tuần",
+                **eval_w
             })
 
     # 3. Tab Phân Tích Cầu Ngắn Hạn (Song thủ, Bạch thủ, Top 3, Top 5, Cầu kẹp)
@@ -3214,6 +3309,7 @@ def get_all_bridges_summary():
         pair_rev = syn.get("pair_rev", chot_pair[::-1])
         st_pairs = [chot_pair, pair_rev] if pair_rev != chot_pair else [chot_pair]
         record_prediction("Song Thủ Chốt Hội Tụ", "analyzer", st_pairs, score=95)
+        eval_st = evaluate_bridge_result(st_pairs)
         bridge_rows.append({
             "id": "chot_song_thu",
             "tab_id": "analyzer",
@@ -3228,10 +3324,12 @@ def get_all_bridges_summary():
             "signal": "HỘI TỤ MẠNH NHẤT",
             "signal_type": "strong",
             "stats_summary": f"Tín hiệu: {syn.get('signal_level', 'CAO')} • Bao vây 2 chiều",
-            "action_text": "Xem Tab Phân Tích"
+            "action_text": "Xem Tab Phân Tích",
+            **eval_st
         })
 
         record_prediction("Bạch Thủ Chốt", "analyzer", [chot_pair], score=92)
+        eval_bt = evaluate_bridge_result([chot_pair])
         bridge_rows.append({
             "id": "chot_bach_thu",
             "tab_id": "analyzer",
@@ -3246,12 +3344,14 @@ def get_all_bridges_summary():
             "signal": "ĐIỂM RƠI CAO NHẤT",
             "signal_type": "strong",
             "stats_summary": "Tập trung lực cho 1 con duy nhất",
-            "action_text": "Xem Tab Phân Tích"
+            "action_text": "Xem Tab Phân Tích",
+            **eval_bt
         })
 
     top3 = syn.get("top3_pairs", [])
     if top3:
         record_prediction("Top 3 Hội Tụ", "analyzer", top3, score=88)
+        eval_top3 = evaluate_bridge_result(top3)
         bridge_rows.append({
             "id": "top_3_hoi_tu",
             "tab_id": "analyzer",
@@ -3266,13 +3366,15 @@ def get_all_bridges_summary():
             "signal": "ĐỒNG THUẬN CAO",
             "signal_type": "active",
             "stats_summary": "Tối ưu đánh bao lô hoặc ghép xiên",
-            "action_text": "Xem Tab Phân Tích"
+            "action_text": "Xem Tab Phân Tích",
+            **eval_top3
         })
 
     mc = short_res.get("module_cau", {})
     if mc and mc.get("bridge_pair"):
         mc_pair = mc.get("bridge_pair")
         record_prediction("Cầu Kẹp Bảng Giải", "analyzer", [mc_pair], score=mc.get("score", 85))
+        eval_mc = evaluate_bridge_result([mc_pair])
         bridge_rows.append({
             "id": "module_cau",
             "tab_id": "analyzer",
@@ -3287,7 +3389,8 @@ def get_all_bridges_summary():
             "signal": "TÍN HIỆU CAO",
             "signal_type": "active",
             "stats_summary": f"Tỷ lệ về: {mc.get('frequency', '')} ({mc.get('total_hits', 0)} nháy)",
-            "action_text": "Xem Tab Phân Tích"
+            "action_text": "Xem Tab Phân Tích",
+            **eval_mc
         })
 
     # 4. Tab Từ Điển 23 Cầu Loto (Các cầu đang báo nổ)
@@ -3303,6 +3406,7 @@ def get_all_bridges_summary():
             b_preds = b_val.get("predicted", [])
             if b_preds:
                 record_prediction(b_val.get("name", b_code), "bridges23", b_preds, score=b_val.get("score", 80))
+                eval_b = evaluate_bridge_result(b_preds)
                 bridge_rows.append({
                     "id": b_code,
                     "tab_id": "bridges23",
@@ -3317,7 +3421,8 @@ def get_all_bridges_summary():
                     "signal": "TÍN HIỆU MẠNH" if b_val.get("status") == "STRONG ACTIVE" else "ĐANG BÁO NỔ",
                     "signal_type": "strong" if b_val.get("status") == "STRONG ACTIVE" else "active",
                     "stats_summary": f"Đầu ra: {b_val.get('output_type', '')} • Khung: {b_val.get('timeframe', '')}",
-                    "action_text": "Xem Tab 23 Cầu"
+                    "action_text": "Xem Tab 23 Cầu",
+                    **eval_b
                 })
 
     # Xếp hạng đồng thuận
@@ -3328,26 +3433,34 @@ def get_all_bridges_summary():
     )
     top_numbers = [item["number"] for item in sorted_consensus[:5]]
 
+    hero_st_preds = [top_numbers[0], top_numbers[1]] if len(top_numbers) >= 2 else (st_pairs if chot_pair else ["--", "--"])
+    hero_bt_pred = top_numbers[0] if top_numbers else (chot_pair or "--")
+    hero_top5_preds = top_numbers[:5]
+
     return {
         "status": "SUCCESS",
         "target_date": target_date,
         "target_date_display": target_date_display,
         "day_of_week": target_dow,
-        "draw_time_status": "Chờ mở thưởng lúc 18h30",
-        "latest_draw": {
-            "draw_date": latest_draw.get("draw_date"),
-            "date_display": latest_draw.get("date_display"),
-            "special_prize": latest_draw.get("special_prize"),
-            "de": str(latest_draw.get("special_prize", ""))[-2:]
-        },
+        "is_pending": is_today_or_pending,
+        "draw_time_status": draw_time_status,
+        "actual_result": {
+            "special_prize": special_prize,
+            "actual_de": actual_de,
+            "actual_loto": actual_lotos
+        } if actual_draw else None,
         "hero_chot": {
-            "song_thu": [top_numbers[0], top_numbers[1]] if len(top_numbers) >= 2 else (st_pairs if chot_pair else ["--", "--"]),
-            "bach_thu": top_numbers[0] if top_numbers else (chot_pair or "--"),
+            "song_thu": hero_st_preds,
+            "song_thu_eval": evaluate_bridge_result(hero_st_preds),
+            "bach_thu": hero_bt_pred,
+            "bach_thu_eval": evaluate_bridge_result([hero_bt_pred]) if hero_bt_pred != "--" else {},
             "top3": top_numbers[:3],
-            "top5": top_numbers[:5]
+            "top5": hero_top5_preds,
+            "top5_eval": evaluate_bridge_result(hero_top5_preds)
         },
         "consensus_ranking": sorted_consensus[:8],
         "bridge_rows": bridge_rows,
-        "blacklist": b23_res.get("blacklist", [])
+        "blacklist": b23_res.get("blacklist", []),
+        "available_dates": available_dates
     }
 

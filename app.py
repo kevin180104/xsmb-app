@@ -179,8 +179,9 @@ def api_bridge_occurrences():
 
 @app.route('/api/summary-all-bridges')
 def api_summary_all_bridges():
-    """Lấy bảng kết quả cầu tổng hợp từ tất cả các tab cầu cho ngày hôm nay / kỳ tới"""
-    data = analyzer.get_all_bridges_summary()
+    """Lấy bảng kết quả cầu tổng hợp từ tất cả các tab cầu cho ngày được chọn hoặc ngày hôm nay"""
+    target_date = request.args.get('date')
+    data = analyzer.get_all_bridges_summary(target_date_str=target_date)
     return jsonify(data)
 
 if __name__ == '__main__':
