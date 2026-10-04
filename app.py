@@ -177,6 +177,12 @@ def api_bridge_occurrences():
     data = analyzer.get_bridge_occurrences(bridge_key=bridge_key, limit=limit_val)
     return jsonify(data)
 
+@app.route('/api/summary-all-bridges')
+def api_summary_all_bridges():
+    """Lấy bảng kết quả cầu tổng hợp từ tất cả các tab cầu cho ngày hôm nay / kỳ tới"""
+    data = analyzer.get_all_bridges_summary()
+    return jsonify(data)
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     print("=" * 60)

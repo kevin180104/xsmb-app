@@ -3102,3 +3102,252 @@ def get_bridge_occurrences(bridge_key='date_sum', limit=60):
         },
         "occurrences": occurrences
     }
+
+def get_all_bridges_summary():
+    """
+    Tổng hợp kết quả soi cầu từ tất cả các tab cầu chính:
+    - Tab Cầu Tổng Ngày
+    - Tab Cầu Theo Tuần (Theo Thứ)
+    - Tab Phân Tích Cầu Ngắn Hạn (Song thủ, Bạch thủ, Top hội tụ, Cầu kẹp)
+    - Tab Từ Điển 23 Cầu Loto (Các thuật toán đang báo nổ)
+    - Xếp hạng tần số đồng thuận đa cầu
+    - Danh sách loại trừ Blacklist
+    """
+    draws = database.get_recent_results(limit=60)
+    if not draws:
+        return {"status": "ERROR", "message": "Chưa có dữ liệu kết quả XSMB"}
+
+    latest_draw = draws[0]
+    today_dt = datetime.now()
+    today_str = today_dt.strftime("%Y-%m-%d")
+    days_vn = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
+    
+    if latest_draw["draw_date"] < today_str:
+        target_date = today_str
+        target_date_display = today_dt.strftime("%d/%m/%Y") + " (Hôm nay)"
+        target_dow = days_vn[today_dt.weekday()]
+    else:
+        next_dt = datetime.strptime(latest_draw["draw_date"], "%Y-%m-%d") + timedelta(days=1)
+        target_date = next_dt.strftime("%Y-%m-%d")
+        target_date_display = next_dt.strftime("%d/%m/%Y") + (" (Ngày mai)" if next_dt.date() > today_dt.date() else " (Hôm nay)")
+        target_dow = days_vn[next_dt.weekday()]
+
+    # Chạy 4 module phân tích với draws đã tải sẵn
+    short_res = analyze_short_term(draws=draws)
+    weekly_res = analyze_weekly_bridges(draws=draws)
+    date_sum_res = analyze_date_sum_bridge(draws=draws)
+    b23_res = analyze_23_bridges(draws=draws)
+
+    bridge_rows = []
+    number_consensus = {}
+
+    def record_prediction(bridge_name, tab_id, nums, score=80):
+        for n in nums:
+            n = str(n).zfill(2)
+            if n not in number_consensus:
+                number_consensus[n] = {"number": n, "count": 0, "bridges": [], "total_score": 0}
+            number_consensus[n]["count"] += 1
+            if bridge_name not in number_consensus[n]["bridges"]:
+                number_consensus[n]["bridges"].append(bridge_name)
+            number_consensus[n]["total_score"] += score
+
+    # 1. Tab Cầu Tổng Ngày
+    ds_today = date_sum_res.get("today_prediction", {})
+    ds_stats = date_sum_res.get("stats", {})
+    ds_pairs = ds_today.get("predicted", [])
+    if ds_pairs:
+        record_prediction("Cầu Tổng Ngày", "date_sum", ds_pairs, score=85)
+        bridge_rows.append({
+            "id": "date_sum",
+            "tab_id": "date_sum",
+            "tab_name": "Cầu Tổng Ngày",
+            "tab_icon": "fa-solid fa-calculator",
+            "tab_badge": "Toán Học Lịch",
+            "bridge_name": "Cầu Tổng Ngày (Ngày + Tháng + Năm)",
+            "rule_summary": f"Công thức: {ds_today.get('formula', '')}",
+            "predicted": ds_pairs,
+            "predicted_display": " - ".join(ds_pairs),
+            "score": 85,
+            "signal": "ĐANG BÁO NỔ",
+            "signal_type": "active",
+            "stats_summary": f"Tỷ lệ nổ: {ds_stats.get('win_rate', 0)}% • Chuỗi: Ăn {ds_stats.get('current_streak', {}).get('count', 0)} kỳ",
+            "action_text": "Xem Tab Tổng Ngày"
+        })
+
+    # 2. Tab Cầu Theo Tuần / Theo Thứ
+    w_best = weekly_res.get("best_day", {})
+    w_matched = None
+    for d in weekly_res.get("days_analysis", []):
+        if d.get("dow") == target_dow:
+            w_matched = d
+            break
+    if not w_matched:
+        w_matched = w_best
+
+    if w_matched:
+        w_pairs = [w_matched.get("top_pair")] if w_matched.get("top_pair") else []
+        sec_pairs = [p.get("pair") for p in w_matched.get("secondary_pairs", []) if p.get("pair")]
+        all_w_pairs = w_pairs + sec_pairs[:2]
+        if w_pairs:
+            record_prediction(f"Cầu {w_matched.get('dow')}", "weekly", w_pairs, score=90)
+            bridge_rows.append({
+                "id": "weekly",
+                "tab_id": "weekly",
+                "tab_name": "Cầu Theo Thứ",
+                "tab_icon": "fa-solid fa-calendar-week",
+                "tab_badge": f"Đài {w_matched.get('province', 'MB')}",
+                "bridge_name": f"Cầu {w_matched.get('dow')} (Đài {w_matched.get('province', 'MB')})",
+                "rule_summary": f"Cặp số nổ ổn định nhất {w_matched.get('dow')}: {w_matched.get('top_pair')} (nổ {w_matched.get('top_weeks_count')}/{w_matched.get('total_weeks')} tuần)",
+                "predicted": all_w_pairs,
+                "predicted_display": " - ".join(all_w_pairs),
+                "score": int(w_matched.get("stability_pct", 85)),
+                "signal": "TÍN HIỆU CỰC MẠNH",
+                "signal_type": "strong",
+                "stats_summary": f"Độ ổn định: {w_matched.get('stability_pct', 0)}% • Thông {w_matched.get('recent_streak', 0)} tuần",
+                "action_text": "Xem Tab Cầu Tuần"
+            })
+
+    # 3. Tab Phân Tích Cầu Ngắn Hạn (Song thủ, Bạch thủ, Top 3, Top 5, Cầu kẹp)
+    syn = short_res.get("synthesis", {})
+    chot_pair = syn.get("chot_pair")
+    if chot_pair:
+        pair_rev = syn.get("pair_rev", chot_pair[::-1])
+        st_pairs = [chot_pair, pair_rev] if pair_rev != chot_pair else [chot_pair]
+        record_prediction("Song Thủ Chốt Hội Tụ", "analyzer", st_pairs, score=95)
+        bridge_rows.append({
+            "id": "chot_song_thu",
+            "tab_id": "analyzer",
+            "tab_name": "Phân Tích Cầu",
+            "tab_icon": "fa-solid fa-crosshairs",
+            "tab_badge": "Song Thủ Chốt",
+            "bridge_name": "🎯 Cặp Song Thủ Chốt Hội Tụ",
+            "rule_summary": f"Điểm rơi hội tụ đa cầu: Cặp xuôi - lộn [{', '.join(st_pairs)}]",
+            "predicted": st_pairs,
+            "predicted_display": " - ".join(st_pairs),
+            "score": 95,
+            "signal": "HỘI TỤ MẠNH NHẤT",
+            "signal_type": "strong",
+            "stats_summary": f"Tín hiệu: {syn.get('signal_level', 'CAO')} • Bao vây 2 chiều",
+            "action_text": "Xem Tab Phân Tích"
+        })
+
+        record_prediction("Bạch Thủ Chốt", "analyzer", [chot_pair], score=92)
+        bridge_rows.append({
+            "id": "chot_bach_thu",
+            "tab_id": "analyzer",
+            "tab_name": "Phân Tích Cầu",
+            "tab_icon": "fa-solid fa-trophy",
+            "tab_badge": "Bạch Thủ",
+            "bridge_name": "🥇 Bạch Thủ Chốt Điểm Rơi",
+            "rule_summary": f"Con số đạt điểm hội tụ cao nhất hệ thống [{chot_pair}]",
+            "predicted": [chot_pair],
+            "predicted_display": chot_pair,
+            "score": 92,
+            "signal": "ĐIỂM RƠI CAO NHẤT",
+            "signal_type": "strong",
+            "stats_summary": "Tập trung lực cho 1 con duy nhất",
+            "action_text": "Xem Tab Phân Tích"
+        })
+
+    top3 = syn.get("top3_pairs", [])
+    if top3:
+        record_prediction("Top 3 Hội Tụ", "analyzer", top3, score=88)
+        bridge_rows.append({
+            "id": "top_3_hoi_tu",
+            "tab_id": "analyzer",
+            "tab_name": "Phân Tích Cầu",
+            "tab_icon": "fa-solid fa-medal",
+            "tab_badge": "Tam Hoa",
+            "bridge_name": "🏆 Top 3 Cặp Số Hội Tụ Cao Nhất",
+            "rule_summary": f"Bộ 3 số đồng thuận cao nhất: [{', '.join(top3)}]",
+            "predicted": top3,
+            "predicted_display": " - ".join(top3),
+            "score": 92,
+            "signal": "ĐỒNG THUẬN CAO",
+            "signal_type": "active",
+            "stats_summary": "Tối ưu đánh bao lô hoặc ghép xiên",
+            "action_text": "Xem Tab Phân Tích"
+        })
+
+    mc = short_res.get("module_cau", {})
+    if mc and mc.get("bridge_pair"):
+        mc_pair = mc.get("bridge_pair")
+        record_prediction("Cầu Kẹp Bảng Giải", "analyzer", [mc_pair], score=mc.get("score", 85))
+        bridge_rows.append({
+            "id": "module_cau",
+            "tab_id": "analyzer",
+            "tab_name": "Cầu Kẹp",
+            "tab_icon": "fa-solid fa-arrows-to-dot",
+            "tab_badge": "Sandwich",
+            "bridge_name": "🪟 Cầu Kẹp Bảng Giải (Sandwich)",
+            "rule_summary": mc.get("conclusion", "Cặp số kẹp giữa hai số trùng nhau"),
+            "predicted": [mc_pair],
+            "predicted_display": mc_pair,
+            "score": mc.get("score", 85),
+            "signal": "TÍN HIỆU CAO",
+            "signal_type": "active",
+            "stats_summary": f"Tỷ lệ về: {mc.get('frequency', '')} ({mc.get('total_hits', 0)} nháy)",
+            "action_text": "Xem Tab Phân Tích"
+        })
+
+    # 4. Tab Từ Điển 23 Cầu Loto (Các cầu đang báo nổ)
+    b23_bridges = b23_res.get("bridges", {})
+    key_b23_modules = [
+        "CAU_PASCAL", "CAU_NHIEU_NHAY", "CAU_DAU_CAM", "CAU_DUOI_CAM",
+        "CAU_DONG_TO_HOP", "CAU_QUA_TRAM", "BAC_NHO_LOTO", "BAC_NHO_THU",
+        "CAU_BONG_NGU_HANH", "CAU_G7_GHEP"
+    ]
+    for b_code in key_b23_modules:
+        b_val = b23_bridges.get(b_code)
+        if b_val and b_val.get("status") in ["ACTIVE", "STRONG ACTIVE"]:
+            b_preds = b_val.get("predicted", [])
+            if b_preds:
+                record_prediction(b_val.get("name", b_code), "bridges23", b_preds, score=b_val.get("score", 80))
+                bridge_rows.append({
+                    "id": b_code,
+                    "tab_id": "bridges23",
+                    "tab_name": "Từ Điển 23 Cầu",
+                    "tab_icon": "fa-solid fa-microchip",
+                    "tab_badge": b_val.get("code", b_code),
+                    "bridge_name": b_val.get("name", b_code),
+                    "rule_summary": b_val.get("detail", "Thuật toán chuẩn XSMB"),
+                    "predicted": b_preds,
+                    "predicted_display": " - ".join(b_preds),
+                    "score": b_val.get("score", 80),
+                    "signal": "TÍN HIỆU MẠNH" if b_val.get("status") == "STRONG ACTIVE" else "ĐANG BÁO NỔ",
+                    "signal_type": "strong" if b_val.get("status") == "STRONG ACTIVE" else "active",
+                    "stats_summary": f"Đầu ra: {b_val.get('output_type', '')} • Khung: {b_val.get('timeframe', '')}",
+                    "action_text": "Xem Tab 23 Cầu"
+                })
+
+    # Xếp hạng đồng thuận
+    sorted_consensus = sorted(
+        number_consensus.values(),
+        key=lambda x: (x["count"], x["total_score"]),
+        reverse=True
+    )
+    top_numbers = [item["number"] for item in sorted_consensus[:5]]
+
+    return {
+        "status": "SUCCESS",
+        "target_date": target_date,
+        "target_date_display": target_date_display,
+        "day_of_week": target_dow,
+        "draw_time_status": "Chờ mở thưởng lúc 18h30",
+        "latest_draw": {
+            "draw_date": latest_draw.get("draw_date"),
+            "date_display": latest_draw.get("date_display"),
+            "special_prize": latest_draw.get("special_prize"),
+            "de": str(latest_draw.get("special_prize", ""))[-2:]
+        },
+        "hero_chot": {
+            "song_thu": [top_numbers[0], top_numbers[1]] if len(top_numbers) >= 2 else (st_pairs if chot_pair else ["--", "--"]),
+            "bach_thu": top_numbers[0] if top_numbers else (chot_pair or "--"),
+            "top3": top_numbers[:3],
+            "top5": top_numbers[:5]
+        },
+        "consensus_ranking": sorted_consensus[:8],
+        "bridge_rows": bridge_rows,
+        "blacklist": b23_res.get("blacklist", [])
+    }
+

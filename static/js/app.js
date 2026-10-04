@@ -680,6 +680,7 @@
         document.addEventListener("DOMContentLoaded", async () => {
             await fetchAllDraws();
             renderDraws(10);
+            loadAllBridgesSummary();
         });
 
         async function fetchAllDraws() {
@@ -829,6 +830,198 @@
             renderDraws(newCount);
         }
 
+        // =========================================================================
+        // JAVASCRIPT CHO BẢNG KẾT QUẢ CẦU TỔNG HỢP CÁC TAB CẦU (TAB ĐẦU TIÊN)
+        // =========================================================================
+        let allBridgesSummaryData = null;
+
+        async function loadAllBridgesSummary(forceReload = false) {
+            const tbody = document.getElementById('allBridgesSummaryTbody');
+            if (forceReload || !allBridgesSummaryData) {
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="py-10 text-center text-neutral-400">
+                                <i class="fa-solid fa-spinner fa-spin text-2xl text-yellow-400 mb-2 block"></i>
+                                <span class="font-bold text-xs">Đang tổng hợp dữ liệu từ tất cả các tab cầu...</span>
+                            </td>
+                        </tr>
+                    `;
+                }
+                try {
+                    const res = await fetch('/api/summary-all-bridges');
+                    const data = await res.json();
+                    if (data && data.status === 'SUCCESS') {
+                        allBridgesSummaryData = data;
+                    } else {
+                        throw new Error(data ? data.message : 'Error fetching summary');
+                    }
+                } catch(e) {
+                    console.error("Lỗi khi tải bảng tổng hợp cầu:", e);
+                    if (tbody) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="6" class="py-8 text-center text-red-400">
+                                    <i class="fa-solid fa-circle-exclamation text-2xl mb-1.5 block"></i>
+                                    Không thể tải dữ liệu bảng cầu tổng hợp. Vui lòng bấm "Làm Mới Cầu".
+                                </td>
+                            </tr>
+                        `;
+                    }
+                    return;
+                }
+            }
+            renderAllBridgesSummaryUI(allBridgesSummaryData);
+        }
+
+        function renderAllBridgesSummaryUI(data) {
+            if (!data) return;
+
+            // Badges Header
+            const dateBadge = document.getElementById('all-bridges-date-badge');
+            if (dateBadge) {
+                dateBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span> ${data.day_of_week}, ${data.target_date_display}`;
+            }
+            const timeBadge = document.getElementById('all-bridges-time-badge');
+            if (timeBadge) {
+                timeBadge.innerHTML = `<i class="fa-regular fa-clock mr-1 text-yellow-400"></i> ${data.draw_time_status || 'Chờ mở thưởng lúc 18h30'}`;
+            }
+
+            // Hero Spotlight: Song Thủ
+            const heroSt = data.hero_chot ? data.hero_chot.song_thu : [];
+            const st1El = document.getElementById('hero-st-1');
+            const st2El = document.getElementById('hero-st-2');
+            if (st1El && heroSt && heroSt[0]) st1El.innerText = heroSt[0];
+            if (st2El && heroSt && heroSt[1]) st2El.innerText = heroSt[1];
+
+            // Hero Spotlight: Bạch Thủ
+            const btEl = document.getElementById('hero-bt');
+            if (btEl && data.hero_chot) btEl.innerText = data.hero_chot.bach_thu || '--';
+
+            // Hero Spotlight: Top 5
+            const top5Container = document.getElementById('hero-top5-chips');
+            if (top5Container && data.hero_chot && data.hero_chot.top5) {
+                top5Container.innerHTML = data.hero_chot.top5.map(num => `
+                    <span onclick="toggleHighlight('${num}')"
+                          class="inline-block px-3 py-1 rounded-xl bg-neutral-950 text-emerald-400 border-2 border-emerald-500/80 font-mono font-black text-xl cursor-pointer hover:scale-110 hover:bg-emerald-400 hover:text-black transition shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                          title="Bấm để xem Highlight trên bảng KQXS">
+                        ${num}
+                    </span>
+                `).join('');
+            }
+
+            // Consensus Ranking Strip
+            const consensusStrip = document.getElementById('all-bridges-consensus-strip');
+            if (consensusStrip && data.consensus_ranking) {
+                consensusStrip.innerHTML = data.consensus_ranking.map((item, idx) => {
+                    const medal = idx === 0 ? '🥇 ' : (idx === 1 ? '🥈 ' : (idx === 2 ? '🥉 ' : ''));
+                    const isTop = idx < 3;
+                    return `
+                        <div onclick="toggleHighlight('${item.number}')" 
+                             class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 border ${isTop ? 'border-yellow-500/60 shadow-[0_0_10px_rgba(234,179,8,0.2)]' : 'border-neutral-700'} hover:border-yellow-400 hover:bg-black cursor-pointer transition shadow"
+                             title="Báo bởi: ${item.bridges.join(', ')}">
+                            <span class="font-mono font-black text-sm ${isTop ? 'text-yellow-400' : 'text-neutral-200'}">${medal}${item.number}</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-yellow-950 text-yellow-300 border border-yellow-700/80">${item.count} cầu báo</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Count Text
+            const countText = document.getElementById('all-bridges-count-text');
+            if (countText && data.bridge_rows) {
+                countText.innerText = `${data.bridge_rows.length} phương pháp soi cầu đang hoạt động`;
+            }
+
+            // Table Body
+            const tbody = document.getElementById('allBridgesSummaryTbody');
+            if (tbody && data.bridge_rows) {
+                tbody.innerHTML = data.bridge_rows.map(row => {
+                    const topNumbers = (data.hero_chot && data.hero_chot.top3) ? data.hero_chot.top3 : [];
+                    const predChips = (row.predicted || []).map(num => {
+                        const isTop = topNumbers.includes(num);
+                        return `
+                            <span onclick="toggleHighlight('${num}')"
+                                  class="inline-block px-2.5 py-1 rounded-lg text-xs font-mono font-black cursor-pointer transition shadow ${isTop ? 'bg-yellow-400 text-black border-2 border-yellow-300 scale-105 ring-1 ring-yellow-400' : 'bg-black text-yellow-400 border border-neutral-700 hover:border-yellow-400'}"
+                                  title="Bấm để xem Highlight trên bảng KQXS">
+                                ${num}
+                            </span>
+                        `;
+                    }).join('');
+
+                    let signalBadge = '';
+                    if (row.signal_type === 'strong') {
+                        signalBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-950 text-purple-300 border border-purple-700 animate-pulse shadow-sm shadow-purple-900/50">🔥 ${row.signal}</span>`;
+                    } else {
+                        signalBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-700">✅ ${row.signal}</span>`;
+                    }
+
+                    return `
+                        <tr class="hover:bg-neutral-800/50 transition">
+                            <td class="p-3">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="w-8 h-8 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center text-yellow-400 text-sm shadow">
+                                        <i class="${row.tab_icon}"></i>
+                                    </span>
+                                    <div>
+                                        <div class="font-bold text-white text-xs cursor-pointer hover:text-yellow-400 transition" onclick="switchTab('${row.tab_id}')">
+                                            ${row.bridge_name}
+                                        </div>
+                                        <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-bold">
+                                            ${row.tab_name}
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="p-3">
+                                <div class="text-xs text-neutral-300 font-sans max-w-xs leading-relaxed">${row.rule_summary}</div>
+                                <div class="text-[10px] text-neutral-400 font-sans mt-0.5">${row.stats_summary || ''}</div>
+                            </td>
+                            <td class="p-3 text-center">
+                                <div class="flex flex-wrap items-center justify-center gap-1.5">
+                                    ${predChips}
+                                </div>
+                            </td>
+                            <td class="p-3 text-center">
+                                <div class="flex flex-col items-center gap-1">
+                                    <span class="font-mono font-black text-xs ${row.score >= 85 ? 'text-emerald-400' : 'text-yellow-400'}">${row.score}/100</span>
+                                    <div class="w-16 bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                                        <div class="bg-gradient-to-r from-yellow-500 to-emerald-400 h-1.5 rounded-full" style="width: ${row.score}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="p-3 text-center">
+                                ${signalBadge}
+                            </td>
+                            <td class="p-3 text-right">
+                                <button onclick="switchTab('${row.tab_id}')"
+                                        class="bg-neutral-800 hover:bg-yellow-400 hover:text-black text-neutral-300 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-neutral-700 transition shadow inline-flex items-center gap-1.5">
+                                    ${row.action_text || 'Xem Tab'} <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // Blacklist Card
+            const blCard = document.getElementById('all-bridges-blacklist-card');
+            const blList = document.getElementById('all-bridges-blacklist-list');
+            if (blCard && blList) {
+                if (data.blacklist && data.blacklist.length > 0) {
+                    blCard.classList.remove('hidden');
+                    blList.innerHTML = data.blacklist.map(b => `
+                        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black border border-red-800 text-xs font-mono font-bold text-red-400 shadow">
+                            <span class="text-sm font-black text-red-400 cursor-pointer hover:underline hover:text-yellow-400" onclick="toggleHighlight('${b.pair}')">${b.pair}</span>
+                            <span class="text-[11px] text-neutral-400 font-sans">: ${b.reason}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    blCard.classList.add('hidden');
+                }
+            }
+        }
+
         function switchTab(tab) {
             ['days10', 'weekly', 'analyzer', 'backtest', 'bridges23', 'date_sum'].forEach(t => {
                 const sec = document.getElementById('sec-' + t);
@@ -847,7 +1040,9 @@
                 activeBtn.classList.add('neon-tab-active');
             }
 
-            if (tab === 'analyzer') {
+            if (tab === 'days10') {
+                loadAllBridgesSummary();
+            } else if (tab === 'analyzer') {
                 loadAnalyzerData();
             } else if (tab === 'weekly') {
                 loadWeeklyAnalysis();
