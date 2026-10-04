@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import Counter
 import itertools
 import database
@@ -722,14 +722,38 @@ def backtest_single_date(target_date, target_draw=None, draws_before=None):
     if target_draw is None:
         target_draw = database.get_result_by_date(target_date)
     if not target_draw:
-        return {
-            "status": "ERROR",
-            "message": f"Không tìm thấy kết quả ngày {target_date} trong cơ sở dữ liệu."
-        }
+        # Hỗ trợ ngày hiện tại hoặc kỳ tiếp theo chưa mở thưởng
+        latest = database.get_recent_results(limit=1)
+        if latest:
+            try:
+                target_dt = datetime.strptime(target_date, "%Y-%m-%d")
+                latest_dt = datetime.strptime(latest[0]["draw_date"], "%Y-%m-%d")
+                if target_dt >= latest_dt:
+                    days_vn = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
+                    target_draw = {
+                        "draw_date": target_date,
+                        "date_display": target_dt.strftime("%d/%m/%Y") + (" (Hôm nay)" if target_dt.date() == datetime.now().date() else ""),
+                        "day_of_week": days_vn[target_dt.weekday()],
+                        "special_prize": "Chờ mở thưởng 18h30",
+                        "prize_1": [],
+                        "loto_2digit": [],
+                        "is_pending": True
+                    }
+                    if draws_before is None:
+                        draws_before = database.get_recent_results(limit=60)
+            except Exception:
+                pass
+        if not target_draw:
+            return {
+                "status": "ERROR",
+                "message": f"Không tìm thấy kết quả ngày {target_date} trong cơ sở dữ liệu."
+            }
 
     # Lấy các kỳ quay trước target_date (Đầy đủ 60 kỳ để thuật toán đạt độ chính xác cao nhất)
     if draws_before is None:
         draws_before = database.get_results_before_date(target_date, limit=60)
+    if not draws_before and target_draw.get("is_pending"):
+        draws_before = database.get_recent_results(limit=60)
     if not draws_before or len(draws_before) < 4:
         return {
             "status": "ERROR",
@@ -771,14 +795,14 @@ def backtest_single_date(target_date, target_draw=None, draws_before=None):
             if d.get("dow", "").strip().lower() in target_dow or target_dow in d.get("dow", "").strip().lower():
                 w_pair = d.get("top_pair")
                 w_preds = [w_pair, w_pair[1] + w_pair[0]] if w_pair and len(w_pair) == 2 and w_pair[0] != w_pair[1] else ([w_pair] if w_pair else [])
-                w_hits = sum(actual_loto.count(p) for p in w_preds)
+                w_hits = 0 if target_draw.get("is_pending") else sum(actual_loto.count(p) for p in w_preds)
                 weekly_matched = {
                     "dow": d.get("dow"),
                     "province": d.get("province"),
                     "pair": w_pair,
                     "predicted": w_preds,
                     "hits": w_hits,
-                    "is_win": (w_hits > 0),
+                    "is_win": None if target_draw.get("is_pending") else (w_hits > 0),
                     "stability_pct": d.get("stability_pct")
                 }
                 break
@@ -790,12 +814,19 @@ def backtest_single_date(target_date, target_draw=None, draws_before=None):
 
     def _eval_method(key, name, category, preds, score=80, detail="", main_pair=None):
         cleaned_preds = [str(p).strip().zfill(2) for p in preds if p and str(p).strip().isdigit() and len(str(p).strip()) <= 2]
-        hits = sum(actual_loto.count(p) for p in cleaned_preds)
-        hit_nums = [p for p in cleaned_preds if p in actual_set]
-        is_win = (hits > 0)
-        is_de = any(p == actual_de for p in cleaned_preds) if actual_de else False
+        if target_draw.get("is_pending"):
+            hits = 0
+            hit_nums = []
+            is_win = None
+            is_de = False
+            status = "PENDING" if cleaned_preds else "NO_SIGNAL"
+        else:
+            hits = sum(actual_loto.count(p) for p in cleaned_preds)
+            hit_nums = [p for p in cleaned_preds if p in actual_set]
+            is_win = (hits > 0)
+            is_de = any(p == actual_de for p in cleaned_preds) if actual_de else False
+            status = "ACTIVE" if cleaned_preds else "NO_SIGNAL"
         p_main = main_pair or (cleaned_preds[0] if cleaned_preds else None)
-        status = "ACTIVE" if cleaned_preds else "NO_SIGNAL"
         return {
             "key": key,
             "name": name,
@@ -922,9 +953,10 @@ def backtest_single_date(target_date, target_draw=None, draws_before=None):
         "target_date": target_date,
         "date_display": target_draw.get("date_display", target_date),
         "day_of_week": target_draw.get("day_of_week", ""),
+        "is_pending": target_draw.get("is_pending", False),
         "actual": {
-            "special_prize": actual_special,
-            "de": actual_de,
+            "special_prize": target_draw.get("special_prize", ""),
+            "de": "Chờ quay" if target_draw.get("is_pending") else actual_de,
             "loto_2digit": actual_loto,
             "prize_1": target_draw.get("prize_1", []),
             "prize_2": target_draw.get("prize_2", []),
@@ -977,7 +1009,7 @@ def backtest_batch(days=14, method="all_synthesis"):
       - cau_thu: Cầu theo thứ trong tuần
       - Bất kỳ module nào trong 23 Modules (CAU_PASCAL, CAU_NHIEU_NHAY, CAU_DAU_CAM, ...)
     """
-    eligible_dates = database.get_available_backtest_dates()
+    eligible_dates = database.get_available_backtest_dates(include_pending=False)
     if not eligible_dates:
         return {
             "status": "ERROR",
@@ -1094,6 +1126,81 @@ def backtest_batch(days=14, method="all_synthesis"):
                 } for k, v in methods_map.items()
             }
         })
+
+    # Bổ sung dự đoán của ngày hiện tại (hoặc kỳ quay tiếp theo chưa mở thưởng) lên đầu bảng Nhật ký
+    try:
+        if all_cached_draws:
+            latest_draw = all_cached_draws[0]
+            today_dt = datetime.now()
+            today_str = today_dt.strftime("%Y-%m-%d")
+            days_vn = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
+            if latest_draw["draw_date"] < today_str:
+                curr_target_date = today_str
+                curr_date_display = today_dt.strftime("%d/%m/%Y") + " (Hôm nay)"
+                curr_dow = days_vn[today_dt.weekday()]
+            else:
+                next_dt = datetime.strptime(latest_draw["draw_date"], "%Y-%m-%d") + timedelta(days=1)
+                curr_target_date = next_dt.strftime("%Y-%m-%d")
+                curr_date_display = next_dt.strftime("%d/%m/%Y") + (" (Ngày mai)" if next_dt.date() > today_dt.date() else " (Hôm nay)")
+                curr_dow = days_vn[next_dt.weekday()]
+
+            report_curr = backtest_single_date(curr_target_date, draws_before=all_cached_draws[:60])
+            if report_curr and report_curr.get("status") == "SUCCESS":
+                curr_eval = report_curr["evaluation"]
+                curr_methods = curr_eval.get("methods", {})
+                curr_chosen = curr_methods.get(method) or curr_methods.get("all_synthesis", {})
+                chosen_preds = set(curr_chosen.get("predicted", []))
+                matched_modules = []
+                other_modules = []
+                for m in curr_methods.values():
+                    if m.get("key") in ["all_synthesis", "chot_song_thu", "chot_bach_thu", "top_3_hoi_tu", "top_5_hoi_tu"]:
+                        continue
+                    m_preds = set(m.get("predicted", []))
+                    short_name = m.get("name", "").split(" – ")[-1]
+                    if m.get("status") in ["ACTIVE", "STRONG ACTIVE", "PENDING"] and m_preds:
+                        if chosen_preds and m_preds.intersection(chosen_preds):
+                            matched_modules.append(short_name)
+                        else:
+                            other_modules.append(short_name)
+                curr_winning = matched_modules if matched_modules else other_modules
+                curr_row = {
+                    "draw_date": report_curr["target_date"],
+                    "date_display": report_curr["date_display"],
+                    "day_of_week": report_curr["day_of_week"],
+                    "method_key": method,
+                    "method_name": curr_chosen.get("name", method),
+                    "predicted_numbers": curr_chosen.get("predicted", []),
+                    "predicted_display": curr_chosen.get("predicted_display", "-"),
+                    "is_win": None,
+                    "hits": 0,
+                    "hit_numbers": [],
+                    "is_de": False,
+                    "status": curr_chosen.get("status", "PENDING"),
+                    "actual_special": "Chờ 18h30",
+                    "actual_de": "Chờ quay",
+                    "actual_loto": [],
+                    "winning_modules": curr_winning,
+                    "winning_modules_count": len(curr_winning),
+                    "chot_pair": curr_chosen.get("pair"),
+                    "chot_hits": 0,
+                    "chot_is_win": None,
+                    "chot_is_de": False,
+                    "is_current": True,
+                    "methods_snapshot": {
+                        k: {
+                            "predicted": v.get("predicted", []),
+                            "predicted_display": v.get("predicted_display", "-"),
+                            "is_win": None,
+                            "hits": 0,
+                            "hit_numbers": [],
+                            "is_de": False,
+                            "status": v.get("status", "NO_SIGNAL")
+                        } for k, v in curr_methods.items()
+                    }
+                }
+                daily_results.insert(0, curr_row)
+    except Exception as e:
+        print("Lỗi khi nạp dự đoán ngày hiện tại:", e)
 
     # Tính toán tỷ lệ phần trăm và chuỗi thông (streaks) cho từng phương pháp
     for m_key, st in all_methods_stats.items():

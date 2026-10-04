@@ -680,7 +680,6 @@
         document.addEventListener("DOMContentLoaded", async () => {
             await fetchAllDraws();
             renderDraws(10);
-            renderLatestTab();
         });
 
         async function fetchAllDraws() {
@@ -831,7 +830,7 @@
         }
 
         function switchTab(tab) {
-            ['days10', 'weekly', 'analyzer', 'latest', 'stats', 'history', 'backtest', 'bridges23', 'xien', 'date_sum'].forEach(t => {
+            ['days10', 'weekly', 'analyzer', 'backtest', 'bridges23', 'date_sum'].forEach(t => {
                 const sec = document.getElementById('sec-' + t);
                 if (sec) sec.classList.add('hidden');
                 const btn = document.getElementById('tab-' + t);
@@ -848,20 +847,14 @@
                 activeBtn.classList.add('neon-tab-active');
             }
 
-            if (tab === 'stats') {
-                loadStats();
-            } else if (tab === 'analyzer') {
+            if (tab === 'analyzer') {
                 loadAnalyzerData();
             } else if (tab === 'weekly') {
                 loadWeeklyAnalysis();
-            } else if (tab === 'latest') {
-                renderLatestTab();
             } else if (tab === 'backtest') {
                 initBacktestTab();
             } else if (tab === 'bridges23') {
                 loadBridgesCatalog();
-            } else if (tab === 'xien') {
-                loadXienData();
             } else if (tab === 'date_sum') {
                 loadDateSumData();
             }
@@ -1772,7 +1765,7 @@
                 summaryBadge.innerHTML = `<span class="px-2.5 py-1 rounded bg-yellow-950/80 text-yellow-400 font-bold border border-yellow-700/60 inline-flex items-center gap-1.5"><i class="fa-solid fa-fire text-amber-500"></i> Kỷ Lục Ăn Thông: ${data.max_streak || 0} kỳ | Đạt ${winRate}% (${winsCount}/${signalsCount} kỳ)</span>`;
             }
 
-            // 2. Leaderboard Table
+            // 2. Leaderboard Table (nếu có phần tử trong DOM)
             const lbBody = document.getElementById('backtest-leaderboard-body');
             const ranking = data.modules_ranking || [];
             const lbBadge = document.getElementById('leaderboard-count-badge');
@@ -1780,78 +1773,92 @@
                 lbBadge.innerText = `Đang xếp hạng ${ranking.length} phương pháp`;
             }
 
-            if (ranking.length === 0) {
-                lbBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center text-neutral-500">Chưa có phương pháp nào phát tín hiệu trong chu kỳ này.</td></tr>';
-            } else {
-                lbBody.innerHTML = ranking.map((m, idx) => {
-                    const isSelected = (m.key === currentBacktestMethod);
-                    const rankBadge = idx === 0 ? '<span class="w-6 h-6 rounded-full bg-yellow-500 text-black font-black inline-flex items-center justify-center text-xs shadow">1</span>' :
-                                     (idx === 1 ? '<span class="w-6 h-6 rounded-full bg-neutral-300 text-black font-black inline-flex items-center justify-center text-xs shadow">2</span>' :
-                                     (idx === 2 ? '<span class="w-6 h-6 rounded-full bg-amber-700 text-white font-black inline-flex items-center justify-center text-xs shadow">3</span>' :
-                                     `<span class="text-neutral-400 font-bold">${idx + 1}</span>`));
-                    
-                    const barWidth = Math.min(100, m.accuracy_pct);
-                    const barColor = m.accuracy_pct >= 50 ? 'bg-emerald-500' : (m.accuracy_pct >= 30 ? 'bg-yellow-500' : 'bg-neutral-600');
+            if (lbBody) {
+                if (ranking.length === 0) {
+                    lbBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center text-neutral-500">Chưa có phương pháp nào phát tín hiệu trong chu kỳ này.</td></tr>';
+                } else {
+                    lbBody.innerHTML = ranking.map((m, idx) => {
+                        const isSelected = (m.key === currentBacktestMethod);
+                        const rankBadge = idx === 0 ? '<span class="w-6 h-6 rounded-full bg-yellow-500 text-black font-black inline-flex items-center justify-center text-xs shadow">1</span>' :
+                                         (idx === 1 ? '<span class="w-6 h-6 rounded-full bg-neutral-300 text-black font-black inline-flex items-center justify-center text-xs shadow">2</span>' :
+                                         (idx === 2 ? '<span class="w-6 h-6 rounded-full bg-amber-700 text-white font-black inline-flex items-center justify-center text-xs shadow">3</span>' :
+                                         `<span class="text-neutral-400 font-bold">${idx + 1}</span>`));
+                        
+                        const barWidth = Math.min(100, m.accuracy_pct);
+                        const barColor = m.accuracy_pct >= 50 ? 'bg-emerald-500' : (m.accuracy_pct >= 30 ? 'bg-yellow-500' : 'bg-neutral-600');
 
-                    const actionBtn = isSelected ? 
-                        `<span class="px-2 py-1 rounded bg-yellow-500 text-black font-black text-[11px] inline-flex items-center gap-1 shadow"><i class="fa-solid fa-check"></i> Đang Chọn</span>` :
-                        `<button onclick="selectMethodForBacktest('${m.key}')" class="px-2.5 py-1 rounded bg-neutral-800 hover:bg-yellow-500 hover:text-black text-yellow-400 font-bold transition text-[11px] border border-neutral-700 inline-flex items-center gap-1"><i class="fa-solid fa-chart-simple"></i> Kiểm Thử</button>`;
+                        const actionBtn = isSelected ? 
+                            `<span class="px-2 py-1 rounded bg-yellow-500 text-black font-black text-[11px] inline-flex items-center gap-1 shadow"><i class="fa-solid fa-check"></i> Đang Chọn</span>` :
+                            `<button onclick="selectMethodForBacktest('${m.key}')" class="px-2.5 py-1 rounded bg-neutral-800 hover:bg-yellow-500 hover:text-black text-yellow-400 font-bold transition text-[11px] border border-neutral-700 inline-flex items-center gap-1"><i class="fa-solid fa-chart-simple"></i> Kiểm Thử</button>`;
 
-                    const streakBadge = m.max_streak > 0 ? `<span class="inline-flex items-center gap-1 text-amber-400 font-mono font-bold"><i class="fa-solid fa-fire text-xs text-amber-500"></i> ${m.max_streak}</span>` : '<span class="text-neutral-500 font-mono">-</span>';
+                        const streakBadge = m.max_streak > 0 ? `<span class="inline-flex items-center gap-1 text-amber-400 font-mono font-bold"><i class="fa-solid fa-fire text-xs text-amber-500"></i> ${m.max_streak}</span>` : '<span class="text-neutral-500 font-mono">-</span>';
 
-                    return `
-                        <tr class="hover:bg-neutral-800/40 transition ${isSelected ? 'bg-yellow-500/10 border-l-2 border-yellow-500' : ''}">
-                            <td class="py-2.5 px-3 text-center">${rankBadge}</td>
-                            <td class="py-2.5 px-3 font-semibold text-white">
-                                <span class="bridge-info-trigger inline-flex items-center gap-1.5 cursor-pointer hover:text-yellow-400 transition"
-                                      data-bridge="${m.key}"
-                                      onmouseenter="showBridgeTooltip(event, '${m.key}')"
-                                      onmouseleave="hideBridgeTooltip()"
-                                      onclick="openBridgeModal('${m.key}')">
-                                    ${m.name}
-                                    <i class="fa-solid fa-circle-question text-neutral-500 hover:text-yellow-400 text-xs transition" title="Bấm hoặc rê chuột để xem giải thích chi tiết & ví dụ"></i>
-                                </span>
-                            </td>
-                            <td class="py-2.5 px-3 text-neutral-400 text-[11px]">${m.category || 'Soi Cầu'}</td>
-                            <td class="py-2.5 px-3 text-center font-mono text-neutral-300">${m.signals}</td>
-                            <td class="py-2.5 px-3 text-center font-mono font-bold text-emerald-400">${m.hits_count}</td>
-                            <td class="py-2.5 px-3 text-center font-mono font-bold text-yellow-400">${m.total_hits}</td>
-                            <td class="py-2.5 px-3 text-center font-mono">${streakBadge}</td>
-                            <td class="py-2.5 px-3 text-right">
-                                <div class="flex items-center justify-end gap-2">
-                                    <div class="w-20 bg-neutral-800 h-2 rounded-full overflow-hidden hidden sm:block">
-                                        <div class="${barColor} h-full rounded-full" style="width: ${barWidth}%"></div>
+                        return `
+                            <tr class="hover:bg-neutral-800/40 transition ${isSelected ? 'bg-yellow-500/10 border-l-2 border-yellow-500' : ''}">
+                                <td class="py-2.5 px-3 text-center">${rankBadge}</td>
+                                <td class="py-2.5 px-3 font-semibold text-white">
+                                    <span class="bridge-info-trigger inline-flex items-center gap-1.5 cursor-pointer hover:text-yellow-400 transition"
+                                          data-bridge="${m.key}"
+                                          onmouseenter="showBridgeTooltip(event, '${m.key}')"
+                                          onmouseleave="hideBridgeTooltip()"
+                                          onclick="openBridgeModal('${m.key}')">
+                                        ${m.name}
+                                        <i class="fa-solid fa-circle-question text-neutral-500 hover:text-yellow-400 text-xs transition" title="Bấm hoặc rê chuột để xem giải thích chi tiết & ví dụ"></i>
+                                    </span>
+                                </td>
+                                <td class="py-2.5 px-3 text-neutral-400 text-[11px]">${m.category || 'Soi Cầu'}</td>
+                                <td class="py-2.5 px-3 text-center font-mono text-neutral-300">${m.signals}</td>
+                                <td class="py-2.5 px-3 text-center font-mono font-bold text-emerald-400">${m.hits_count}</td>
+                                <td class="py-2.5 px-3 text-center font-mono font-bold text-yellow-400">${m.total_hits}</td>
+                                <td class="py-2.5 px-3 text-center font-mono">${streakBadge}</td>
+                                <td class="py-2.5 px-3 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <div class="w-20 bg-neutral-800 h-2 rounded-full overflow-hidden hidden sm:block">
+                                            <div class="${barColor} h-full rounded-full" style="width: ${barWidth}%"></div>
+                                        </div>
+                                        <span class="font-mono font-black text-sm ${m.accuracy_pct >= 40 ? 'text-emerald-400' : (m.accuracy_pct >= 25 ? 'text-yellow-400' : 'text-neutral-300')}">${m.accuracy_pct}%</span>
                                     </div>
-                                    <span class="font-mono font-black text-sm ${m.accuracy_pct >= 40 ? 'text-emerald-400' : (m.accuracy_pct >= 25 ? 'text-yellow-400' : 'text-neutral-300')}">${m.accuracy_pct}%</span>
-                                </div>
-                            </td>
-                            <td class="py-2.5 px-3 text-center">${actionBtn}</td>
-                        </tr>
-                    `;
-                }).join('');
+                                </td>
+                                <td class="py-2.5 px-3 text-center">${actionBtn}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
             }
 
             // 3. Daily Log Table
             const logBody = document.getElementById('backtest-daily-log-body');
             const logs = data.daily_results || [];
             logBody.innerHTML = logs.map(row => {
+                const isCurrent = !!(row.is_current || row.status === 'PENDING' || row.is_win === null);
                 const isWin = row.is_win !== undefined ? row.is_win : row.chot_is_win;
                 const hitsCount = row.hits !== undefined ? row.hits : row.chot_hits;
                 const isDe = row.is_de !== undefined ? row.is_de : row.chot_is_de;
 
-                const resultBadge = row.status === 'NO_SIGNAL' ?
-                    `<span class="text-neutral-500 italic text-[11px]">Không phát tín hiệu</span>` :
-                    (isWin ? `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold text-xs shadow">
-                                <i class="fa-solid fa-check"></i> TRÚNG ${hitsCount} NHÁY ${isDe ? '<b class="text-yellow-300 ml-1">🔥 ĂN ĐỀ</b>' : ''}
-                              </span>` :
-                             `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-neutral-800/80 text-neutral-400 border border-neutral-700 font-medium text-xs">
-                                <i class="fa-solid fa-xmark"></i> TRƯỢT
-                              </span>`);
+                let resultBadge;
+                if (isCurrent) {
+                    resultBadge = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-950 text-amber-300 border border-amber-600 font-bold text-xs shadow animate-pulse">
+                        <i class="fa-solid fa-clock"></i> Chờ mở thưởng (18h30)
+                    </span>`;
+                } else if (row.status === 'NO_SIGNAL') {
+                    resultBadge = `<span class="text-neutral-500 italic text-[11px]">Không phát tín hiệu</span>`;
+                } else if (isWin) {
+                    resultBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold text-xs shadow">
+                        <i class="fa-solid fa-check"></i> TRÚNG ${hitsCount} NHÁY ${isDe ? '<b class="text-yellow-300 ml-1">🔥 ĂN ĐỀ</b>' : ''}
+                    </span>`;
+                } else {
+                    resultBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-neutral-800/80 text-neutral-400 border border-neutral-700 font-medium text-xs">
+                        <i class="fa-solid fa-xmark"></i> TRƯỢT
+                    </span>`;
+                }
 
                 // Highlight các số trúng trong dàn dự đoán
                 const hitNumsSet = new Set(row.hit_numbers || []);
                 const preds = row.predicted_numbers || (row.chot_pair ? [row.chot_pair] : []);
                 const predsHtml = preds.length > 0 ? preds.map(p => {
+                    if (isCurrent) {
+                        return `<span class="px-2.5 py-1 rounded bg-amber-500 text-black font-black font-mono text-sm shadow-md ring-2 ring-amber-300">${p}</span>`;
+                    }
                     const isHit = hitNumsSet.has(p);
                     if (isHit) {
                         return `<span class="px-2 py-0.5 rounded bg-emerald-500 text-black font-black font-mono text-sm shadow-md ring-1 ring-emerald-300">${p}</span>`;
@@ -1860,32 +1867,46 @@
                     }
                 }).join(' ') : '<span class="text-neutral-500 italic">-</span>';
 
+                const badgeBg = isCurrent ? 'bg-amber-950/80 text-amber-300 border-amber-700' : 'bg-emerald-950/80 text-emerald-300 border-emerald-800';
                 const winningModulesBadges = (row.winning_modules || []).slice(0, 6).map(m => `
-                    <span class="bridge-info-trigger px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800 font-mono text-[10px] font-bold cursor-pointer hover:border-yellow-400 hover:text-yellow-300 transition"
+                    <span class="bridge-info-trigger px-1.5 py-0.5 rounded ${badgeBg} border font-mono text-[10px] font-bold cursor-pointer hover:border-yellow-400 hover:text-yellow-300 transition"
                           data-bridge="${m}"
                           onmouseenter="showBridgeTooltip(event, '${m}')"
                           onmouseleave="hideBridgeTooltip()"
                           onclick="event.stopPropagation(); openBridgeModal('${m}')"
                           title="Bấm để xem giải thích & ví dụ">${m}</span>
-                `).join(' ') || '<span class="text-neutral-600 italic">Không có</span>';
+                `).join(' ') || `<span class="text-neutral-600 italic">${isCurrent ? 'Đang cập nhật cầu' : 'Không có'}</span>`;
+
+                const dateDisplayHtml = isCurrent ?
+                    `<span class="text-yellow-400 font-bold font-mono">${row.date_display}</span> <span class="ml-1 text-[10px] bg-red-600 text-white font-bold px-1.5 py-0.5 rounded shadow uppercase">Hôm nay</span>` :
+                    `<span class="text-white font-mono">${row.date_display}</span>`;
+
+                const specialDisplayHtml = isCurrent ?
+                    `<span class="text-amber-400/80 text-xs italic font-semibold">Chờ mở thưởng</span>` :
+                    (row.actual_special ? `${row.actual_special} (<b class="text-yellow-400">${row.actual_de}</b>)` : '-');
+
+                const rowBg = isCurrent ? 'bg-amber-950/20 border-l-4 border-l-amber-500 hover:bg-amber-950/30' : 'hover:bg-neutral-800/50';
+                const actionBtn = isCurrent ?
+                    `<button onclick="event.stopPropagation(); runSingleBacktest('${row.draw_date}')" class="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black font-bold transition text-[11px] shadow inline-flex items-center gap-1">
+                        Dự Đoán <i class="fa-solid fa-angle-right ml-0.5"></i>
+                    </button>` :
+                    `<button onclick="event.stopPropagation(); runSingleBacktest('${row.draw_date}')" class="px-2.5 py-1 rounded bg-neutral-800 hover:bg-red-700 text-neutral-200 hover:text-white transition text-[11px] font-semibold border border-neutral-700 inline-flex items-center gap-1">
+                        Chi Tiết <i class="fa-solid fa-angle-right ml-0.5"></i>
+                    </button>`;
 
                 return `
-                    <tr class="hover:bg-neutral-800/50 cursor-pointer transition" onclick="runSingleBacktest('${row.draw_date}')">
-                        <td class="py-2.5 px-3 font-semibold text-white font-mono">${row.date_display}</td>
-                        <td class="py-2.5 px-3 text-neutral-400">${row.day_of_week}</td>
+                    <tr class="${rowBg} cursor-pointer transition" onclick="runSingleBacktest('${row.draw_date}')">
+                        <td class="py-2.5 px-3">${dateDisplayHtml}</td>
+                        <td class="py-2.5 px-3 text-neutral-400 font-medium">${row.day_of_week}</td>
                         <td class="py-2.5 px-3 text-center">
                             <div class="flex items-center justify-center gap-1.5 flex-wrap">${predsHtml}</div>
                         </td>
                         <td class="py-2.5 px-3 text-center font-mono font-bold text-red-500">
-                            ${row.actual_special ? `${row.actual_special} (<b class="text-yellow-400">${row.actual_de}</b>)` : '-'}
+                            ${specialDisplayHtml}
                         </td>
                         <td class="py-2.5 px-3 text-center">${resultBadge}</td>
                         <td class="py-2.5 px-3">${winningModulesBadges}</td>
-                        <td class="py-2.5 px-3 text-center">
-                            <button onclick="event.stopPropagation(); runSingleBacktest('${row.draw_date}')" class="px-2.5 py-1 rounded bg-neutral-800 hover:bg-red-700 text-neutral-200 hover:text-white transition text-[11px] font-semibold border border-neutral-700 inline-flex items-center gap-1">
-                                Chi Tiết <i class="fa-solid fa-angle-right ml-0.5"></i>
-                            </button>
-                        </td>
+                        <td class="py-2.5 px-3 text-center">${actionBtn}</td>
                     </tr>
                 `;
             }).join('');
@@ -1914,18 +1935,24 @@
         }
 
         function renderSingleBacktest(data) {
-            const act = data.actual;
-            const pred = data.prediction;
-            const ev = data.evaluation;
-            const chot = ev.chot;
+            const isPending = !!(data.is_pending || (data.actual && data.actual.status === 'PENDING') || (data.evaluation && data.evaluation.chot && data.evaluation.chot.is_win === null));
+            const act = data.actual || {};
+            const pred = data.prediction || {};
+            const ev = data.evaluation || {};
+            const chot = ev.chot || {};
+
+            const todayTag = isPending ? 
+                `<span class="ml-2 text-xs bg-red-600 text-white font-bold px-2 py-0.5 rounded uppercase shadow animate-pulse">Hôm nay - Chờ mở thưởng</span>` : '';
 
             document.getElementById('single-view-title').innerHTML = `
-                Kỳ Quay: <b class="text-yellow-400">${data.day_of_week}</b>, ngày <b class="text-white font-mono">${data.date_display}</b>
+                Kỳ Quay: <b class="text-yellow-400">${data.day_of_week}</b>, ngày <b class="text-white font-mono">${data.date_display}</b>${todayTag}
             `;
 
             // Banner Badge
             const badgeEl = document.getElementById('single-view-banner-badge');
-            if (chot.pair) {
+            if (isPending) {
+                badgeEl.innerHTML = `<span class="px-4 py-1.5 rounded-xl bg-amber-500 text-black font-black text-sm shadow-lg flex items-center gap-1.5 animate-pulse"><i class="fa-solid fa-clock"></i> ĐANG CHỜ KẾT QUẢ MỞ THƯỞNG (18H30)</span>`;
+            } else if (chot.pair) {
                 if (chot.is_win) {
                     badgeEl.innerHTML = `<span class="px-4 py-1.5 rounded-xl bg-emerald-600 text-white font-black text-sm shadow-lg flex items-center gap-1.5"><i class="fa-solid fa-trophy"></i> TRÚNG CHỐT SỐ (${chot.hits} NHÁY)</span>`;
                 } else {
@@ -1938,6 +1965,15 @@
             // Chốt số box
             const chotBox = document.getElementById('single-pred-chot-box');
             if (chot.pair) {
+                let rightStatusHtml;
+                if (isPending) {
+                    rightStatusHtml = `<span class="px-3 py-1 rounded bg-amber-950 text-amber-300 border border-amber-600 font-bold text-xs animate-pulse">CHỜ KẾT QUẢ</span>`;
+                } else if (chot.is_win) {
+                    rightStatusHtml = `<span class="px-3 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-black text-xs">TRÚNG ${chot.hits} NHÁY</span>`;
+                } else {
+                    rightStatusHtml = `<span class="px-3 py-1 rounded bg-neutral-800 text-neutral-400 border border-neutral-700 font-bold text-xs">TRƯỢT</span>`;
+                }
+
                 chotBox.innerHTML = `
                     <div class="flex justify-between items-center border-b border-neutral-800 pb-2">
                         <span class="text-xs text-neutral-400 font-bold uppercase">Cặp Số Tổng Hợp Chốt (Bạch Thủ / Song Thủ):</span>
@@ -1947,19 +1983,19 @@
                         <div class="flex items-center gap-3">
                             <span class="text-3xl font-black font-mono text-yellow-400 bg-black px-4 py-1 rounded-xl border border-yellow-500/40">${chot.pair}</span>
                             <div>
-                                <span class="text-xs text-neutral-300 block font-semibold">${pred.summary}</span>
-                                ${chot.is_de ? '<span class="text-xs text-yellow-300 font-bold">🔥 Trúng 2 số cuối Giải Đặc Biệt!</span>' : ''}
+                                <span class="text-xs text-neutral-300 block font-semibold">${pred.summary || 'Dự đoán tổng hợp các thuật toán'}</span>
+                                ${isPending ? '<span class="text-xs text-amber-400 font-bold">⏳ Chờ kết quả quay thưởng lúc 18h15 - 18h30 hôm nay</span>' : (chot.is_de ? '<span class="text-xs text-yellow-300 font-bold">🔥 Trúng 2 số cuối Giải Đặc Biệt!</span>' : '')}
                             </div>
                         </div>
                         <div class="text-right">
-                            ${chot.is_win ? `<span class="px-3 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-black text-xs">TRÚNG ${chot.hits} NHÁY</span>` : '<span class="px-3 py-1 rounded bg-neutral-800 text-neutral-400 border border-neutral-700 font-bold text-xs">TRƯỢT</span>'}
+                            ${rightStatusHtml}
                         </div>
                     </div>
                 `;
             } else {
                 chotBox.innerHTML = `
                     <span class="text-xs text-neutral-400 font-bold uppercase block mb-1">Cặp Số Tổng Hợp Chốt:</span>
-                    <p class="text-xs text-neutral-400 italic">${pred.summary}</p>
+                    <p class="text-xs text-neutral-400 italic">${pred.summary || 'Chưa đủ dữ liệu phát tín hiệu'}</p>
                 `;
             }
 
@@ -1967,7 +2003,16 @@
             const cauBox = document.getElementById('single-pred-cau-box');
             const mc = pred.module_cau;
             const mcEval = ev.module_cau;
-            if (mc && mcEval) {
+            if (mc) {
+                let cauStatusHtml;
+                if (isPending) {
+                    cauStatusHtml = `<span class="text-xs font-bold text-amber-400"><i class="fa-solid fa-clock"></i> Đang báo cầu hôm nay</span>`;
+                } else if (mcEval && mcEval.is_win) {
+                    cauStatusHtml = `<span class="text-xs font-bold text-emerald-400"><i class="fa-solid fa-check"></i> Trúng ${mcEval.hits} nháy</span>`;
+                } else {
+                    cauStatusHtml = `<span class="text-xs text-neutral-500 font-bold">Trượt</span>`;
+                }
+
                 cauBox.innerHTML = `
                     <div class="flex justify-between items-center">
                         <span class="bridge-info-trigger text-xs text-purple-400 font-bold uppercase cursor-pointer hover:text-purple-300"
@@ -1976,7 +2021,7 @@
                               onclick="openBridgeModal('module_cau')">
                             <i class="fa-solid fa-bridge mr-1"></i> Module Cầu Nhịp (${mc.pattern_name}) <i class="fa-solid fa-circle-question text-[10px]"></i>:
                         </span>
-                        ${mcEval.is_win ? `<span class="text-xs font-bold text-emerald-400"><i class="fa-solid fa-check"></i> Trúng ${mcEval.hits} nháy</span>` : '<span class="text-xs text-neutral-500 font-bold">Trượt</span>'}
+                        ${cauStatusHtml}
                     </div>
                     <div class="flex items-center gap-3 mt-1">
                         <span class="text-xl font-black font-mono text-purple-300 bg-black px-3 py-0.5 rounded border border-purple-800">${mc.bridge_pair}</span>
@@ -1991,6 +2036,15 @@
             const weeklyBox = document.getElementById('single-pred-weekly-box');
             const wm = pred.weekly_matched;
             if (wm) {
+                let weeklyStatusHtml;
+                if (isPending) {
+                    weeklyStatusHtml = `<span class="text-xs font-bold text-amber-400"><i class="fa-solid fa-clock"></i> Cầu theo thứ hôm nay</span>`;
+                } else if (wm.is_win) {
+                    weeklyStatusHtml = `<span class="text-xs font-bold text-emerald-400"><i class="fa-solid fa-check"></i> Trúng ${wm.hits} nháy</span>`;
+                } else {
+                    weeklyStatusHtml = `<span class="text-xs text-neutral-500 font-bold">Trượt</span>`;
+                }
+
                 weeklyBox.innerHTML = `
                     <div class="flex justify-between items-center">
                         <span class="bridge-info-trigger text-xs text-yellow-400 font-bold uppercase cursor-pointer hover:text-yellow-300"
@@ -1999,7 +2053,7 @@
                               onclick="openBridgeModal('cau_thu')">
                             <i class="fa-solid fa-calendar-week mr-1"></i> Cầu Theo Thứ (${wm.dow} - ${wm.province}) <i class="fa-solid fa-circle-question text-[10px]"></i>:
                         </span>
-                        ${wm.is_win ? `<span class="text-xs font-bold text-emerald-400"><i class="fa-solid fa-check"></i> Trúng ${wm.hits} nháy</span>` : '<span class="text-xs text-neutral-500 font-bold">Trượt</span>'}
+                        ${weeklyStatusHtml}
                     </div>
                     <div class="flex items-center gap-3 mt-1">
                         <span class="text-xl font-black font-mono text-yellow-400 bg-black px-3 py-0.5 rounded border border-yellow-800">${wm.pair}</span>
@@ -2016,13 +2070,20 @@
             modContainer.innerHTML = modules.map(m => {
                 const isHit = m.is_hit;
                 const hasPair = !!m.pair;
-                const badge = hasPair ? (
-                    isHit ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold text-[10px]"><i class="fa-solid fa-check"></i> TRÚNG ${m.hits}N</span>` :
-                            `<span class="px-2 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700 font-medium text-[10px]">TRƯỢT</span>`
-                ) : '<span class="text-neutral-500 text-[10px] italic">Không có số</span>';
+                let badge;
+                if (isPending) {
+                    badge = hasPair ? `<span class="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-700 font-bold text-[10px]"><i class="fa-solid fa-satellite-dish mr-1"></i>ĐANG BÁO CẦU</span>` : `<span class="text-neutral-500 text-[10px] italic">Không có số</span>`;
+                } else {
+                    badge = hasPair ? (
+                        isHit ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold text-[10px]"><i class="fa-solid fa-check"></i> TRÚNG ${m.hits}N</span>` :
+                                `<span class="px-2 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700 font-medium text-[10px]">TRƯỢT</span>`
+                    ) : '<span class="text-neutral-500 text-[10px] italic">Không có số</span>';
+                }
+
+                const itemBorder = isPending && hasPair ? 'border-amber-800/80 bg-amber-950/20' : (isHit ? 'border-emerald-800/80 bg-emerald-950/20' : 'border-neutral-800');
 
                 return `
-                    <div class="bg-neutral-900 p-2.5 rounded-lg border ${isHit ? 'border-emerald-800/80 bg-emerald-950/20' : 'border-neutral-800'} flex items-center justify-between text-xs">
+                    <div class="bg-neutral-900 p-2.5 rounded-lg border ${itemBorder} flex items-center justify-between text-xs">
                         <div class="flex items-center gap-2">
                             <span class="bridge-info-trigger font-bold text-white cursor-pointer hover:text-yellow-400 transition"
                                   data-bridge="${m.key}"
@@ -2043,19 +2104,32 @@
             // Actual Draw Card
             document.getElementById('single-actual-header').innerText = `XSMB ${data.day_of_week} - ${data.date_display}`;
             const deBadge = document.getElementById('single-actual-de-badge');
-            deBadge.innerHTML = `Giải ĐB: <b class="text-red-500 font-mono">${act.special_prize}</b> → Đề: <b class="text-yellow-400 font-mono">${act.de}</b>`;
-
             const drawCardContainer = document.getElementById('single-actual-draw-card');
-            drawCardContainer.innerHTML = createDrawCard(act);
 
-            // Auto highlight the predicted pairs on the rendered card!
-            if (chot.pair) {
-                document.querySelectorAll('#single-actual-draw-card .loto-target, #single-actual-draw-card .loto-chip').forEach(el => {
-                    const tail = el.dataset.tail || el.dataset.pair;
-                    if (tail === chot.pair) {
-                        el.classList.add('highlight-active');
-                    }
-                });
+            if (isPending) {
+                deBadge.innerHTML = `Giải ĐB: <span class="text-amber-400 italic font-semibold">Chờ mở thưởng lúc 18h15 - 18h30</span>`;
+                drawCardContainer.innerHTML = `
+                    <div class="p-8 text-center border border-dashed border-amber-600/50 rounded-xl bg-amber-950/20 my-4">
+                        <i class="fa-solid fa-satellite-dish text-amber-400 text-4xl mb-3 animate-bounce"></i>
+                        <h4 class="text-amber-300 font-bold text-base mb-1">Kỳ quay hôm nay (${data.date_display}) đang chờ mở thưởng</h4>
+                        <p class="text-neutral-400 text-xs max-w-md mx-auto leading-relaxed">
+                            Kết quả XSMB trực tiếp sẽ được cập nhật từ 18h15 đến 18h30. Dàn số dự đoán của các thuật toán đã sẵn sàng ở bảng bên trái. Sau khi có kết quả, hệ thống sẽ tự động đối chiếu số trúng và nháy ăn ngay lập tức.
+                        </p>
+                    </div>
+                `;
+            } else {
+                deBadge.innerHTML = `Giải ĐB: <b class="text-red-500 font-mono">${act.special_prize || '-'}</b> → Đề: <b class="text-yellow-400 font-mono">${act.de || '-'}</b>`;
+                drawCardContainer.innerHTML = createDrawCard(act);
+
+                // Auto highlight the predicted pairs on the rendered card!
+                if (chot.pair) {
+                    document.querySelectorAll('#single-actual-draw-card .loto-target, #single-actual-draw-card .loto-chip').forEach(el => {
+                        const tail = el.dataset.tail || el.dataset.pair;
+                        if (tail === chot.pair) {
+                            el.classList.add('highlight-active');
+                        }
+                    });
+                }
             }
         }
 

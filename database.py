@@ -1,6 +1,6 @@
 import sqlite3
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import config
 
 def get_connection():
@@ -178,10 +178,11 @@ def get_results_before_date(target_date, limit=60):
         rows = cursor.fetchall()
         return [_row_to_result_dict(r) for r in rows]
 
-def get_available_backtest_dates(min_prior_draws=4):
+def get_available_backtest_dates(min_prior_draws=4, include_pending=True):
     """
     Lấy danh sách tất cả các ngày có đủ dữ liệu lịch sử phía trước (tối thiểu min_prior_draws kỳ)
     để người dùng có thể chọn và backtest lại thuật toán.
+    Nếu include_pending=True, tự động bổ sung ngày hôm nay (hoặc kỳ quay kế tiếp) vào đầu danh sách.
     """
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -192,13 +193,36 @@ def get_available_backtest_dates(min_prior_draws=4):
         return []
     
     eligible = rows[min_prior_draws:]
-    return [
+    result_dates = [
         {
             "draw_date": r["draw_date"],
             "date_display": r["date_display"],
             "day_of_week": r["day_of_week"]
         } for r in reversed(eligible)
     ]
+
+    if include_pending and result_dates:
+        today_dt = datetime.now()
+        today_str = today_dt.strftime("%Y-%m-%d")
+        latest_date = result_dates[0]["draw_date"]
+        days_vn = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
+        if latest_date < today_str:
+            result_dates.insert(0, {
+                "draw_date": today_str,
+                "date_display": today_dt.strftime("%d/%m/%Y") + " (Hôm nay)",
+                "day_of_week": days_vn[today_dt.weekday()],
+                "is_pending": True
+            })
+        elif latest_date == today_str:
+            next_dt = today_dt + timedelta(days=1)
+            result_dates.insert(0, {
+                "draw_date": next_dt.strftime("%Y-%m-%d"),
+                "date_display": next_dt.strftime("%d/%m/%Y") + " (Kỳ tới)",
+                "day_of_week": days_vn[next_dt.weekday()],
+                "is_pending": True
+            })
+
+    return result_dates
 
 def save_pattern_memory(pattern_dict):
     """Lưu hoặc cập nhật thông tin bộ nhớ cầu"""

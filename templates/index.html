@@ -53,24 +53,11 @@
             <button onclick="switchTab('analyzer')" id="tab-analyzer" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition">
                 <i class="fa-solid fa-brain mr-2 text-pink-400"></i>Phân Tích Cầu Ngắn Hạn (23 Modules)
             </button>
-            <button onclick="switchTab('latest')" id="tab-latest" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition">
-                <i class="fa-solid fa-trophy mr-2 text-amber-400"></i>Kết Quả Mới Nhất
-            </button>
-            <button onclick="switchTab('stats')" id="tab-stats" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition">
-                <i class="fa-solid fa-chart-simple mr-2 text-purple-400"></i>Thống Kê Lô Tô (60 Ngày)
-            </button>
-            <button onclick="switchTab('history')" id="tab-history" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition">
-                <i class="fa-solid fa-clock-rotate-left mr-2 text-blue-400"></i>Lịch Sử 60 Ngày
-            </button>
             <button onclick="switchTab('backtest')" id="tab-backtest" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition">
                 <i class="fa-solid fa-flask-vial mr-2 text-emerald-400"></i>Backtest Thuật Toán
             </button>
             <button onclick="switchTab('bridges23')" id="tab-bridges23" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition">
                 <i class="fa-solid fa-book-bookmark mr-2 text-orange-400"></i>Từ Điển 23 Cầu (Data Catalog)
-            </button>
-            <button onclick="switchTab('xien')" id="tab-xien" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition flex items-center gap-1.5 border border-yellow-500/30 bg-neutral-900/90 shadow">
-                <i class="fa-solid fa-layer-group text-yellow-400 mr-1"></i>Gợi Ý Xiên 2 & 3
-                <span class="text-[10px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse">Hot</span>
             </button>
             <button onclick="switchTab('date_sum')" id="tab-date_sum" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition flex items-center gap-1.5 border border-emerald-500/30 bg-neutral-900/90 shadow">
                 <i class="fa-solid fa-calculator text-emerald-400 mr-1"></i>Cầu Tổng Ngày
@@ -204,23 +191,7 @@
                 </div>
             </div>
 
-            <!-- GỢI Ý XIÊN 2 & XIÊN 3 THEO CẦU THỨ -->
-            <div class="bg-black rounded-xl p-5 border-2 border-emerald-600/70 shadow-2xl space-y-4">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-neutral-800 pb-3 gap-2">
-                    <div>
-                        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest bg-emerald-950/80 border border-emerald-700 px-3 py-1 rounded-full">
-                            <i class="fa-solid fa-calendar-day mr-1"></i> GỢI Ý XIÊN THEO THỨ
-                        </span>
-                        <h3 class="text-lg font-black text-white mt-2">BỘ XIÊN 2 & XIÊN 3 NỔ THEO THỨ (CẶP CHỦ LỰC & CẶP BÀI TRÙNG)</h3>
-                    </div>
-                    <button onclick="switchTab('xien'); filterXienSource('weekly')" class="text-xs bg-red-700 hover:bg-red-600 text-white font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1 shadow">
-                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Xem chuyên mục xiên
-                    </button>
-                </div>
-                <div id="weekly-xien-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- JS Populated weekly xiên cards -->
-                </div>
-            </div>
+
 
             <!-- Bảng So Sánh Chi Tiết 7 Ngày Trong Tuần (Thứ 2 -> Chủ Nhật) -->
             <div class="space-y-3">
@@ -377,23 +348,7 @@
                 </div>
             </div>
 
-            <!-- GỢI Ý XIÊN 2 & XIÊN 3 TỪ 23 MODULES -->
-            <div class="bg-black rounded-xl p-5 border-2 border-yellow-500/70 shadow-2xl space-y-4">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-neutral-800 pb-3 gap-2">
-                    <div>
-                        <span class="text-xs font-bold text-yellow-400 uppercase tracking-widest bg-yellow-950/80 border border-yellow-700 px-3 py-1 rounded-full">
-                            <i class="fa-solid fa-layer-group mr-1"></i> GỢI Ý XIÊN TỪ 23 MODULES
-                        </span>
-                        <h3 class="text-lg font-black text-white mt-2">BỘ XIÊN 2 & XIÊN 3 TIỀM NĂNG TỪ 23 MODULES (KẾT HỢP CẦU KẸP & CẶP CHỐT)</h3>
-                    </div>
-                    <button onclick="switchTab('xien'); filterXienSource('modules23')" class="text-xs bg-red-700 hover:bg-red-600 text-white font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1 shadow">
-                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Xem chuyên mục xiên
-                    </button>
-                </div>
-                <div id="analyzer-xien-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- JS Populated top 2 Xiên 2 and top 2 Xiên 3 from 23 modules -->
-                </div>
-            </div>
+
 
             <div>
                 <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
@@ -403,97 +358,7 @@
             </div>
         </section>
 
-        <!-- Section 1: Latest Result -->
-        <section id="sec-latest" class="hidden space-y-6">
-            <div id="latest-draw-content" class="max-w-3xl mx-auto space-y-6">
-                <div class="p-8 text-center bg-neutral-900 rounded-xl text-neutral-400">
-                    <i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang tải kết quả mới nhất...
-                </div>
-            </div>
-        </section>
 
-        <!-- Section 2: Statistics -->
-        <section id="sec-stats" class="hidden space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-neutral-900 p-6 rounded-xl border border-neutral-800 shadow-xl space-y-4">
-                    <h3 class="text-lg font-bold text-emerald-400 flex items-center gap-2">
-                        <i class="fa-solid fa-fire"></i> Top 10 Lô Tô Về Nhất (60 Ngày)
-                    </h3>
-                    <div class="space-y-2" id="top-loto-list"></div>
-                </div>
-
-                <div class="bg-neutral-900 p-6 rounded-xl border border-neutral-800 shadow-xl space-y-4">
-                    <h3 class="text-lg font-bold text-red-400 flex items-center gap-2">
-                        <i class="fa-solid fa-snowflake"></i> Top 10 Lô Gan (Lâu Chưa Về)
-                    </h3>
-                    <div class="space-y-2" id="gan-loto-list"></div>
-                </div>
-            </div>
-
-            <!-- BẢNG CẶP XIÊN 2 & BỘ BA XIÊN 3 HAY NỔ CÙNG NHAU NHẤT (60 KỲ) -->
-            <div class="bg-neutral-900 rounded-xl p-6 border border-neutral-800 shadow-xl space-y-4">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-neutral-800 pb-3 gap-2">
-                    <div>
-                        <span class="text-xs font-bold text-sky-400 uppercase tracking-widest bg-sky-950/80 border border-sky-700 px-3 py-1 rounded-full">
-                            <i class="fa-solid fa-chart-pie mr-1"></i> BẢNG CẶP BÀI TRÙNG ĐỒNG XUẤT HIỆN
-                        </span>
-                        <h3 class="text-lg font-black text-white mt-2">TOP CẶP XIÊN 2 & BỘ BA XIÊN 3 CÙNG NỔ NHIỀU NHẤT (60 KỲ)</h3>
-                        <p class="text-xs text-neutral-400 mt-1">Các cặp và bộ ba số có tần suất xuất hiện cùng nhau cao nhất trên bảng kết quả 27 giải (đã loại bỏ lô gan lì lợm).</p>
-                    </div>
-                    <button onclick="switchTab('xien'); filterXienSource('stats60')" class="text-xs bg-red-700 hover:bg-red-600 text-white font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1 shadow">
-                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Xem chuyên mục xiên
-                    </button>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-black/70 p-4 rounded-xl border border-neutral-800 space-y-3">
-                        <h4 class="text-sm font-bold text-yellow-400 flex items-center gap-2 border-b border-neutral-800 pb-2">
-                            <i class="fa-solid fa-2"></i> Top 5 Cặp Xiên 2 Nổ Cùng Nhau Nhiều Nhất
-                        </h4>
-                        <div id="stats-xien2-list" class="space-y-2">
-                            <!-- Populated by JS -->
-                        </div>
-                    </div>
-                    <div class="bg-black/70 p-4 rounded-xl border border-neutral-800 space-y-3">
-                        <h4 class="text-sm font-bold text-purple-400 flex items-center gap-2 border-b border-neutral-800 pb-2">
-                            <i class="fa-solid fa-3"></i> Top 4 Bộ Ba Xiên 3 Nổ Cùng Nhau Nhiều Nhất
-                        </h4>
-                        <div id="stats-xien3-list" class="space-y-2">
-                            <!-- Populated by JS -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Section 3: History Table -->
-        <section id="sec-history" class="hidden space-y-4">
-            <div class="bg-neutral-900 rounded-xl p-6 border border-neutral-800 shadow-xl overflow-x-auto">
-                <table class="w-full text-left border-collapse text-sm">
-                    <thead>
-                        <tr class="border-b border-neutral-800 text-neutral-400 uppercase text-xs">
-                            <th class="py-3 px-4">Ngày Quay</th>
-                            <th class="py-3 px-4">Thứ</th>
-                            <th class="py-3 px-4 text-red-500 font-bold">Giải Đặc Biệt</th>
-                            <th class="py-3 px-4">Giải Nhất</th>
-                            <th class="py-3 px-4">27 Số Lô Tô</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-neutral-800">
-                        {% for row in results %}
-                        <tr class="hover:bg-neutral-800/40 transition">
-                            <td class="py-3 px-4 font-semibold text-white">{{ row.date_display }}</td>
-                            <td class="py-3 px-4 text-neutral-400">{{ row.day_of_week }}</td>
-                            <td class="py-3 px-4 font-mono font-bold text-red-500 text-base">{{ row.special_prize }}</td>
-                            <td class="py-3 px-4 font-mono text-neutral-300">{{ row.prize_1 | join(', ') }}</td>
-                            <td class="py-3 px-4 font-mono text-xs text-yellow-400/90 tracking-wider">
-                                {{ row.loto_2digit | join(' ') }}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
 
         <!-- Section 4: Backtest Engine -->
         <section id="sec-backtest" class="hidden space-y-6">
@@ -669,42 +534,6 @@
                     </div>
                 </div>
 
-                <!-- BẢNG XẾP HẠNG TẤT CẢ PHƯƠNG PHÁP SOI CẦU THEO ĐỘ CHÍNH XÁC -->
-                <div class="bg-neutral-900 rounded-xl p-5 border border-neutral-800 shadow-xl space-y-3">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-neutral-800 pb-3 gap-2">
-                        <div>
-                            <h3 class="text-base font-bold text-white flex items-center gap-2">
-                                <i class="fa-solid fa-ranking-star text-yellow-400"></i> BẢNG XẾP HẠNG ĐỘ CHÍNH XÁC CÁC PHƯƠNG PHÁP SOI CẦU (LEADERBOARD)
-                            </h3>
-                            <span class="text-xs text-neutral-400 italic">Đánh giá khách quan tất cả các phương pháp; bấm "Kiểm Thử" để xem lịch sử nổ chi tiết của cầu đó</span>
-                        </div>
-                        <span id="leaderboard-count-badge" class="px-3 py-1 rounded-full bg-neutral-800 text-yellow-400 border border-neutral-700 text-xs font-bold">
-                            Đang xếp hạng -- phương pháp
-                        </span>
-                    </div>
-
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse text-xs">
-                            <thead>
-                                <tr class="bg-neutral-950 text-neutral-400 uppercase border-b border-neutral-800">
-                                    <th class="py-2.5 px-3 text-center w-12">Hạng</th>
-                                    <th class="py-2.5 px-3">Tên Phương Pháp / Cầu</th>
-                                    <th class="py-2.5 px-3">Nhóm</th>
-                                    <th class="py-2.5 px-3 text-center">Số Kỳ Tín Hiệu</th>
-                                    <th class="py-2.5 px-3 text-center">Số Kỳ Về</th>
-                                    <th class="py-2.5 px-3 text-center">Tổng Nháy</th>
-                                    <th class="py-2.5 px-3 text-center">Chuỗi Thông</th>
-                                    <th class="py-2.5 px-3 w-40 text-right">Tỷ Lệ Chính Xác (%)</th>
-                                    <th class="py-2.5 px-3 text-center w-28">Thao Tác</th>
-                                </tr>
-                            </thead>
-                            <tbody id="backtest-leaderboard-body" class="divide-y divide-neutral-800/80">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
                 <!-- BẢNG NHẬT KÝ CHI TIẾT TỪNG KỲ KIỂM THỬ CỦA PHƯƠNG PHÁP ĐANG CHỌN -->
                 <div class="bg-neutral-900 rounded-xl p-5 border border-neutral-800 shadow-xl space-y-3">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-neutral-800 pb-3 gap-2">
@@ -726,7 +555,7 @@
                                     <th class="py-2.5 px-3 text-center">Số Dự Đoán Của Cầu</th>
                                     <th class="py-2.5 px-3 text-center">Giải ĐB (Đề)</th>
                                     <th class="py-2.5 px-3 text-center">Kết Quả Cầu Này</th>
-                                    <th class="py-2.5 px-3">Các Cầu Khác Cùng Trúng</th>
+                                    <th class="py-2.5 px-3">Các Cầu Khác (Cùng Trúng / Đang Báo Tín Hiệu)</th>
                                     <th class="py-2.5 px-3 text-center">Thao Tác</th>
                                 </tr>
                             </thead>
@@ -736,7 +565,6 @@
                         </table>
                     </div>
                 </div>
-            </div>
             </div>
 
             <!-- SINGLE DATE DEEP-DIVE VIEW CONTAINER -->
@@ -950,202 +778,7 @@
 
         </section>
 
-        <!-- Section: Gợi Ý Xiên 2 & Xiên 3 Theo Các Tab Phân Tích -->
-        <section id="sec-xien" class="space-y-6 hidden">
 
-            <!-- Hero Header Banner -->
-            <div class="bg-gradient-to-r from-red-950 via-neutral-900 to-neutral-950 border border-red-800/80 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1.5">
-                            <span class="px-3 py-0.5 rounded-full text-xs font-black uppercase bg-red-700 text-white tracking-wider shadow">
-                                CHUYÊN MỤC ĐẶC BIỆT
-                            </span>
-                            <span class="text-xs text-yellow-400 font-bold bg-yellow-950/60 border border-yellow-700/60 px-2.5 py-0.5 rounded-full">
-                                <i class="fa-solid fa-sparkles mr-1"></i> Đa Kênh Phân Tích
-                            </span>
-                        </div>
-                        <h2 class="text-2xl md:text-3xl font-black text-white tracking-wide flex items-center gap-3">
-                            <i class="fa-solid fa-layer-group text-yellow-400"></i>
-                            PHÂN TÍCH & GỢI Ý XIÊN 2, XIÊN 3 ĐA CẦU
-                        </h2>
-                        <p class="text-xs md:text-sm text-neutral-300 mt-1 max-w-3xl leading-relaxed">
-                            Hệ thống tự động liên kết dữ liệu từ <b>23 Modules Soi Cầu Ngắn Hạn</b>, <b>Cầu Thứ Trong Tuần</b> và <b>Ma Trận Đồng Xuất Hiện 60 Kỳ</b> để sàng lọc ra các bộ Xiên 2 và Xiên 3 có xác suất về chung cao nhất (đã loại bỏ rủi ro Lô Gan lì lợm).
-                        </p>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <button onclick="loadXienData(true)" class="bg-yellow-400 hover:bg-yellow-300 text-neutral-950 font-bold px-4 py-2.5 rounded-xl text-xs md:text-sm flex items-center gap-2 transition shadow-lg">
-                            <i class="fa-solid fa-arrows-rotate"></i> Làm Mới Gợi Ý
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Hero Card: BỘ XIÊN TÂM ĐIỂM ĐỘT PHÁ (HỘI TỤ ĐA CHIỀU) -->
-            <div class="bg-black border-2 border-yellow-500/80 rounded-2xl p-6 shadow-2xl space-y-4 relative overflow-hidden">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-neutral-800 pb-3 gap-2">
-                    <div>
-                        <span class="text-xs font-black text-yellow-400 uppercase tracking-widest bg-yellow-950 border border-yellow-700 px-3 py-1 rounded-full inline-flex items-center gap-1.5">
-                            <i class="fa-solid fa-crown text-yellow-400"></i> BỘ XIÊN TÂM ĐIỂM ĐỘT PHÁ (HỘI TỤ ĐA CHIỀU)
-                        </span>
-                        <h3 class="text-xl font-black text-white mt-2">CÁC BỘ XIÊN ĐƯỢC NHIỀU NGUỒN PHÂN TÍCH ĐỒNG QUY XÁC NHẬN NHẤT</h3>
-                    </div>
-                    <span class="text-xs text-neutral-400">Bảo chứng bởi 23 Modules + Cầu Thứ + Thống Kê 60 Ngày</span>
-                </div>
-                <div id="convergence-xien-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="col-span-full py-8 text-center text-neutral-400">
-                        <i class="fa-solid fa-spinner fa-spin text-2xl text-yellow-400 mb-2 block"></i>
-                        <span>Đang phân tích và hội tụ dữ liệu xiên...</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Filter Tabs theo nguồn phân tích -->
-            <div class="flex flex-wrap items-center justify-between gap-3 bg-neutral-900 p-3 rounded-xl border border-neutral-800">
-                <div class="flex flex-wrap gap-2" id="xien-source-pills">
-                    <button onclick="filterXienSource('all')" id="xfilter-all" class="xfilter-btn px-4 py-2 rounded-lg text-xs font-bold bg-red-700 text-white shadow transition">
-                        🔥 Tất Cả Gợi Ý
-                    </button>
-                    <button onclick="filterXienSource('modules23')" id="xfilter-modules23" class="xfilter-btn px-4 py-2 rounded-lg text-xs font-bold text-neutral-400 hover:text-white bg-neutral-800 transition">
-                        🧠 23 Modules Ngắn Hạn
-                    </button>
-                    <button onclick="filterXienSource('weekly')" id="xfilter-weekly" class="xfilter-btn px-4 py-2 rounded-lg text-xs font-bold text-neutral-400 hover:text-white bg-neutral-800 transition">
-                        📅 Cầu Theo Thứ Trong Tuần
-                    </button>
-                    <button onclick="filterXienSource('stats60')" id="xfilter-stats60" class="xfilter-btn px-4 py-2 rounded-lg text-xs font-bold text-neutral-400 hover:text-white bg-neutral-800 transition">
-                        📊 Thống Kê 60 Ngày (Cặp Bài Trùng)
-                    </button>
-                    <button onclick="filterXienSource('custom')" id="xfilter-custom" class="xfilter-btn px-4 py-2 rounded-lg text-xs font-bold text-neutral-400 hover:text-white bg-neutral-800 transition">
-                        ⚡ Tự Ghép & Kiểm Tra Xiên
-                    </button>
-                </div>
-
-                <!-- Dropdown chọn Thứ (cho phép người dùng xem xiên bất kỳ ngày nào trong tuần) -->
-                <div id="xien-dow-select-wrap" class="flex items-center gap-2">
-                    <span class="text-xs text-neutral-400 font-semibold">Xem theo Thứ:</span>
-                    <select id="xien-dow-select" onchange="changeWeeklyXienDow(this.value)" class="bg-black text-yellow-400 font-bold text-xs border border-neutral-700 rounded-lg px-3 py-1.5 focus:outline-none focus:border-red-500">
-                        <!-- Populated by JS -->
-                    </select>
-                </div>
-            </div>
-
-            <!-- Khối 1: Gợi ý theo 23 Modules Ngắn Hạn -->
-            <div id="xien-sec-modules23" class="space-y-4">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-neutral-800 pb-2">
-                    <div>
-                        <h3 class="text-lg font-black text-white flex items-center gap-2">
-                            <i class="fa-solid fa-cubes text-yellow-400"></i> GỢI Ý XIÊN TỪ 23 MODULES SOI CẦU NGẮN HẠN
-                        </h3>
-                        <p class="text-xs text-neutral-400 mt-0.5">Ghép nối từ Cặp Chốt đa module, Cầu Kẹp bảng giải và các modules ACTIVE đạt điểm cao nhất.</p>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    <!-- Cột Xiên 2 -->
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center text-xs font-bold text-yellow-400 px-1">
-                            <span><i class="fa-solid fa-2 mr-1"></i> DANH SÁCH XIÊN 2 (23 MODULES)</span>
-                            <span class="text-neutral-400 text-[11px]">Bấm số để xem trên KQXS</span>
-                        </div>
-                        <div id="xien-modules23-col2" class="space-y-3"></div>
-                    </div>
-                    <!-- Cột Xiên 3 -->
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center text-xs font-bold text-purple-400 px-1">
-                            <span><i class="fa-solid fa-3 mr-1"></i> DANH SÁCH XIÊN 3 (23 MODULES)</span>
-                            <span class="text-neutral-400 text-[11px]">Bấm số để xem trên KQXS</span>
-                        </div>
-                        <div id="xien-modules23-col3" class="space-y-3"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Khối 2: Gợi ý theo Cầu Thứ Trong Tuần -->
-            <div id="xien-sec-weekly" class="space-y-4">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-neutral-800 pb-2">
-                    <div>
-                        <h3 class="text-lg font-black text-white flex items-center gap-2">
-                            <i class="fa-solid fa-calendar-week text-emerald-400"></i> <span id="xien-weekly-header-title">GỢI Ý XIÊN THEO CẦU THỨ</span>
-                        </h3>
-                        <p class="text-xs text-neutral-400 mt-0.5" id="xien-weekly-header-desc">Phân tích chuyên sâu theo ngày trong tuần, kết hợp cặp chủ lực và cặp bài trùng hay nổ vào Thứ này.</p>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    <!-- Cột Xiên 2 -->
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center text-xs font-bold text-emerald-400 px-1">
-                            <span><i class="fa-solid fa-2 mr-1"></i> DANH SÁCH XIÊN 2 THEO THỨ</span>
-                            <span class="text-neutral-400 text-[11px]">Cặp chủ lực & bài trùng</span>
-                        </div>
-                        <div id="xien-weekly-col2" class="space-y-3"></div>
-                    </div>
-                    <!-- Cột Xiên 3 -->
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center text-xs font-bold text-teal-400 px-1">
-                            <span><i class="fa-solid fa-3 mr-1"></i> DANH SÁCH XIÊN 3 THEO THỨ</span>
-                            <span class="text-neutral-400 text-[11px]">Tam hoa chủ đạo</span>
-                        </div>
-                        <div id="xien-weekly-col3" class="space-y-3"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Khối 3: Gợi ý theo Thống Kê 60 Ngày (Cặp Bài Trùng) -->
-            <div id="xien-sec-stats60" class="space-y-4">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-neutral-800 pb-2">
-                    <div>
-                        <h3 class="text-lg font-black text-white flex items-center gap-2">
-                            <i class="fa-solid fa-chart-line text-sky-400"></i> GỢI Ý XIÊN THEO THỐNG KÊ 60 NGÀY (CẶP BÀI TRÙNG)
-                        </h3>
-                        <p class="text-xs text-neutral-400 mt-0.5">Ma trận đồng xuất hiện trong 60 kỳ gần nhất để chọn ra các cặp và bộ ba nổ cùng nhau nhiều nhất (loại bỏ lô gan).</p>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    <!-- Cột Xiên 2 -->
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center text-xs font-bold text-sky-400 px-1">
-                            <span><i class="fa-solid fa-2 mr-1"></i> TOP XIÊN 2 CÙNG NỔ NHIỀU NHẤT (60 KỲ)</span>
-                            <span class="text-neutral-400 text-[11px]">Tần suất nổ cao</span>
-                        </div>
-                        <div id="xien-stats60-col2" class="space-y-3"></div>
-                    </div>
-                    <!-- Cột Xiên 3 -->
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center text-xs font-bold text-indigo-400 px-1">
-                            <span><i class="fa-solid fa-3 mr-1"></i> TOP XIÊN 3 CÙNG NỔ NHIỀU NHẤT (60 KỲ)</span>
-                            <span class="text-neutral-400 text-[11px]">Tam hoa đồng quy</span>
-                        </div>
-                        <div id="xien-stats60-col3" class="space-y-3"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Khối 4: Công cụ tự ghép & kiểm tra xiên -->
-            <div id="xien-sec-custom" class="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-xl space-y-5">
-                <div class="border-b border-neutral-800 pb-3">
-                    <h3 class="text-lg font-black text-white flex items-center gap-2">
-                        <i class="fa-solid fa-wand-magic-sparkles text-yellow-400"></i> CÔNG CỤ TỰ GHÉP & KIỂM TRA XIÊN 2, XIÊN 3
-                    </h3>
-                    <p class="text-xs text-neutral-400 mt-1">
-                        Nhập 2 hoặc 3 cặp số loto bất kỳ (từ 00 đến 99) để hệ thống kiểm tra độ ăn ý, số lần cùng về trong 60 kỳ, và phát hiện các cầu đang hỗ trợ.
-                    </p>
-                </div>
-
-                <div class="flex flex-col sm:flex-row items-center gap-3">
-                    <input type="text" id="customXienInput" placeholder="Ví dụ: 34, 43 hoặc 40 47 34" 
-                           class="w-full sm:w-80 bg-black border border-neutral-700 rounded-xl px-4 py-3 text-base text-yellow-400 font-mono font-bold text-center focus:outline-none focus:border-red-500 shadow-inner">
-                    <button onclick="checkCustomXienInput()" class="w-full sm:w-auto bg-red-700 hover:bg-red-600 text-white font-bold px-6 py-3 rounded-xl text-sm transition flex items-center justify-center gap-2 shadow-lg">
-                        <i class="fa-solid fa-magnifying-glass"></i> Kiểm Tra Ngay
-                    </button>
-                    <button onclick="clearCustomXien()" class="w-full sm:w-auto bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold px-4 py-3 rounded-xl text-sm transition">
-                        <i class="fa-solid fa-xmark"></i> Xóa
-                    </button>
-                </div>
-
-                <!-- Kết quả kiểm tra xiên tự chọn -->
-                <div id="customXienResult" class="hidden"></div>
-            </div>
-
-        </section>
 
         <!-- Section: Cầu Tổng Ngày & Bảng Thống Kê Kết Quả Đã Xảy Ra -->
         <section id="sec-date_sum" class="space-y-6 hidden">
