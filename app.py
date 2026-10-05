@@ -11,10 +11,16 @@ import sys
 import re
 sys.stdout.reconfigure(encoding='utf-8')
 
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_file
 import database
 import crawler
 import analyzer
+import excel_exporter
+import pattern_engine
+from pattern_engine.service import (
+    scan_patterns_service, get_pattern_visualization_service,
+    invalidate_pattern_cache
+)
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -91,6 +97,7 @@ def api_crawl_today():
     try:
         updated = crawler.update_missing_results()
         if updated:
+            invalidate_pattern_cache()
             dates_str = ", ".join([item["date_display"] for item in updated])
             return jsonify({
                 "success": True,
@@ -183,6 +190,92 @@ def api_summary_all_bridges():
     target_date = request.args.get('date')
     data = analyzer.get_all_bridges_summary(target_date_str=target_date)
     return jsonify(data)
+
+@app.route('/api/export/excel')
+def api_export_excel():
+    """
+    Xuất bảng thống kê cầu và kết quả đối chiếu ra file Excel (.xlsx).
+    Tham số:
+    - mode: 'single' (1 ngày) hoặc 'multi' (nhiều ngày)
+    - date: Ngày cần xuất (ví dụ 2026-10-01 hoặc 'today')
+    - days: Số ngày cần xuất (ví dụ 7, 14, 30 hoặc 'all')
+    """
+    mode = request.args.get('mode', 'single')
+    date_val = request.args.get('date', 'today')
+    days_val = request.args.get('days', '14')
+
+    try:
+        if mode == 'multi' or (request.args.get('days') and not request.args.get('date')):
+            buf, filename = excel_exporter.generate_multi_date_excel(
+                days=days_val,
+                end_date_str=date_val if date_val and date_val != 'today' else None
+            )
+        else:
+            buf, filename = excel_exporter.generate_single_date_excel(target_date_str=date_val)
+
+        return send_file(
+            buf,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        return jsonify({
+            "status": "ERROR",
+            "message": f"Lỗi khi xuất file Excel: {str(e)}"
+        }), 500
+
+@app.route('/api/patterns/coords')
+def api_pattern_coords():
+    """Lấy danh sách định nghĩa 107 vị trí chữ số chuẩn XSMB"""
+    coords = [c.to_dict() for c in pattern_engine.ALL_COORDS]
+    return jsonify({"coords": coords, "total": len(coords)})
+
+@app.route('/api/patterns/scan', methods=['GET', 'POST'])
+def api_patterns_scan():
+    """Tự động đào tìm và xếp hạng các đường cầu lặp lại tiềm năng nhất (Pattern Mining)"""
+    args = request.args if request.method == 'GET' else (request.get_json(silent=True) or request.form)
+    days = args.get('days', '60')
+    min_occ = int(args.get('min_occurrences', 10))
+    min_conf = float(args.get('min_confidence', 0.40))
+    min_streak = int(args.get('min_streak', 0))
+    target_type = args.get('target_type', 'loto_2digit')
+    day_offset = int(args.get('day_offset', 1))
+    top_n = int(args.get('top_n', 30))
+
+    res = scan_patterns_service(
+        days=days,
+        min_occurrences=min_occ,
+        min_confidence=min_conf,
+        min_streak=min_streak,
+        target_type=target_type,
+        day_offset=day_offset,
+        top_n=top_n
+    )
+    return jsonify(res)
+
+@app.route('/api/patterns/details')
+def api_pattern_details():
+    """Lấy cấu trúc dữ liệu đồ thị SVG (nodes, edges, draw cards) để vẽ đường cầu trực quan"""
+    try:
+        pos_a = int(request.args.get('pos_a', 0))
+        pos_b = int(request.args.get('pos_b', 1))
+        op = request.args.get('op', 'CONCAT_PAIR')
+        target_type = request.args.get('target_type', 'loto_2digit')
+        day_offset = int(request.args.get('day_offset', 1))
+        draws_count = int(request.args.get('draws', 8))
+
+        payload = get_pattern_visualization_service(
+            pos_a=pos_a,
+            pos_b=pos_b,
+            operation_str=op,
+            target_type_str=target_type,
+            day_offset=day_offset,
+            num_display_draws=draws_count
+        )
+        return jsonify(payload)
+    except Exception as e:
+        return jsonify({"status": "ERROR", "message": str(e)}), 400
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))

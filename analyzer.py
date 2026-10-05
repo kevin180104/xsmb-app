@@ -3145,40 +3145,31 @@ def get_all_bridges_summary(target_date_str=None):
             target_date_display = next_dt.strftime("%d/%m/%Y") + (" (Ngày mai)" if next_dt.date() > today_dt.date() else " (Hôm nay)")
             target_dow = days_vn[next_dt.weekday()]
             is_today_or_pending = True
+        actual_draw = None
     else:
         target_date = target_date_str
-        if target_date >= today_str:
+        actual_draw = database.get_result_by_date(target_date)
+        if actual_draw:
+            is_today_or_pending = False
+            target_date_display = actual_draw.get("date_display", target_date)
+            target_dow = actual_draw.get("day_of_week", "")
+        else:
+            is_today_or_pending = True
             try:
                 dt_tmp = datetime.strptime(target_date, "%Y-%m-%d")
-                target_date_display = dt_tmp.strftime("%d/%m/%Y") + (" (Hôm nay)" if target_date == today_str else " (Kỳ tới)")
+                target_date_display = dt_tmp.strftime("%d/%m/%Y") + (" (Hôm nay)" if target_date == today_str else " (Chờ mở thưởng)")
                 target_dow = days_vn[dt_tmp.weekday()]
             except Exception:
                 target_date_display = target_date
                 target_dow = ""
-            is_today_or_pending = True
-        else:
-            is_today_or_pending = False
 
-    actual_draw = None
     if is_today_or_pending:
         draws = database.get_recent_results(limit=60)
         draw_time_status = "Chờ mở thưởng lúc 18h30"
     else:
-        actual_draw = database.get_result_by_date(target_date)
         draws = database.get_results_before_date(target_date, limit=60)
         if not draws or len(draws) < 4:
             return {"status": "ERROR", "message": f"Không đủ dữ liệu lịch sử trước ngày {target_date} để phân tích cầu"}
-        if actual_draw:
-            target_date_display = actual_draw.get("date_display", target_date)
-            target_dow = actual_draw.get("day_of_week", "")
-        else:
-            try:
-                dt_obj = datetime.strptime(target_date, "%Y-%m-%d")
-                target_date_display = dt_obj.strftime("%d/%m/%Y")
-                target_dow = days_vn[dt_obj.weekday()]
-            except Exception:
-                target_date_display = target_date
-                target_dow = ""
         draw_time_status = "Đã có kết quả mở thưởng"
 
     # Trích xuất kết quả thực tế nếu có
@@ -3220,7 +3211,7 @@ def get_all_bridges_summary(target_date_str=None):
         is_de = any(p == actual_de for p in preds) if actual_de else False
         is_win = (hits > 0)
         if is_de:
-            status_text = "TRÚNG ĐỀ"
+            status_text = f"TRÚNG ĐỀ ({hits} nháy)" if hits > 1 else "TRÚNG ĐỀ"
             status_type = "de"
         elif is_win:
             status_text = f"TRÚNG ({hits} nháy)"
@@ -3431,11 +3422,40 @@ def get_all_bridges_summary(target_date_str=None):
         key=lambda x: (x["count"], x["total_score"]),
         reverse=True
     )
+    for item in sorted_consensus:
+        n = item["number"]
+        if actual_draw and not is_today_or_pending:
+            hits = actual_lotos.count(n)
+            is_de = (n == actual_de) if actual_de else False
+            item["hits"] = hits
+            item["is_de"] = is_de
+            item["is_hit"] = (hits > 0)
+        else:
+            item["hits"] = 0
+            item["is_de"] = False
+            item["is_hit"] = None
+
     top_numbers = [item["number"] for item in sorted_consensus[:5]]
 
     hero_st_preds = [top_numbers[0], top_numbers[1]] if len(top_numbers) >= 2 else (st_pairs if chot_pair else ["--", "--"])
     hero_bt_pred = top_numbers[0] if top_numbers else (chot_pair or "--")
     hero_top5_preds = top_numbers[:5]
+
+    total_bridges = len(bridge_rows)
+    win_bridges = sum(1 for r in bridge_rows if r.get("is_win"))
+    de_bridges = sum(1 for r in bridge_rows if r.get("is_de"))
+    lose_bridges = sum(1 for r in bridge_rows if r.get("is_win") is False and r.get("status_type") == "lose")
+    total_hits = sum(r.get("hits", 0) for r in bridge_rows)
+    win_rate = round((win_bridges / total_bridges * 100), 1) if total_bridges > 0 else 0
+
+    overall_stats = {
+        "total_bridges": total_bridges,
+        "win_bridges": win_bridges,
+        "de_bridges": de_bridges,
+        "lose_bridges": lose_bridges,
+        "win_rate": win_rate,
+        "total_hits": total_hits
+    }
 
     return {
         "status": "SUCCESS",
@@ -3458,6 +3478,7 @@ def get_all_bridges_summary(target_date_str=None):
             "top5": hero_top5_preds,
             "top5_eval": evaluate_bridge_result(hero_top5_preds)
         },
+        "overall_stats": overall_stats,
         "consensus_ranking": sorted_consensus[:8],
         "bridge_rows": bridge_rows,
         "blacklist": b23_res.get("blacklist", []),

@@ -259,3 +259,64 @@ body {
 .animate-scaleUp {
   animation: scaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* =========================================================================
+   FLOATING QUICK NAVIGATION DOCK STYLES
+   ========================================================================= */
+#floating-quick-nav {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+
+.nav-dock-btn {
+  position: relative;
+  display: block;
+  outline: none;
+}
+
+.nav-dock-tooltip {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(8px);
+  margin-right: 12px;
+  padding: 6px 12px;
+  background: rgba(8, 14, 28, 0.95);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.75), 0 0 15px rgba(0, 240, 255, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10000;
+}
+
+.nav-dock-btn:hover .nav-dock-tooltip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.nav-dock-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent transparent transparent rgba(0, 240, 255, 0.4);
+}
+
+#floating-quick-nav.dock-minimized > div {
+  transform: translateX(70px);
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+#floating-quick-nav.dock-minimized #btn-toggle-quick-nav i {
+  transform: rotate(180deg);
+}

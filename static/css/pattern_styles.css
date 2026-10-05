@@ -1,0 +1,201 @@
+/* ==========================================================================
+   CSS CHO HỆ THỐNG PATTERN DISCOVERY & TRỰC QUAN HÓA ĐƯỜNG CẦU SVG
+   ========================================================================== */
+
+/* Thẻ số đơn lẻ trên bảng giải */
+.pattern-digit-cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 30px;
+    margin: 1px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 15px;
+    color: #e2e8f0;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(71, 85, 105, 0.4);
+    transition: all 0.2s ease;
+    user-select: none;
+    position: relative;
+}
+
+.pattern-digit-cell:hover {
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.2);
+    transform: scale(1.12);
+    z-index: 10;
+}
+
+/* Source A & B được khoanh tròn đỏ như hình vẽ thực tế */
+.pattern-digit-cell.source-highlight-a {
+    background: radial-gradient(circle, #ef4444 35%, #b91c1c 100%) !important;
+    color: #ffffff !important;
+    border: 2px solid #fecaca !important;
+    font-weight: 900 !important;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.9), inset 0 0 4px #ffffff !important;
+    transform: scale(1.15);
+    z-index: 15;
+    border-radius: 50% !important;
+}
+
+.pattern-digit-cell.source-highlight-b {
+    background: radial-gradient(circle, #f97316 35%, #c2410c 100%) !important;
+    color: #ffffff !important;
+    border: 2px solid #ffedd5 !important;
+    font-weight: 900 !important;
+    box-shadow: 0 0 14px rgba(249, 115, 22, 0.9), inset 0 0 4px #ffffff !important;
+    transform: scale(1.15);
+    z-index: 15;
+    border-radius: 50% !important;
+}
+
+/* Ô Lô tô trúng thưởng */
+.pattern-loto-cell {
+    display: inline-block;
+    padding: 3px 6px;
+    margin: 2px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #cbd5e1;
+    background: #0f172a;
+    border: 1px solid #334155;
+    transition: all 0.2s ease;
+}
+
+.pattern-loto-cell.hit-highlight {
+    background: radial-gradient(circle, #10b981 30%, #047857 100%) !important;
+    color: #ffffff !important;
+    border: 2px solid #a7f3d0 !important;
+    font-weight: 900 !important;
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.9), inset 0 0 6px #ffffff !important;
+    transform: scale(1.2);
+    border-radius: 8px !important;
+    z-index: 15;
+}
+
+/* Đường SVG Overlay */
+.pattern-svg-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 30;
+    overflow: visible;
+}
+
+.svg-bridge-line {
+    stroke: #ef4444;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.8));
+    transition: all 0.3s ease;
+}
+
+.svg-bridge-line.dashed {
+    stroke-dasharray: 6, 4;
+}
+
+.svg-bridge-line.hit {
+    stroke: #10b981;
+    filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.8));
+}
+
+.svg-bridge-line.miss {
+    stroke: #64748b;
+    stroke-dasharray: 4, 4;
+    filter: none;
+    opacity: 0.6;
+}
+
+.svg-node-ring {
+    fill: none;
+    stroke: #ef4444;
+    stroke-width: 2.5;
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.9));
+    animation: pulse-ring 2s infinite ease-in-out;
+}
+
+@keyframes pulse-ring {
+    0%, 100% {
+        stroke-width: 2.5;
+        opacity: 0.9;
+    }
+    50% {
+        stroke-width: 4.5;
+        opacity: 0.6;
+    }
+}
+
+/* Card kỳ quay dọc kiểu infographic */
+.pattern-draw-card {
+    background: #0b1120;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    transition: border-color 0.2s ease;
+    position: relative;
+}
+
+.pattern-draw-card:hover {
+    border-color: #38bdf8;
+}
+
+/* Drawer chi tiết trượt từ phải sang */
+#pattern-detail-drawer {
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+
+#pattern-detail-drawer.drawer-open {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#pattern-detail-drawer.drawer-closed {
+    transform: translateX(105%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Bảng giải thu gọn để vẽ đường cầu trực quan */
+.prize-row-grid {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+    padding: 3px 0;
+}
+
+.prize-label-col {
+    width: 75px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #94a3b8;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    padding-left: 6px;
+}
+
+.prize-digits-col {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    flex: 1;
+}
+
+.prize-sub-group {
+    display: inline-flex;
+    padding: 1px 3px;
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 8px;
+    border: 1px solid rgba(51, 65, 85, 0.5);
+}
