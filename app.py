@@ -8,8 +8,11 @@ Tối ưu hóa:
 """
 import os
 import sys
-import re
-sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 from flask import Flask, render_template, jsonify, request, send_file
 import database
