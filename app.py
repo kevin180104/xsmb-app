@@ -8,6 +8,7 @@ Tối ưu hóa:
 """
 import os
 import sys
+import re
 if hasattr(sys.stdout, 'reconfigure'):
     try:
         sys.stdout.reconfigure(encoding='utf-8')
@@ -100,6 +101,70 @@ def api_stats():
         "top_gan": top_gan
     })
 
+def evaluate_and_save_daily_wins(target_date_str=None):
+    """Đối chiếu các cầu của ngày quay và lưu nhật ký nếu có cầu trúng"""
+    try:
+        if not target_date_str or target_date_str == "today":
+            latest = database.get_recent_results(limit=1)
+            target_date_str = latest[0]["draw_date"] if latest else "today"
+
+        summary = analyzer.get_all_bridges_summary(target_date_str=target_date_str)
+        if not summary or summary.get("status") != "SUCCESS":
+            return None
+        
+        draw_date = summary.get("target_date")
+        date_display = summary.get("target_date_display", draw_date)
+        is_pending = summary.get("is_pending", False)
+        if is_pending:
+            return {
+                "has_wins": False,
+                "is_pending": True,
+                "draw_date": draw_date,
+                "date_display": date_display,
+                "message": "Kỳ quay đang chờ mở thưởng (18h30 hàng ngày)."
+            }
+        
+        overall = summary.get("overall_stats", {})
+        bridge_rows = summary.get("bridge_rows", [])
+        
+        winning_bridges = []
+        for r in bridge_rows:
+            if r.get("is_win"):
+                winning_bridges.append({
+                    "id": r.get("id"),
+                    "bridge_name": r.get("bridge_name"),
+                    "tab_name": r.get("tab_name"),
+                    "predicted_display": r.get("predicted_display"),
+                    "hits": r.get("hits", 0),
+                    "hit_numbers": r.get("hit_numbers", []),
+                    "is_de": r.get("is_de", False),
+                    "status_text": r.get("status_text", "TRÚNG")
+                })
+        
+        win_count = len(winning_bridges)
+        win_record = {
+            "draw_date": draw_date,
+            "date_display": date_display,
+            "win_count": win_count,
+            "total_bridges": len(bridge_rows),
+            "win_rate": overall.get("win_rate", 0.0),
+            "de_hits": overall.get("de_bridges", 0),
+            "total_hits": overall.get("total_hits", 0),
+            "winning_bridges": winning_bridges
+        }
+        
+        if win_count > 0:
+            database.save_daily_bridge_wins(win_record)
+            
+        return {
+            "has_wins": win_count > 0,
+            "user_greeting": "Chúc mừng a Dương đẹp trai nha",
+            **win_record
+        }
+    except Exception as e:
+        print(f"Lỗi khi đánh giá trúng cầu: {e}")
+        return None
+
 @app.route('/api/crawl-today', methods=['POST'])
 def api_crawl_today():
     """Kích hoạt cào và cập nhật kết quả mới nhất hôm nay"""
@@ -108,15 +173,21 @@ def api_crawl_today():
         if updated:
             invalidate_pattern_cache()
             dates_str = ", ".join([item["date_display"] for item in updated])
+            win_stats = evaluate_and_save_daily_wins(updated[0]["draw_date"])
             return jsonify({
                 "success": True,
                 "count": len(updated),
-                "message": f"Đã cập nhật thành công {len(updated)} kỳ quay mới: {dates_str}!"
+                "message": f"Đã cập nhật thành công {len(updated)} kỳ quay mới: {dates_str}!",
+                "win_stats": win_stats
             })
+        
+        # Ngay cả khi chưa có kỳ mới, kiểm tra kỳ gần nhất để chúc mừng nếu trúng
+        win_stats = evaluate_and_save_daily_wins()
         return jsonify({
             "success": False,
             "count": 0,
-            "message": "Dữ liệu đã ở trạng thái mới nhất! (Chưa có kết quả mới hôm nay hoặc chưa tới giờ mở thưởng 18h30)."
+            "message": "Dữ liệu đã ở trạng thái mới nhất! (Chưa có kết quả mới hôm nay hoặc chưa tới giờ mở thưởng 18h30).",
+            "win_stats": win_stats
         })
     except Exception as e:
         return jsonify({
@@ -124,6 +195,22 @@ def api_crawl_today():
             "count": 0,
             "message": f"Lỗi khi cập nhật dữ liệu: {str(e)}"
         }), 500
+
+@app.route('/api/daily-wins/evaluate')
+def api_daily_wins_evaluate():
+    """Đối chiếu và trả về thông tin trúng cầu hôm nay cho anh Dương"""
+    date_val = request.args.get('date')
+    res = evaluate_and_save_daily_wins(target_date_str=date_val)
+    if not res:
+        return jsonify({"status": "ERROR", "message": "Không thể đánh giá kết quả"}), 400
+    return jsonify({"status": "SUCCESS", **res})
+
+@app.route('/api/daily-wins/history')
+def api_daily_wins_history():
+    """Lấy danh sách nhật ký các ngày trúng cầu"""
+    limit = int(request.args.get('limit', 30))
+    history = database.get_all_daily_wins_history(limit=limit)
+    return jsonify({"status": "SUCCESS", "history": history})
 
 @app.route('/api/backtest/dates')
 def api_backtest_dates():

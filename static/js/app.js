@@ -681,6 +681,7 @@
             await fetchAllDraws();
             renderDraws(10);
             loadAllBridgesSummary();
+            checkAndInitLatestWinStats();
         });
 
         async function fetchAllDraws() {
@@ -2807,6 +2808,164 @@
             }
         }
 
+        // =========================================================================
+        // HỆ THỐNG BẮN PHÁO HOA & CHÚC MỪNG CHIẾN THẮNG (A DƯƠNG ĐẸP TRAI)
+        // =========================================================================
+        let latestWinStatsData = null;
+
+        function launchCelebrationFireworks() {
+            if (typeof confetti === 'function') {
+                const duration = 4000;
+                const end = Date.now() + duration;
+
+                const frame = () => {
+                    confetti({
+                        particleCount: 6,
+                        angle: 60,
+                        spread: 60,
+                        origin: { x: 0, y: 0.7 },
+                        colors: ['#ffd700', '#ff0055', '#00ffcc', '#ff9900', '#ffffff'],
+                        zIndex: 100001
+                    });
+                    confetti({
+                        particleCount: 6,
+                        angle: 120,
+                        spread: 60,
+                        origin: { x: 1, y: 0.7 },
+                        colors: ['#ffd700', '#ff0055', '#00ffcc', '#ff9900', '#ffffff'],
+                        zIndex: 100001
+                    });
+                    if (Date.now() < end) {
+                        requestAnimationFrame(frame);
+                    }
+                };
+                frame();
+
+                // Các chùm pháo hoa bùng nổ trung tâm
+                setTimeout(() => {
+                    confetti({
+                        particleCount: 120,
+                        spread: 100,
+                        origin: { x: 0.5, y: 0.5 },
+                        colors: ['#ffd700', '#f59e0b', '#ec4899', '#3b82f6', '#10b981'],
+                        zIndex: 100002
+                    });
+                }, 400);
+
+                setTimeout(() => {
+                    confetti({
+                        particleCount: 160,
+                        spread: 120,
+                        origin: { x: 0.5, y: 0.4 },
+                        colors: ['#ffd700', '#ff0000', '#00ff88', '#ffff00', '#a855f7'],
+                        zIndex: 100002
+                    });
+                }, 1200);
+            }
+        }
+
+        function showCelebrationModal(data) {
+            if (!data) return;
+            latestWinStatsData = data;
+            const modal = document.getElementById('fireworksCelebrationModal');
+            if (!modal) return;
+
+            const dateText = document.getElementById('celebrationDateText');
+            const winBridgesEl = document.getElementById('celebrationWinBridges');
+            const totalHitsEl = document.getElementById('celebrationTotalHits');
+            const winRateEl = document.getElementById('celebrationWinRate');
+            const bridgesListEl = document.getElementById('celebrationBridgesList');
+
+            if (dateText) {
+                dateText.innerText = `Kỳ quay ngày ${data.date_display || data.draw_date}: Nổ rực rỡ ${data.win_count || 0} cầu!`;
+            }
+            if (winBridgesEl) {
+                winBridgesEl.innerText = `${data.win_count || 0}/${data.total_bridges || 0}`;
+            }
+            if (totalHitsEl) {
+                totalHitsEl.innerText = `${data.total_hits || 0} nháy`;
+            }
+            if (winRateEl) {
+                winRateEl.innerText = `${data.win_rate || 0}%`;
+            }
+
+            if (bridgesListEl) {
+                const list = data.winning_bridges || [];
+                if (list.length === 0) {
+                    bridgesListEl.innerHTML = `<p class="text-neutral-400 text-xs italic text-center py-2">Chưa ghi nhận cầu nổ trong kỳ này.</p>`;
+                } else {
+                    bridgesListEl.innerHTML = list.map(b => `
+                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-neutral-950/80 border border-yellow-500/30 hover:border-yellow-400 transition">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                                <div>
+                                    <span class="text-xs font-bold text-neutral-200 block">${b.bridge_name}</span>
+                                    <span class="text-[10px] text-neutral-400">${b.tab_name || 'Thuật toán soi cầu'}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="flex gap-1">
+                                    ${(b.hit_numbers || []).map(num => `
+                                        <span class="px-2 py-0.5 rounded bg-black text-yellow-300 font-mono font-black text-xs border border-yellow-500/60 shadow">
+                                            ${num}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${b.is_de ? 'bg-red-950 text-red-300 border border-red-700' : 'bg-emerald-950 text-emerald-300 border border-emerald-700'}">
+                                    ${b.is_de ? 'Trúng Đề' : `Nổ ${b.hits} nháy`}
+                                </span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            modal.classList.remove('hidden');
+            launchCelebrationFireworks();
+        }
+
+        function closeFireworksModal() {
+            const modal = document.getElementById('fireworksCelebrationModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function checkAndInitLatestWinStats() {
+            try {
+                const res = await fetch('/api/daily-wins/evaluate');
+                const data = await res.json();
+                if (data && data.status === 'SUCCESS' && data.has_wins) {
+                    latestWinStatsData = data;
+                    const banner = document.getElementById('duongCelebrationBanner');
+                    const badge = document.getElementById('bannerWinBadge');
+                    const subtext = document.getElementById('bannerWinSubtext');
+                    if (banner) banner.classList.remove('hidden');
+                    if (badge) badge.innerText = `Đã nổ ${data.win_count}/${data.total_bridges} cầu (${data.total_hits} nháy)`;
+                    if (subtext) {
+                        subtext.innerText = `Kỳ quay gần nhất (${data.date_display}) nổ rực rỡ ${data.total_hits} nháy! Bấm để bắn pháo hoa vinh danh.`;
+                    }
+                }
+            } catch(e) {
+                console.error("Lỗi khi kiểm tra thống kê trúng cầu:", e);
+            }
+        }
+
+        function triggerLatestCelebration() {
+            if (latestWinStatsData) {
+                showCelebrationModal(latestWinStatsData);
+            } else {
+                fetch('/api/daily-wins/evaluate')
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data && data.status === 'SUCCESS') {
+                            showCelebrationModal(data);
+                        } else {
+                            launchCelebrationFireworks();
+                        }
+                    })
+                    .catch(() => launchCelebrationFireworks());
+            }
+        }
+
         async function updateData() {
             const btn = document.getElementById('updateBtn');
             btn.disabled = true;
@@ -2814,10 +2973,23 @@
             try {
                 const res = await fetch('/api/crawl-today', { method: 'POST' });
                 const json = await res.json();
-                alert(json.message);
-                location.reload();
+                
+                if (json.win_stats && json.win_stats.has_wins) {
+                    showCelebrationModal(json.win_stats);
+                    if (typeof showToast === 'function') {
+                        showToast(`🎉 ${json.win_stats.user_greeting}! Nổ ${json.win_stats.win_count} cầu!`);
+                    }
+                } else {
+                    alert(json.message);
+                }
+
+                // Cập nhật lại các bảng dữ liệu
+                if (typeof fetchAllDraws === 'function') await fetchAllDraws();
+                if (typeof renderDraws === 'function') renderDraws(10);
+                if (typeof loadAllBridgesSummary === 'function') loadAllBridgesSummary(true);
+                checkAndInitLatestWinStats();
             } catch(e) {
-                alert("Lỗi khi cập nhật dữ liệu!");
+                alert("Lỗi khi cập nhật dữ liệu: " + (e.message || "Vui lòng thử lại"));
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Cập Nhật Kết Quả';

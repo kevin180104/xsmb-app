@@ -53,6 +53,20 @@ def init_db():
                 updated_at TEXT
             )
         """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS daily_bridge_wins (
+                draw_date TEXT PRIMARY KEY,
+                date_display TEXT NOT NULL,
+                win_count INTEGER DEFAULT 0,
+                total_bridges INTEGER DEFAULT 0,
+                win_rate REAL DEFAULT 0.0,
+                de_hits INTEGER DEFAULT 0,
+                total_hits INTEGER DEFAULT 0,
+                winning_bridges_json TEXT,
+                updated_at TEXT
+            )
+        """)
         conn.commit()
 
 def upsert_result(result_dict, conn=None):
@@ -304,3 +318,73 @@ def export_to_json(json_path=None, limit=None):
     except Exception:
         pass
     return len(data)
+
+def save_daily_bridge_wins(win_record):
+    """Lưu nhật ký thống kê các cầu nổ trong ngày"""
+    if not win_record or not win_record.get("draw_date"):
+        return False
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO daily_bridge_wins (
+                draw_date, date_display, win_count, total_bridges,
+                win_rate, de_hits, total_hits, winning_bridges_json, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            win_record["draw_date"],
+            win_record.get("date_display", ""),
+            win_record.get("win_count", 0),
+            win_record.get("total_bridges", 0),
+            win_record.get("win_rate", 0.0),
+            win_record.get("de_hits", 0),
+            win_record.get("total_hits", 0),
+            json.dumps(win_record.get("winning_bridges", []), ensure_ascii=False),
+            datetime.now().isoformat()
+        ))
+        conn.commit()
+    return True
+
+def get_latest_daily_bridge_wins(draw_date=None):
+    """Lấy bản ghi thống kê trúng cầu gần nhất hoặc theo ngày chỉ định"""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        if draw_date:
+            cursor.execute("SELECT * FROM daily_bridge_wins WHERE draw_date = ?", (draw_date,))
+        else:
+            cursor.execute("SELECT * FROM daily_bridge_wins ORDER BY draw_date DESC LIMIT 1")
+        row = cursor.fetchone()
+    if not row:
+        return None
+    return {
+        "draw_date": row["draw_date"],
+        "date_display": row["date_display"],
+        "win_count": row["win_count"],
+        "total_bridges": row["total_bridges"],
+        "win_rate": row["win_rate"],
+        "de_hits": row["de_hits"],
+        "total_hits": row["total_hits"],
+        "winning_bridges": json.loads(row["winning_bridges_json"]) if row["winning_bridges_json"] else [],
+        "updated_at": row["updated_at"]
+    }
+
+def get_all_daily_wins_history(limit=30):
+    """Lấy danh sách lịch sử các ngày trúng cầu"""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM daily_bridge_wins ORDER BY draw_date DESC LIMIT ?", (limit,))
+        rows = cursor.fetchall()
+    res = []
+    for row in rows:
+        res.append({
+            "draw_date": row["draw_date"],
+            "date_display": row["date_display"],
+            "win_count": row["win_count"],
+            "total_bridges": row["total_bridges"],
+            "win_rate": row["win_rate"],
+            "de_hits": row["de_hits"],
+            "total_hits": row["total_hits"],
+            "winning_bridges": json.loads(row["winning_bridges_json"]) if row["winning_bridges_json"] else [],
+            "updated_at": row["updated_at"]
+        })
+    return res
+
