@@ -143,13 +143,14 @@ def _row_to_result_dict(r):
 
 def get_recent_results(limit=60):
     """Lấy danh sách kết quả XSMB gần nhất từ SQLite"""
+    limit_val = -1 if (limit == 'all' or limit is None) else int(limit)
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT * FROM xsmb_results 
             ORDER BY draw_date DESC 
             LIMIT ?
-        """, (limit,))
+        """, (limit_val,))
         rows = cursor.fetchall()
     return [_row_to_result_dict(r) for r in rows]
 

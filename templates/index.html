@@ -49,8 +49,9 @@
             <button onclick="switchTab('days10')" id="tab-days10" class="py-2.5 px-5 rounded-xl font-bold text-sm neon-tab-active shadow transition">
                 <i class="fa-solid fa-table-list mr-2 text-yellow-300"></i>KQXS & Bảng Lô Tô Đầu (Highlight)
             </button>
-            <button onclick="switchTab('weekly')" id="tab-weekly" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition">
-                <i class="fa-solid fa-calendar-week mr-2 text-cyan-400"></i>Cầu Theo Tuần (Theo Thứ)
+            <button onclick="switchTab('weekly')" id="tab-weekly" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition flex items-center gap-1.5 border border-yellow-500/30 bg-neutral-900/90 shadow">
+                <i class="fa-solid fa-building-columns text-yellow-400 mr-1"></i>Cầu Theo Thứ &amp; Tỉnh Thành
+                <span class="text-[10px] bg-yellow-500 text-black font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">Hot</span>
             </button>
             <button onclick="switchTab('analyzer')" id="tab-analyzer" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition">
                 <i class="fa-solid fa-brain mr-2 text-pink-400"></i>Phân Tích Cầu Ngắn Hạn (23 Modules)
@@ -406,149 +407,433 @@
             </div>
         </section>
 
-        <!-- Section: Weekly Bridge Analysis (Cầu Theo Tuần / Theo Thứ) -->
+        <!-- ========================================================================= -->
+        <!-- SECTION: CẦU THEO THỨ & TỈNH THÀNH (TAB CHUYÊN BIỆT)                      -->
+        <!-- Đầy đủ: DỰ ĐOÁN KỲ TỚI + GIẢI THÍCH + PHÂN TÍCH 7 NGÀY + THỐNG KÊ LỊCH SỬ  -->
+        <!-- ========================================================================= -->
         <section id="sec-weekly" class="hidden space-y-6">
-            <!-- Hero Card: Kết Luận Cầu Theo Tuần Có Cặp Số Về Ổn Định Nhất -->
-            <div class="bg-black rounded-xl p-6 border-2 border-red-600 shadow-2xl space-y-4">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-neutral-800 pb-3 gap-2">
+
+            <!-- 1. HERO PREDICTION CARD: DỰ ĐOÁN KỲ TỚI & ĐIỀU KHIỂN CHỌN THỨ -->
+            <div class="bg-black rounded-2xl p-6 border-2 border-yellow-500/70 shadow-2xl space-y-6 relative overflow-hidden">
+                <div class="absolute -right-20 -top-20 w-60 h-60 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute -left-20 -bottom-20 w-60 h-60 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <!-- Header bar -->
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-neutral-800 pb-4 relative z-10">
                     <div>
-                        <span class="text-xs font-bold text-red-400 uppercase tracking-widest bg-red-950/80 border border-red-700 px-3 py-1 rounded-full">
-                            <i class="fa-solid fa-calendar-check mr-1"></i> TỔNG HỢP QUAN SÁT THEO TUẦN
-                        </span>
-                        <h2 class="text-xl font-black text-white mt-2">NGÀY TRONG TUẦN CÓ CẶP SỐ VỀ ỔN ĐỊNH NHẤT</h2>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-xs font-black uppercase tracking-wider bg-gradient-to-r from-yellow-500 to-amber-600 text-neutral-950 px-3 py-1 rounded-full shadow flex items-center gap-1.5">
+                                <i class="fa-solid fa-building-columns"></i> CẦU THEO THỨ & TỈNH THÀNH
+                            </span>
+                            <span id="weekly-next-status-pill" class="text-xs font-bold bg-cyan-950 text-cyan-300 border border-cyan-800 px-3 py-0.5 rounded-full flex items-center gap-1.5 animate-pulse">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400"></span> Chờ mở thưởng lúc 18h30
+                            </span>
+                            <span class="text-xs font-semibold bg-neutral-900 text-neutral-300 border border-neutral-700 px-2.5 py-0.5 rounded-full">
+                                6 Đài XSKT Luân Phiên
+                            </span>
+                        </div>
+                        <h2 class="text-xl md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-200 to-yellow-500 mt-2 flex items-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles text-yellow-400"></i>
+                            DỰ ĐOÁN KỲ MỞ THƯỞNG KẾ TIẾP & BẢNG PHÂN TÍCH ĐÀI TỈNH
+                        </h2>
+                        <p class="text-xs text-neutral-300 mt-1 max-w-4xl">
+                            Thuật toán khai thác tính chu kỳ lặp cơ học đặc thù của 6 Công ty XSKT miền Bắc (Hà Nội, Quảng Ninh, Bắc Ninh, Hải Phòng, Nam Định, Thái Bình) để chốt cặp số vàng có xác suất rơi cao nhất.
+                        </p>
                     </div>
-                    <button onclick="loadWeeklyAnalysis()" class="text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-semibold px-3 py-1.5 rounded flex items-center gap-1 border border-neutral-700 transition">
-                        <i class="fa-solid fa-rotate"></i> Làm mới phân tích tuần
+
+                    <div class="flex items-center gap-2">
+                        <button onclick="loadWeeklyAnalysis(true)" class="bg-yellow-400 hover:bg-yellow-300 text-neutral-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-2 transition shadow">
+                            <i class="fa-solid fa-rotate"></i> Làm Mới Dữ Liệu
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Prediction Hero Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 relative z-10">
+                    <!-- Khối Cặp Số Dự Đoán Kỳ Tới -->
+                    <div class="bg-gradient-to-b from-neutral-900 to-neutral-950 p-6 rounded-2xl border-2 border-yellow-500/50 flex flex-col justify-between items-center text-center shadow-xl space-y-4">
+                        <div class="w-full">
+                            <span class="text-xs text-yellow-400 font-extrabold uppercase tracking-wider block">
+                                <i class="fa-solid fa-bullseye text-amber-400 mr-1"></i> CẶP SỐ CHỦ LỰC KỲ TỚI
+                            </span>
+                            <div class="text-xs text-cyan-300 font-bold mt-1" id="weekly-pred-target-info">
+                                Tính cho: -- (Đài --)
+                            </div>
+
+                            <!-- Big Main Pair Display -->
+                            <div class="mt-4 flex flex-col items-center justify-center">
+                                <div class="flex items-center gap-3">
+                                    <span id="weekly-pred-main-pair" onclick="switchTab('days10'); toggleHighlight(this.innerText.trim())"
+                                          class="text-4xl sm:text-5xl font-black font-mono text-yellow-400 bg-black px-6 py-2.5 rounded-2xl border-2 border-yellow-400 shadow-[0_0_25px_rgba(250,204,21,0.35)] cursor-pointer hover:scale-105 transition"
+                                          title="Bấm để xem Highlight phát sáng trên bảng KQXS">
+                                        --
+                                    </span>
+                                    <span id="weekly-pred-pair-rev" onclick="switchTab('days10'); toggleHighlight(this.innerText.trim())"
+                                          class="text-2xl sm:text-3xl font-black font-mono text-neutral-300 bg-neutral-900 px-4 py-2.5 rounded-2xl border border-neutral-700 cursor-pointer hover:border-yellow-400 hover:text-yellow-400 transition"
+                                          title="Cặp số lộn (Song thủ)">
+                                        --
+                                    </span>
+                                </div>
+                                <span class="text-[11px] text-neutral-400 mt-2 font-mono">
+                                    (Bạch Thủ: <b id="weekly-pred-bt" class="text-yellow-400">--</b> | Song Thủ: <b id="weekly-pred-st" class="text-cyan-300">--</b>)
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Cặp Lót Phụ & Tín Hiệu -->
+                        <div class="w-full pt-3 border-t border-neutral-800 text-center space-y-2">
+                            <div class="text-[11px] text-neutral-400 uppercase font-semibold">Cặp số phụ / lót tiềm năng:</div>
+                            <div id="weekly-pred-secondary-chips" class="flex flex-wrap justify-center gap-1.5">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Khối Chỉ Số Tín Hiệu & Căn Cứ Đề Xuất -->
+                    <div class="bg-neutral-900/90 p-5 rounded-2xl border border-neutral-800 flex flex-col justify-between space-y-4 shadow-xl">
+                        <div>
+                            <span class="text-xs text-neutral-300 uppercase font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-chart-pie text-cyan-400"></i> Chỉ Số Tin Cậy & Điểm Rơi:
+                            </span>
+                            
+                            <div class="grid grid-cols-2 gap-3 mt-3">
+                                <div class="bg-black/70 p-3 rounded-xl border border-neutral-800 text-center">
+                                    <span class="text-[10px] text-neutral-400 uppercase block font-semibold">Độ Ổn Định Đài</span>
+                                    <span id="weekly-pred-stability" class="text-xl font-black text-emerald-400 font-mono mt-0.5 block">--%</span>
+                                    <span id="weekly-pred-stability-sub" class="text-[10px] text-neutral-400">-- tuần nổ</span>
+                                </div>
+                                <div class="bg-black/70 p-3 rounded-xl border border-neutral-800 text-center">
+                                    <span class="text-[10px] text-neutral-400 uppercase block font-semibold">Điểm Tín Hiệu</span>
+                                    <span id="weekly-pred-score" class="text-xl font-black text-yellow-400 font-mono mt-0.5 block">--/100</span>
+                                    <span id="weekly-pred-score-sub" class="text-[10px] text-neutral-400">Hạng A</span>
+                                </div>
+                                <div class="bg-black/70 p-3 rounded-xl border border-neutral-800 text-center">
+                                    <span class="text-[10px] text-neutral-400 uppercase block font-semibold">Trùng Chạm</span>
+                                    <span id="weekly-pred-top-cham" class="text-base font-black text-red-400 font-mono mt-0.5 block">Chạm --</span>
+                                    <span id="weekly-pred-top-cham-sub" class="text-[10px] text-neutral-400">-- lượt nổ</span>
+                                </div>
+                                <div class="bg-black/70 p-3 rounded-xl border border-neutral-800 text-center">
+                                    <span class="text-[10px] text-neutral-400 uppercase block font-semibold">Trùng Tổng</span>
+                                    <span id="weekly-pred-top-sum" class="text-base font-black text-yellow-400 font-mono mt-0.5 block">Tổng --</span>
+                                    <span id="weekly-pred-top-sum-sub" class="text-[10px] text-neutral-400">-- lượt nổ</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-3 border-t border-neutral-800 text-xs">
+                            <span class="text-neutral-400 font-bold block mb-1">
+                                <i class="fa-solid fa-circle-info text-cyan-400 mr-1"></i> Căn cứ thuật toán:
+                            </span>
+                            <p id="weekly-pred-reason" class="text-neutral-300 leading-relaxed text-[11px] bg-black/60 p-2.5 rounded-xl border border-neutral-800/80">
+                                Đang nạp cơ sở phân tích...
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Khối Tra Cứu Dự Đoán Theo Thứ Bất Kỳ (7 Ngày) -->
+                    <div class="bg-neutral-900/90 p-5 rounded-2xl border border-neutral-800 flex flex-col justify-between space-y-4 shadow-xl">
+                        <div>
+                            <span class="text-xs text-neutral-300 uppercase font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-calendar-days text-yellow-400"></i> Xem Kế Hoạch 7 Thứ Trong Tuần:
+                            </span>
+                            <p class="text-xs text-neutral-400 mt-1">Bấm vào bất kỳ Thứ nào để xem ngay cặp số chủ lực và đài tương ứng:</p>
+                            
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mt-3" id="weekly-quick-dow-buttons">
+                                <!-- Populated dynamically: T2, T3, T4, T5, T6, T7, CN -->
+                            </div>
+                        </div>
+
+                        <!-- Card Quán Quân Tuần Mini -->
+                        <div class="bg-gradient-to-r from-red-950/40 via-neutral-900 to-black p-3 rounded-xl border border-red-600/40 text-xs space-y-1">
+                            <div class="flex justify-between items-center">
+                                <span class="text-red-400 font-black uppercase text-[10px] flex items-center gap-1">
+                                    <i class="fa-solid fa-crown text-yellow-400"></i> Quán Quân Tuần
+                                </span>
+                                <span id="weekly-hero-best-dow" class="font-bold text-white text-xs">--</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-neutral-400 text-[11px]">Cặp số ổn định nhất:</span>
+                                <span id="weekly-hero-best-pair" onclick="switchTab('days10'); toggleHighlight(this.innerText.trim())" 
+                                      class="font-mono font-black text-yellow-400 text-sm cursor-pointer hover:underline">--</span>
+                            </div>
+                            <div class="text-[10px] text-neutral-400" id="weekly-hero-best-stat">--% qua -- tuần</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. GIẢI THÍCH CHI TIẾT NGUYÊN LÝ & CƠ CHẾ VẬN HÀNH (ACCORDION / CARDS) -->
+            <div class="bg-neutral-900/95 rounded-2xl p-6 border border-neutral-800 shadow-xl space-y-5">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-neutral-800 pb-4 gap-2">
+                    <div>
+                        <span class="text-xs font-bold text-amber-400 uppercase tracking-widest bg-amber-950/80 border border-amber-700 px-3 py-1 rounded-full flex items-center gap-1.5 inline-flex">
+                            <i class="fa-solid fa-lightbulb"></i> GIẢI THÍCH NGUYÊN LÝ HOẠT ĐỘNG
+                        </span>
+                        <h3 class="text-lg md:text-xl font-black text-white mt-2 flex items-center gap-2">
+                            TẠI SAO CẦU THEO THỨ & TỈNH THÀNH LẠI CÓ TỶ LỆ NỔ CAO?
+                        </h3>
+                        <p class="text-xs text-neutral-400 mt-1">
+                            Giải thích bản chất vật lý, cơ chế luân phiên 6 đài tỉnh của xổ số miền Bắc và phương pháp tính toán của thuật toán bằng ngôn ngữ dễ hiểu.
+                        </p>
+                    </div>
+
+                    <button onclick="toggleWeeklyExplanation()" id="btn-toggle-weekly-exp" 
+                            class="text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold px-3 py-1.5 rounded-xl border border-neutral-700 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-chevron-down" id="icon-toggle-weekly-exp"></i> Thu gọn / Mở rộng
                     </button>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <!-- Khối Ngày & Cặp Số Quán Quân -->
-                    <div class="bg-neutral-900/90 p-5 rounded-xl border border-neutral-800 flex flex-col justify-center items-center text-center">
-                        <span class="text-xs text-neutral-400 uppercase font-semibold">Ngày Về Ổn Định Nhất</span>
-                        <h3 id="weekly-best-dow" class="text-2xl font-black text-white mt-1">--</h3>
-                        <span id="weekly-best-province" class="text-xs text-neutral-400">Đài: --</span>
+                <div id="weekly-explanation-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Khối 1: Bản chất 6 đài tỉnh luân phiên -->
+                    <div class="bg-black/60 p-4 rounded-xl border border-neutral-800 space-y-2">
+                        <div class="flex items-center gap-2 text-cyan-400 font-bold text-sm">
+                            <i class="fa-solid fa-map-location-dot"></i>
+                            <h4>1. Lịch 6 Đài Tỉnh Miền Bắc</h4>
+                        </div>
+                        <p class="text-xs text-neutral-300 leading-relaxed">
+                            XSMB có đặc thù là 7 ngày trong tuần do 6 Công ty XSKT của các tỉnh/thành phố khác nhau chịu trách nhiệm mở thưởng độc lập:
+                        </p>
+                        <ul class="text-[11px] text-neutral-400 space-y-1 font-mono pt-1">
+                            <li>• Thứ 2: <b class="text-yellow-400">Hà Nội</b> (Thủ Đô)</li>
+                            <li>• Thứ 3: <b class="text-yellow-400">Quảng Ninh</b></li>
+                            <li>• Thứ 4: <b class="text-yellow-400">Bắc Ninh</b></li>
+                            <li>• Thứ 5: <b class="text-yellow-400">Hà Nội</b> (Thủ Đô)</li>
+                            <li>• Thứ 6: <b class="text-yellow-400">Hải Phòng</b></li>
+                            <li>• Thứ 7: <b class="text-yellow-400">Nam Định</b></li>
+                            <li>• Chủ Nhật: <b class="text-yellow-400">Thái Bình</b></li>
+                        </ul>
+                    </div>
 
-                        <div class="mt-3 flex flex-col items-center">
-                            <span class="text-[11px] text-neutral-400 uppercase">Cặp số chủ lực:</span>
-                            <span id="weekly-best-pair" onclick="switchTab('days10'); toggleHighlight(this.innerText.trim())" class="mt-1 text-4xl font-black font-mono text-yellow-400 bg-black px-6 py-1.5 rounded-xl border-2 border-yellow-500/50 cursor-pointer hover:scale-105 transition shadow-lg" title="Bấm để xem highlight trên bảng KQXS">
-                                --
+                    <!-- Khối 2: Nguyên lý cơ học lồng cầu -->
+                    <div class="bg-black/60 p-4 rounded-xl border border-neutral-800 space-y-2">
+                        <div class="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                            <i class="fa-solid fa-gears"></i>
+                            <h4>2. Cơ Chế Lồng Quay Cơ Học</h4>
+                        </div>
+                        <p class="text-xs text-neutral-300 leading-relaxed">
+                            Mỗi công ty xổ số sở hữu bộ lồng quay cơ học riêng biệt, quả bóng số riêng và quy trình vận hành độc lập.
+                        </p>
+                        <p class="text-xs text-neutral-400 leading-relaxed">
+                            Theo quy luật số lớn của xác suất thống kê, lực ly tâm, độ ma sát và chu kỳ cơ học tạo nên các <b class="text-white">"điểm rơi"</b> con số có tính lặp lại đặc thù riêng cho từng đài tỉnh đó, vượt trội hơn so với việc phân tích ngẫu nhiên không phân biệt đài.
+                        </p>
+                    </div>
+
+                    <!-- Khối 3: Thuật toán quét và sàng lọc -->
+                    <div class="bg-black/60 p-4 rounded-xl border border-neutral-800 space-y-2">
+                        <div class="flex items-center gap-2 text-amber-400 font-bold text-sm">
+                            <i class="fa-solid fa-filter-circle-dollar"></i>
+                            <h4>3. Cách Thuật Toán Tính Toán</h4>
+                        </div>
+                        <p class="text-xs text-neutral-300 leading-relaxed">
+                            Thuật toán vận hành qua 4 bước tự động hóa:
+                        </p>
+                        <ol class="text-[11px] text-neutral-400 space-y-1 leading-normal list-decimal list-inside pt-1">
+                            <li>Gom nhóm dữ liệu lịch sử theo từng Thứ và đài.</li>
+                            <li>Quét tần suất 100 cặp số trong tối thiểu 8 tuần gần nhất để chọn cặp nổ nhiều nhất.</li>
+                            <li>Đo lường Chạm và Tổng modulo 10 chiếm ưu thế của Thứ đó để xác nhận hội tụ.</li>
+                            <li>Kiểm tra chuỗi bệt thông tuần để ưu tiên số đang có xung lượng rơi mạnh.</li>
+                        </ol>
+                    </div>
+
+                    <!-- Khối 4: Ví dụ thực tế & Lưu ý -->
+                    <div class="bg-black/60 p-4 rounded-xl border border-neutral-800 space-y-2">
+                        <div class="flex items-center gap-2 text-pink-400 font-bold text-sm">
+                            <i class="fa-solid fa-clipboard-check"></i>
+                            <h4>4. Ví Dụ & Lời Khuyên</h4>
+                        </div>
+                        <p class="text-xs text-neutral-300 leading-relaxed">
+                            <b>Ví dụ thực tế:</b> Thứ 2 (Hà Nội) nổ cặp 48 (kỳ 05/10); Thứ 6 (Hải Phòng) nổ cặp 99 (kỳ 02/10); Thứ 4 (Bắc Ninh) nổ 42 trúng Đề (kỳ 30/09).
+                        </p>
+                        <p class="text-xs text-neutral-400 leading-relaxed">
+                            <b class="text-yellow-400">Lời khuyên:</b> Ưu tiên theo các Thứ có độ ổn định trên 60% và có trùng Chạm/Tổng. Đánh cặp chủ lực làm Bạch thủ và lót thêm cặp lộn hoặc số phụ tiềm năng.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. PHÂN TÍCH TOÀN BỘ 7 NGÀY TRONG TUẦN & TỪNG ĐÀI TỈNH (GRID) -->
+            <div class="space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                        <h3 class="text-lg font-black text-white flex items-center gap-2">
+                            <i class="fa-solid fa-table-columns text-yellow-400"></i> BẢNG THEO DÕI & ĐÁNH GIÁ CẦU 7 NGÀY TRONG TUẦN
+                        </h3>
+                        <p class="text-xs text-neutral-400">Chi tiết cặp số chủ lực, độ ổn định, nhịp bệt và cặp phụ của từng đài tỉnh từ Thứ 2 đến Chủ Nhật.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="weekly-days-grid">
+                    <!-- Populated dynamically via JS: 7 cards -->
+                </div>
+            </div>
+
+            <!-- 4. BẢNG THỐNG KÊ LỊCH SỬ ĐỐI CHIẾU CHI TIẾT (EXACTLY AS USER SCREENSHOT) -->
+            <div class="bg-neutral-900 rounded-2xl p-6 border border-neutral-800 shadow-2xl space-y-5">
+                <!-- Header: Thuật toán & Chu kỳ selector (y hệt ảnh user) -->
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-neutral-800 pb-4">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <span class="text-xs font-bold text-yellow-400 uppercase tracking-wide flex items-center gap-1.5">
+                            <i class="fa-solid fa-gear text-yellow-400"></i> THUẬT TOÁN:
+                        </span>
+                        <div class="px-3.5 py-1.5 bg-black rounded-lg border border-yellow-500/60 text-xs font-bold text-yellow-300 flex items-center gap-2 shadow">
+                            <i class="fa-solid fa-building-columns text-yellow-400"></i>
+                            <span>Cầu Theo Thứ &amp; Tỉnh Thành</span>
+                        </div>
+                    </div>
+
+                    <!-- Chu kỳ selector pills (y hệt ảnh user) -->
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="text-xs text-neutral-400 font-semibold mr-1">Chu kỳ:</span>
+                        <button onclick="changeWeeklyHistoryCycle(7)" id="w-hist-p-7" class="w-hist-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-yellow-400 hover:text-yellow-400 transition">
+                            7 Kỳ
+                        </button>
+                        <button onclick="changeWeeklyHistoryCycle(14)" id="w-hist-p-14" class="w-hist-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-yellow-400 hover:text-yellow-400 transition">
+                            14 Kỳ
+                        </button>
+                        <button onclick="changeWeeklyHistoryCycle(30)" id="w-hist-p-30" class="w-hist-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-yellow-400 hover:text-yellow-400 transition">
+                            30 Kỳ
+                        </button>
+                        <button onclick="changeWeeklyHistoryCycle(60)" id="w-hist-p-60" class="w-hist-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-yellow-400 text-black border border-yellow-300 shadow transition">
+                            60 Kỳ
+                        </button>
+                        <button onclick="changeWeeklyHistoryCycle('all')" id="w-hist-p-all" class="w-hist-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-yellow-400 hover:text-yellow-400 transition">
+                            Toàn Bộ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4 KPI Performance Cards (y hệt ảnh user) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- KPI 1: Tỷ Lệ Nổ Trúng -->
+                    <div class="bg-black/70 border border-neutral-800 rounded-xl p-4 space-y-2">
+                        <div class="flex justify-between items-start">
+                            <span class="text-[11px] text-neutral-400 uppercase font-semibold">TỶ LỆ NỔ TRÚNG</span>
+                            <span class="w-7 h-7 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-800 flex items-center justify-center text-xs font-bold">
+                                <i class="fa-solid fa-bullseye"></i>
                             </span>
                         </div>
-                    </div>
-
-                    <!-- Khối Tỷ Lệ & Sự Trùng Hợp Các Cầu -->
-                    <div class="bg-neutral-900/90 p-5 rounded-xl border border-neutral-800 md:col-span-2 space-y-3">
-                        <div class="flex flex-wrap justify-between items-center gap-2 border-b border-neutral-800 pb-2">
-                            <div>
-                                <span class="text-xs text-neutral-400">Độ ổn định theo tuần:</span>
-                                <span id="weekly-best-stat" class="text-base font-bold text-emerald-400 ml-2">--</span>
-                            </div>
-                            <div>
-                                <span class="text-xs text-neutral-400">Tổng số nháy:</span>
-                                <span id="weekly-best-hits" class="text-base font-bold text-yellow-400 ml-2">--</span>
-                            </div>
+                        <div class="flex items-baseline gap-2">
+                            <span id="weekly-kpi-winrate" class="text-3xl font-black font-mono text-emerald-400">73.3%</span>
+                            <span id="weekly-kpi-winrate-detail" class="text-xs text-neutral-400">44/60 kỳ phát tín hiệu</span>
                         </div>
-
-                        <div>
-                            <span class="text-xs font-semibold text-neutral-300 block mb-1.5">Sự trùng hợp & hội tụ các cầu:</span>
-                            <div id="weekly-best-concurrence" class="flex flex-wrap gap-2">
-                                <!-- JS Populated badges -->
-                            </div>
-                        </div>
-
-                        <div class="pt-2 border-t border-neutral-800">
-                            <span class="text-xs text-neutral-400 block mb-1">Chuỗi tuần gần nhất:</span>
-                            <div id="weekly-best-history" class="flex flex-wrap gap-1.5">
-                                <!-- JS Populated -->
-                            </div>
+                        <div class="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
+                            <div id="weekly-kpi-winrate-bar" class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: 73.3%"></div>
                         </div>
                     </div>
-                </div>
 
-                <div class="bg-neutral-900/90 p-4 rounded-xl border border-neutral-800">
-                    <p id="weekly-summary-text" class="text-sm text-neutral-200 leading-relaxed font-sans">
-                        Đang phân tích dữ liệu 7 ngày trong tuần...
-                    </p>
-                </div>
-            </div>
-
-
-
-            <!-- Bảng So Sánh Chi Tiết 7 Ngày Trong Tuần (Thứ 2 -> Chủ Nhật) -->
-            <div class="space-y-3">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-table-columns text-red-500"></i> BẢNG THEO DÕI & ĐÁNH GIÁ CẦU 7 NGÀY TRONG TUẦN
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="weekly-days-grid">
-                    <!-- JS Populated 7 cards -->
-                </div>
-            </div>
-
-            <!-- BẢNG THỐNG KÊ LỊCH SỬ CẦU THEO THỨ (60 KỲ GẦN NHẤT) -->
-            <div class="bg-black/90 rounded-2xl p-5 border border-cyan-500/30 shadow-2xl space-y-4">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-neutral-800 pb-3 gap-2">
-                    <div>
-                        <span class="text-xs font-bold text-cyan-400 uppercase tracking-widest bg-cyan-950/80 border border-cyan-700 px-3 py-1 rounded-full">
-                            <i class="fa-solid fa-clock-rotate-left mr-1"></i> LỊCH SỬ ĐỐI CHIẾU CẦU THEO THỨ
-                        </span>
-                        <h3 class="text-lg font-black text-white mt-2">BẢNG THỐNG KÊ CHI TIẾT CÁC NGÀY ĐÃ XẢY RA (60 KỲ GẦN NHẤT)</h3>
-                        <p class="text-xs text-neutral-400 mt-1">Đối chiếu kết quả thực tế từng ngày với cặp số chủ lực được quy định theo Thứ tương ứng.</p>
+                    <!-- KPI 2: Tổng Số Nháy Ăn -->
+                    <div class="bg-black/70 border border-neutral-800 rounded-xl p-4 space-y-2">
+                        <div class="flex justify-between items-start">
+                            <span class="text-[11px] text-neutral-400 uppercase font-semibold">TỔNG SỐ NHÁY ĂN</span>
+                            <span class="w-7 h-7 rounded-lg bg-yellow-950 text-yellow-400 border border-yellow-800 flex items-center justify-center text-xs font-bold">
+                                <i class="fa-solid fa-bolt"></i>
+                            </span>
+                        </div>
+                        <div class="flex items-baseline gap-2">
+                            <span id="weekly-kpi-hits" class="text-3xl font-black font-mono text-yellow-400">51</span>
+                            <span id="weekly-kpi-hits-detail" class="text-xs text-neutral-400">TB 1.16 nháy/kỳ trúng</span>
+                        </div>
+                        <div class="text-[10px] text-neutral-500">Hiệu suất ăn loto vượt trội</div>
                     </div>
 
-                    <!-- DOW Filter Pills -->
-                    <div class="flex flex-wrap gap-1.5" id="weekly-filter-pills">
-                        <button onclick="filterWeeklyOccurrences('all')" id="w-filter-all" class="px-3 py-1 rounded-lg text-xs font-bold bg-cyan-600 text-white transition shadow">Tất Cả</button>
-                        <button onclick="filterWeeklyOccurrences('Thứ 2')" id="w-filter-T2" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 text-neutral-300 hover:text-white transition">Thứ 2</button>
-                        <button onclick="filterWeeklyOccurrences('Thứ 3')" id="w-filter-T3" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 text-neutral-300 hover:text-white transition">Thứ 3</button>
-                        <button onclick="filterWeeklyOccurrences('Thứ 4')" id="w-filter-T4" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 text-neutral-300 hover:text-white transition">Thứ 4</button>
-                        <button onclick="filterWeeklyOccurrences('Thứ 5')" id="w-filter-T5" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 text-neutral-300 hover:text-white transition">Thứ 5</button>
-                        <button onclick="filterWeeklyOccurrences('Thứ 6')" id="w-filter-T6" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 text-neutral-300 hover:text-white transition">Thứ 6</button>
-                        <button onclick="filterWeeklyOccurrences('Thứ 7')" id="w-filter-T7" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 text-neutral-300 hover:text-white transition">Thứ 7</button>
-                        <button onclick="filterWeeklyOccurrences('Chủ Nhật')" id="w-filter-CN" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 text-neutral-300 hover:text-white transition">Chủ Nhật</button>
+                    <!-- KPI 3: Trúng Giải ĐB (Đề) -->
+                    <div class="bg-black/70 border border-neutral-800 rounded-xl p-4 space-y-2">
+                        <div class="flex justify-between items-start">
+                            <span class="text-[11px] text-neutral-400 uppercase font-semibold">TRÚNG GIẢI ĐB (ĐỀ)</span>
+                            <span class="w-7 h-7 rounded-lg bg-red-950 text-red-400 border border-red-800 flex items-center justify-center text-xs font-bold">
+                                <i class="fa-solid fa-trophy"></i>
+                            </span>
+                        </div>
+                        <div class="flex items-baseline gap-2">
+                            <span id="weekly-kpi-de" class="text-3xl font-black font-mono text-red-500">5</span>
+                            <span id="weekly-kpi-de-detail" class="text-xs text-neutral-400">lần trúng 2 số cuối ĐB</span>
+                        </div>
+                        <div class="text-[10px] text-neutral-500">Trúng trực tiếp giải Đặc Biệt</div>
                     </div>
-                </div>
 
-                <!-- 4 KPI badges for weekly -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div class="bg-neutral-900/90 border border-neutral-800 p-3 rounded-xl">
-                        <span class="text-[10px] text-neutral-400 font-bold uppercase block">TỶ LỆ NỔ THEO THỨ</span>
-                        <span id="weekly-kpi-winrate" class="text-xl font-black text-cyan-400 font-mono">--%</span>
-                    </div>
-                    <div class="bg-neutral-900/90 border border-neutral-800 p-3 rounded-xl">
-                        <span class="text-[10px] text-neutral-400 font-bold uppercase block">TỔNG SỐ NHÁY VỀ</span>
-                        <span id="weekly-kpi-hits" class="text-xl font-black text-yellow-400 font-mono">-- nháy</span>
-                    </div>
-                    <div class="bg-neutral-900/90 border border-neutral-800 p-3 rounded-xl">
-                        <span class="text-[10px] text-neutral-400 font-bold uppercase block">SỐ KỲ ĂN ĐỀ</span>
-                        <span id="weekly-kpi-de" class="text-xl font-black text-purple-400 font-mono">-- lần</span>
-                    </div>
-                    <div class="bg-neutral-900/90 border border-neutral-800 p-3 rounded-xl">
-                        <span class="text-[10px] text-neutral-400 font-bold uppercase block">TỔNG SỐ KỲ ĐỐI CHIẾU</span>
-                        <span id="weekly-kpi-total" class="text-xl font-black text-white font-mono">-- kỳ</span>
+                    <!-- KPI 4: Ăn Thông Dài Nhất -->
+                    <div class="bg-black/70 border border-neutral-800 rounded-xl p-4 space-y-2">
+                        <div class="flex justify-between items-start">
+                            <span class="text-[11px] text-neutral-400 uppercase font-semibold">ĂN THÔNG DÀI NHẤT</span>
+                            <span class="w-7 h-7 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-800 flex items-center justify-center text-xs font-bold">
+                                <i class="fa-solid fa-fire"></i>
+                            </span>
+                        </div>
+                        <div class="flex items-baseline gap-2">
+                            <span id="weekly-kpi-streak" class="text-3xl font-black font-mono text-cyan-400">3</span>
+                            <span id="weekly-kpi-streak-detail" class="text-xs text-neutral-400">kỳ liên tiếp (Hiện tại: Ăn 1 kỳ)</span>
+                        </div>
+                        <div class="text-[10px] text-neutral-500">Chuỗi nổ thông liên tục</div>
                     </div>
                 </div>
 
-                <!-- Table -->
-                <div class="overflow-x-auto max-h-[500px] overflow-y-auto border border-neutral-800 rounded-xl">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead class="sticky top-0 bg-neutral-950 z-10 border-b border-neutral-800">
-                            <tr class="text-neutral-400 uppercase">
-                                <th class="py-2.5 px-3">Ngày Mở Thưởng</th>
-                                <th class="py-2.5 px-3">Thứ & Tỉnh</th>
-                                <th class="py-2.5 px-3 text-center">Cặp Số Chủ Lực</th>
-                                <th class="py-2.5 px-3 text-center">Giải Đặc Biệt</th>
-                                <th class="py-2.5 px-3 text-center">Tình Trạng</th>
-                                <th class="py-2.5 px-3 text-center">Số Nháy</th>
-                                <th class="py-2.5 px-3 text-center">Xem KQXS</th>
+                <!-- Bộ lọc trạng thái bảng (y hệt ảnh user) -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-2">
+                    <div class="flex flex-wrap items-center gap-1.5 bg-black/80 p-1.5 rounded-xl border border-neutral-800 text-xs">
+                        <button onclick="filterWeeklyHistoryStatus('all')" id="btn-filter-whist-all" 
+                                class="px-3 py-1.5 rounded-lg font-bold bg-neutral-800 text-white transition">
+                            Tất Cả (<span id="count-whist-all">60</span>)
+                        </button>
+                        <button onclick="filterWeeklyHistoryStatus('win')" id="btn-filter-whist-win" 
+                                class="px-3 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-emerald-400 transition">
+                            Trúng (<span id="count-whist-win">44</span>)
+                        </button>
+                        <button onclick="filterWeeklyHistoryStatus('de')" id="btn-filter-whist-de" 
+                                class="px-3 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-yellow-400 transition">
+                            Trúng Đề (<span id="count-whist-de">5</span>)
+                        </button>
+                        <button onclick="filterWeeklyHistoryStatus('lose')" id="btn-filter-whist-lose" 
+                                class="px-3 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-red-400 transition">
+                            Trượt (<span id="count-whist-lose">16</span>)
+                        </button>
+                        <button onclick="filterWeeklyHistoryStatus('pending')" id="btn-filter-whist-pending" 
+                                class="px-3 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-cyan-400 transition">
+                            Chờ Quay (<span id="count-whist-pending">0</span>)
+                        </button>
+                    </div>
+
+                    <div id="weekly-hist-status-msg" class="text-xs text-neutral-400 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                        <span>Đã đối chiếu xong (60 kỳ)</span>
+                    </div>
+                </div>
+
+                <!-- Bộ lọc theo Thứ trong tuần (DOW Sub-filter) -->
+                <div class="flex flex-wrap items-center gap-1.5 bg-black/50 p-2 rounded-xl border border-neutral-800/80 text-xs">
+                    <span class="text-neutral-400 font-bold text-[11px] mr-1 flex items-center gap-1">
+                        <i class="fa-solid fa-filter text-yellow-400"></i> Lọc Theo Thứ:
+                    </span>
+                    <button onclick="filterWeeklyHistoryDow('all')" id="btn-dow-filter-all" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-yellow-400 text-black shadow transition">Tất Cả</button>
+                    <button onclick="filterWeeklyHistoryDow('Thứ 2')" id="btn-dow-filter-T2" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-900 text-neutral-300 hover:text-white transition">Thứ 2 (Hà Nội)</button>
+                    <button onclick="filterWeeklyHistoryDow('Thứ 3')" id="btn-dow-filter-T3" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-900 text-neutral-300 hover:text-white transition">Thứ 3 (Quảng Ninh)</button>
+                    <button onclick="filterWeeklyHistoryDow('Thứ 4')" id="btn-dow-filter-T4" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-900 text-neutral-300 hover:text-white transition">Thứ 4 (Bắc Ninh)</button>
+                    <button onclick="filterWeeklyHistoryDow('Thứ 5')" id="btn-dow-filter-T5" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-900 text-neutral-300 hover:text-white transition">Thứ 5 (Hà Nội)</button>
+                    <button onclick="filterWeeklyHistoryDow('Thứ 6')" id="btn-dow-filter-T6" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-900 text-neutral-300 hover:text-white transition">Thứ 6 (Hải Phòng)</button>
+                    <button onclick="filterWeeklyHistoryDow('Thứ 7')" id="btn-dow-filter-T7" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-900 text-neutral-300 hover:text-white transition">Thứ 7 (Nam Định)</button>
+                    <button onclick="filterWeeklyHistoryDow('Chủ Nhật')" id="btn-dow-filter-CN" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-900 text-neutral-300 hover:text-white transition">Chủ Nhật (Thái Bình)</button>
+                </div>
+
+                <!-- Bảng Dữ Liệu Lịch Sử Đối Chiếu (y hệt ảnh user) -->
+                <div class="overflow-x-auto rounded-xl border border-neutral-800">
+                    <table class="w-full text-left text-xs text-neutral-300">
+                        <thead class="bg-black/90 text-neutral-400 uppercase font-semibold border-b border-neutral-800">
+                            <tr>
+                                <th class="p-3 whitespace-nowrap">KỲ MỞ THƯỞNG (NGÀY)</th>
+                                <th class="p-3 whitespace-nowrap">THUẬT TOÁN SOI CẦU</th>
+                                <th class="p-3 text-center whitespace-nowrap">CẶP SỐ DỰ ĐOÁN</th>
+                                <th class="p-3 text-center whitespace-nowrap">KẾT QUẢ MỞ THƯỞNG</th>
+                                <th class="p-3 text-center whitespace-nowrap">TÌNH TRẠNG</th>
+                                <th class="p-3 text-center whitespace-nowrap">SỐ NHÁY VỀ</th>
+                                <th class="p-3 text-right whitespace-nowrap">XEM KQXS</th>
                             </tr>
                         </thead>
-                        <tbody id="weekly-history-tbody" class="divide-y divide-neutral-900">
-                            <!-- Populated by JS -->
+                        <tbody id="weeklyHistoryTableBody" class="divide-y divide-neutral-800 font-mono">
+                            <!-- Populated dynamically via JS -->
                         </tbody>
                     </table>
                 </div>
             </div>
+
         </section>
 
         <!-- Section 0: Short-Term Analyzer Engine -->

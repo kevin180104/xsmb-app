@@ -59,7 +59,13 @@ def api_quick_check():
 @app.route('/api/weekly-analysis')
 def api_weekly_analysis():
     """Phân tích chu kỳ cầu ổn định theo các Thứ trong tuần"""
-    data = analyzer.analyze_weekly_bridges()
+    limit = request.args.get('limit', '60')
+    if limit != 'all':
+        try:
+            limit = int(limit)
+        except ValueError:
+            limit = 60
+    data = analyzer.analyze_weekly_bridges(limit=limit)
     return jsonify(data)
 
 @app.route('/api/stats')

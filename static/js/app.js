@@ -2072,200 +2072,483 @@
             }
         }
 
-        async function loadWeeklyAnalysis() {
-            try {
-                const res = await fetch('/api/weekly-analysis');
-                const data = await res.json();
-                if (data.status !== 'SUCCESS') return;
+        // =========================================================================
+        // JAVASCRIPT CHO TAB CHUYÊN BIỆT: CẦU THEO THỨ & TỈNH THÀNH (ĐÀI XSMB)
+        // =========================================================================
+        let currentWeeklyDaysCycle = '60';
+        let currentWeeklyStatusFilter = 'all';
+        let currentWeeklyDowFilter = 'all';
+        let weeklyAnalysisData = null;
+        let weeklyOccurrencesList = [];
+        let weeklySelectedPreviewDow = null;
 
-                const best = data.best_day;
-                document.getElementById('weekly-best-dow').innerText = best.dow;
-                document.getElementById('weekly-best-province').innerText = `Đài: ${best.province}`;
-                document.getElementById('weekly-best-pair').innerText = best.top_pair;
-                document.getElementById('weekly-best-stat').innerText = `${best.stability_pct}% (${best.top_weeks_count}/${best.total_weeks} tuần)`;
-                document.getElementById('weekly-best-hits').innerText = `${best.top_total_hits} nháy`;
-                document.getElementById('weekly-summary-text').innerHTML = `<b>${data.summary}</b>`;
-
-                const concContainer = document.getElementById('weekly-best-concurrence');
-                concContainer.innerHTML = (best.concurrence || []).map(c => `
-                    <span class="px-2.5 py-1 rounded bg-red-950/80 border border-red-800 text-red-300 font-medium text-xs">
-                        <i class="fa-solid fa-check mr-1 text-red-400"></i>${c}
-                    </span>
-                `).join('') || '<span class="text-neutral-500 text-xs italic">Cầu độc lập</span>';
-
-                const histContainer = document.getElementById('weekly-best-history');
-                histContainer.innerHTML = (best.history || []).map(h => `
-                    <span class="px-2 py-0.5 rounded text-xs font-mono font-bold ${h.status === 'V' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-neutral-800 text-neutral-400 border border-neutral-700'}" title="${h.date}">
-                        ${h.status}${h.hits > 1 ? `(${h.hits})` : ''}
-                    </span>
-                `).join('');
-
-                const daysGrid = document.getElementById('weekly-days-grid');
-                daysGrid.innerHTML = data.days_analysis.map(day => {
-                    const isBest = day.dow === best.dow;
-                    return `
-                        <div class="bg-neutral-900 rounded-xl p-4 border ${isBest ? 'border-red-600 shadow-lg shadow-red-950/50' : 'border-neutral-800'} space-y-3 flex flex-col justify-between">
-                            <div>
-                                <div class="flex justify-between items-center border-b border-neutral-800 pb-2 mb-2">
-                                    <div>
-                                        <h4 class="font-bold text-sm text-white">${day.dow}</h4>
-                                        <span class="text-[11px] text-neutral-400">${day.province} (${day.total_weeks} tuần)</span>
-                                    </div>
-                                    ${isBest ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-700 text-white uppercase">Quán Quân</span>' : ''}
-                                </div>
-
-                                <div class="flex justify-between items-center py-2 bg-black/60 rounded-lg px-3 border border-neutral-800">
-                                    <div>
-                                        <span class="bridge-info-trigger text-[10px] text-neutral-400 uppercase block cursor-pointer hover:text-yellow-400"
-                                              onmouseenter="showBridgeTooltip(event, 'cau_thu')" 
-                                              onmouseleave="hideBridgeTooltip()" 
-                                              onclick="openBridgeModal('cau_thu')">
-                                            Cặp Ổn Định Nhất <i class="fa-solid fa-circle-question text-[9px]"></i>
-                                        </span>
-                                        <span onclick="switchTab('days10'); toggleHighlight('${day.top_pair}')" class="text-2xl font-black font-mono text-yellow-400 cursor-pointer hover:scale-110 transition inline-block">
-                                            ${day.top_pair}
-                                        </span>
-                                    </div>
-                                    <div class="text-right">
-                                        <span class="text-xs font-bold text-emerald-400 block">${day.stability_pct}%</span>
-                                        <span class="text-[11px] text-neutral-400">${day.top_weeks_count}/${day.total_weeks} tuần (${day.top_total_hits} nháy)</span>
-                                    </div>
-                                </div>
-
-                                <div class="space-y-1.5 mt-3 text-xs">
-                                    <div class="flex justify-between text-neutral-300">
-                                        <span class="bridge-info-trigger text-neutral-400 cursor-pointer hover:text-yellow-400"
-                                              onmouseenter="showBridgeTooltip(event, 'cau_cham_tuan')" 
-                                              onmouseleave="hideBridgeTooltip()" 
-                                              onclick="openBridgeModal('cau_cham_tuan')">
-                                            Trùng Chạm <i class="fa-solid fa-circle-question text-[10px]"></i>:
-                                        </span>
-                                        <span class="font-mono font-bold text-red-400">Chạm ${day.top_cham} (${day.top_cham_hits} lượt)</span>
-                                    </div>
-                                    <div class="flex justify-between text-neutral-300">
-                                        <span class="bridge-info-trigger text-neutral-400 cursor-pointer hover:text-yellow-400"
-                                              onmouseenter="showBridgeTooltip(event, 'cau_tong_tuan')" 
-                                              onmouseleave="hideBridgeTooltip()" 
-                                              onclick="openBridgeModal('cau_tong_tuan')">
-                                            Trùng Tổng <i class="fa-solid fa-circle-question text-[10px]"></i>:
-                                        </span>
-                                        <span class="font-mono font-bold text-yellow-400">Tổng ${day.top_sum} (${day.top_sum_hits} lượt)</span>
-                                    </div>
-                                    ${day.recent_streak >= 2 ? `
-                                        <div class="bridge-info-trigger text-emerald-400 text-[11px] font-bold cursor-pointer hover:underline flex items-center gap-1"
-                                             onmouseenter="showBridgeTooltip(event, 'cau_bet_tuan')" 
-                                             onmouseleave="hideBridgeTooltip()" 
-                                             onclick="openBridgeModal('cau_bet_tuan')">
-                                            🔥 Đang thông ${day.recent_streak} tuần liên tiếp <i class="fa-solid fa-circle-question text-[10px]"></i>
-                                        </div>` : ''}
-                                </div>
-                            </div>
-
-                            <div class="pt-2 border-t border-neutral-800/80">
-                                <span class="text-[10px] text-neutral-400 block mb-1">Cặp số phụ tiềm năng:</span>
-                                <div class="flex flex-wrap gap-1">
-                                    ${day.secondary_pairs.map(p => `
-                                        <span onclick="switchTab('days10'); toggleHighlight('${p.pair}')" class="px-1.5 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-200 font-mono text-xs font-bold cursor-pointer hover:bg-yellow-400 hover:text-black transition">
-                                            ${p.pair} (${p.weeks}t)
-                                        </span>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-
-                // Render Weekly Occurrences Table & KPIs
-                if (data.weekly_stats) {
-                    const ws = data.weekly_stats;
-                    const wkWinrate = document.getElementById('weekly-kpi-winrate');
-                    if (wkWinrate) wkWinrate.innerText = `${ws.win_rate || 0}%`;
-                    const wkHits = document.getElementById('weekly-kpi-hits');
-                    if (wkHits) wkHits.innerText = `${ws.total_hits || 0} nháy`;
-                    const wkDe = document.getElementById('weekly-kpi-de');
-                    if (wkDe) wkDe.innerText = `${ws.de_hits || 0} lần`;
-                    const wkTotal = document.getElementById('weekly-kpi-total');
-                    if (wkTotal) wkTotal.innerText = `${ws.total_tested || 0} kỳ`;
-                }
-
-                currentWeeklyOccurrences = data.weekly_history || [];
-                renderWeeklyOccurrencesTable(currentWeeklyOccurrences);
-
-            } catch(e) {
-                console.error("Lỗi khi nạp dữ liệu phân tích tuần:", e);
+        function toggleWeeklyExplanation() {
+            const expEl = document.getElementById('weekly-explanation-content');
+            const icon = document.getElementById('icon-toggle-weekly-exp');
+            if (!expEl) return;
+            if (expEl.classList.contains('hidden')) {
+                expEl.classList.remove('hidden');
+                if (icon) icon.className = 'fa-solid fa-chevron-up text-xs text-yellow-400';
+            } else {
+                expEl.classList.add('hidden');
+                if (icon) icon.className = 'fa-solid fa-chevron-down text-xs text-yellow-400';
             }
         }
 
-        let currentWeeklyOccurrences = [];
-        let currentWeeklyFilter = 'all';
+        function changeWeeklyHistoryCycle(cycle) {
+            currentWeeklyDaysCycle = String(cycle);
+            ['7', '14', '30', '60', 'all'].forEach(c => {
+                const btn = document.getElementById('w-hist-p-' + c);
+                if (btn) {
+                    if (String(c) === String(cycle)) {
+                        btn.className = 'w-hist-pill px-3 py-1.5 rounded-lg text-xs font-black bg-yellow-400 text-black border border-yellow-300 shadow-md shadow-yellow-500/30 transition';
+                    } else {
+                        btn.className = 'w-hist-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-900 border border-neutral-700 text-neutral-300 hover:border-yellow-400 hover:text-yellow-400 transition';
+                    }
+                }
+            });
+            loadWeeklyAnalysis(false);
+        }
 
-        function filterWeeklyOccurrences(dow) {
-            currentWeeklyFilter = dow;
+        function filterWeeklyHistoryStatus(status) {
+            currentWeeklyStatusFilter = status;
+            ['all', 'win', 'de', 'lose', 'pending'].forEach(s => {
+                const btn = document.getElementById('btn-filter-whist-' + s);
+                if (btn) {
+                    if (s === status) {
+                        btn.className = 'px-3 py-1.5 rounded-lg font-black bg-neutral-800 text-yellow-400 border border-neutral-600 transition shadow';
+                    } else {
+                        let textCol = 'text-neutral-400';
+                        if (s === 'win') textCol += ' hover:text-emerald-400';
+                        else if (s === 'de') textCol += ' hover:text-yellow-400';
+                        else if (s === 'lose') textCol += ' hover:text-red-400';
+                        else if (s === 'pending') textCol += ' hover:text-cyan-400';
+                        btn.className = `px-3 py-1.5 rounded-lg font-semibold ${textCol} transition`;
+                    }
+                }
+            });
+            renderWeeklyHistoryRows();
+        }
+
+        function filterWeeklyHistoryDow(dow) {
+            currentWeeklyDowFilter = dow;
             const dows = ['all', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
             const mapId = {'all': 'all', 'Thứ 2': 'T2', 'Thứ 3': 'T3', 'Thứ 4': 'T4', 'Thứ 5': 'T5', 'Thứ 6': 'T6', 'Thứ 7': 'T7', 'Chủ Nhật': 'CN'};
             dows.forEach(d => {
-                const btn = document.getElementById('w-filter-' + mapId[d]);
+                const btn = document.getElementById('btn-dow-filter-' + mapId[d]);
                 if (btn) {
                     if (d === dow) {
-                        btn.className = 'px-3 py-1 rounded-lg text-xs font-bold bg-cyan-600 text-white transition shadow';
+                        btn.className = 'px-2.5 py-1 rounded-lg text-xs font-black bg-yellow-400 text-black shadow transition';
                     } else {
-                        btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 text-neutral-300 hover:text-white transition';
+                        btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-900 text-neutral-300 hover:text-white transition';
+                    }
+                }
+            });
+            renderWeeklyHistoryRows();
+        }
+
+        function selectWeeklyPreviewDow(dow) {
+            if (!weeklyAnalysisData || !weeklyAnalysisData.days_analysis) return;
+            weeklySelectedPreviewDow = dow;
+            
+            const dows = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
+            const mapId = {'Thứ 2': 'T2', 'Thứ 3': 'T3', 'Thứ 4': 'T4', 'Thứ 5': 'T5', 'Thứ 6': 'T6', 'Thứ 7': 'T7', 'Chủ Nhật': 'CN'};
+            dows.forEach(d => {
+                const btn = document.getElementById('btn-wpred-' + mapId[d]);
+                if (btn) {
+                    if (d === dow) {
+                        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-black bg-yellow-400 text-neutral-950 shadow-md shadow-yellow-500/30 scale-105 transition';
+                    } else {
+                        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-neutral-800 text-neutral-300 hover:text-white hover:bg-neutral-700 transition';
                     }
                 }
             });
 
-            let filtered = currentWeeklyOccurrences;
-            if (dow !== 'all') {
-                filtered = currentWeeklyOccurrences.filter(x => x.day_of_week && x.day_of_week.includes(dow));
-            }
-            renderWeeklyOccurrencesTable(filtered);
+            const dayItem = weeklyAnalysisData.days_analysis.find(d => d.dow === dow);
+            if (!dayItem) return;
+            const isOfficial = weeklyAnalysisData.next_prediction && weeklyAnalysisData.next_prediction.dow === dow;
+            renderWeeklyPredictionHero(dayItem, isOfficial);
         }
 
-        function renderWeeklyOccurrencesTable(list) {
-            const tbody = document.getElementById('weekly-history-tbody');
+        async function loadWeeklyAnalysis(forceReload = false) {
+            const statusMsg = document.getElementById('weekly-hist-status-msg');
+            if (statusMsg) {
+                statusMsg.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-yellow-400"></i> Đang tính toán dữ liệu...';
+            }
+
+            try {
+                const res = await fetch(`/api/bridge-occurrences?bridge=cau_thu&limit=${currentWeeklyDaysCycle}`);
+                const data = await res.json();
+                if (data.status !== 'SUCCESS') {
+                    if (statusMsg) statusMsg.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-red-400"></i> Lỗi dữ liệu';
+                    return;
+                }
+                weeklyAnalysisData = data;
+                weeklyOccurrencesList = data.occurrences || [];
+
+                // 1. Render Hero Prediction Card
+                const nextPred = data.next_prediction;
+                if (nextPred) {
+                    renderWeeklyPredictionHero(nextPred, true);
+                } else if (data.days_analysis && data.days_analysis.length > 0) {
+                    renderWeeklyPredictionHero(data.days_analysis[0], false);
+                }
+
+                // 2. Render Quick DOW Buttons in Hero Card
+                const quickButtonsContainer = document.getElementById('weekly-quick-dow-buttons');
+                if (quickButtonsContainer && data.days_analysis) {
+                    quickButtonsContainer.innerHTML = data.days_analysis.map(d => {
+                        const isNext = nextPred && (d.dow === nextPred.dow);
+                        return `
+                            <button onclick="selectWeeklyPreviewDow('${d.dow}')" 
+                                    class="p-2 rounded-xl text-left border ${isNext ? 'bg-yellow-500/20 border-yellow-400 ring-1 ring-yellow-400' : 'bg-black/60 border-neutral-800 hover:border-yellow-500/50'} transition flex flex-col justify-between">
+                                <div class="flex justify-between items-center w-full">
+                                    <span class="text-[11px] font-bold text-white">${d.dow}</span>
+                                    <span class="text-[9px] text-neutral-400 truncate max-w-[50px]">${d.province}</span>
+                                </div>
+                                <div class="flex justify-between items-baseline mt-1">
+                                    <span class="text-sm font-black font-mono text-yellow-400">${d.top_pair}</span>
+                                    <span class="text-[10px] text-emerald-400 font-bold">${d.stability_pct}%</span>
+                                </div>
+                            </button>
+                        `;
+                    }).join('');
+                }
+
+                // 3. Render Best Day Card in Hero
+                const best = data.best_day;
+                if (best) {
+                    const heroBestDow = document.getElementById('weekly-hero-best-dow');
+                    if (heroBestDow) heroBestDow.innerText = `${best.dow} (${best.province})`;
+                    const heroBestPair = document.getElementById('weekly-hero-best-pair');
+                    if (heroBestPair) heroBestPair.innerText = best.top_pair;
+                    const heroBestStat = document.getElementById('weekly-hero-best-stat');
+                    if (heroBestStat) heroBestStat.innerText = `Ổn định ${best.stability_pct}% (${best.top_weeks_count}/${best.total_weeks} tuần nổ)`;
+                }
+
+                // 4. Render 7-Day Grid
+                const daysGrid = document.getElementById('weekly-days-grid');
+                if (daysGrid && data.days_analysis) {
+                    daysGrid.innerHTML = data.days_analysis.map(day => {
+                        const isBest = best && (day.dow === best.dow);
+                        return `
+                            <div class="bg-neutral-900 rounded-xl p-4 border ${isBest ? 'border-yellow-500 shadow-lg shadow-yellow-950/40 ring-1 ring-yellow-500/50' : 'border-neutral-800'} space-y-3 flex flex-col justify-between">
+                                <div>
+                                    <div class="flex justify-between items-center border-b border-neutral-800 pb-2 mb-2">
+                                        <div>
+                                            <h4 class="font-bold text-sm text-white flex items-center gap-1.5">
+                                                ${day.dow}
+                                                ${isBest ? '<i class="fa-solid fa-crown text-yellow-400 text-xs"></i>' : ''}
+                                            </h4>
+                                            <span class="text-[11px] text-neutral-400">${day.province} (${day.total_weeks} tuần)</span>
+                                        </div>
+                                        ${isBest ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-yellow-400 text-neutral-950 uppercase shadow">Quán Quân</span>' : ''}
+                                    </div>
+
+                                    <div class="flex justify-between items-center py-2 bg-black/60 rounded-xl px-3 border border-neutral-800">
+                                        <div>
+                                            <span class="text-[10px] text-neutral-400 uppercase block font-semibold">Cặp Số Chủ Lực</span>
+                                            <span onclick="switchTab('days10'); toggleHighlight('${day.top_pair}')" 
+                                                  class="text-2xl font-black font-mono text-yellow-400 cursor-pointer hover:scale-110 transition inline-block" 
+                                                  title="Bấm để phát sáng trên bảng KQXS">
+                                                ${day.top_pair}
+                                            </span>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="text-xs font-bold text-emerald-400 block">${day.stability_pct}%</span>
+                                            <span class="text-[11px] text-neutral-400">${day.top_weeks_count}/${day.total_weeks} tuần (${day.top_total_hits} nháy)</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-1.5 mt-3 text-xs">
+                                        <div class="flex justify-between text-neutral-300">
+                                            <span class="text-neutral-400">Trùng Chạm:</span>
+                                            <span class="font-mono font-bold text-red-400">Chạm ${day.top_cham} (${day.top_cham_hits} lượt)</span>
+                                        </div>
+                                        <div class="flex justify-between text-neutral-300">
+                                            <span class="text-neutral-400">Trùng Tổng:</span>
+                                            <span class="font-mono font-bold text-yellow-400">Tổng ${day.top_sum} (${day.top_sum_hits} lượt)</span>
+                                        </div>
+                                        ${day.recent_streak >= 2 ? `
+                                            <div class="text-emerald-400 text-[11px] font-bold flex items-center gap-1">
+                                                <i class="fa-solid fa-fire text-amber-500"></i> Đang thông bệt ${day.recent_streak} tuần liên tiếp
+                                            </div>` : ''}
+                                    </div>
+
+                                    <div class="pt-2 border-t border-neutral-800/80 mt-2">
+                                        <span class="text-[10px] text-neutral-400 block mb-1">Chuỗi tuần gần nhất:</span>
+                                        <div class="flex flex-wrap gap-1">
+                                            ${(day.history || []).slice(0, 8).map(h => `
+                                                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${h.status === 'V' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-neutral-800 text-neutral-400 border border-neutral-700'}" title="${h.date}">
+                                                    ${h.status}${h.hits > 1 ? `(${h.hits})` : ''}
+                                                </span>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="pt-2 border-t border-neutral-800/80">
+                                    <span class="text-[10px] text-neutral-400 block mb-1">Cặp số phụ tiềm năng:</span>
+                                    <div class="flex flex-wrap gap-1">
+                                        ${(day.secondary_pairs || []).map(p => `
+                                            <span onclick="switchTab('days10'); toggleHighlight('${p.pair}')" 
+                                                  class="px-1.5 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-200 font-mono text-xs font-bold cursor-pointer hover:bg-yellow-400 hover:text-black transition" 
+                                                  title="Bấm để phát sáng">
+                                                ${p.pair} (${p.weeks}t)
+                                            </span>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                // 5. Render 4 KPI Performance Cards
+                const stats = data.stats || {};
+                const kpiWin = document.getElementById('weekly-kpi-winrate');
+                const kpiWinSub = document.getElementById('weekly-kpi-winrate-detail');
+                const kpiWinBar = document.getElementById('weekly-kpi-winrate-bar');
+                const kpiHits = document.getElementById('weekly-kpi-hits');
+                const kpiHitsSub = document.getElementById('weekly-kpi-hits-detail');
+                const kpiDe = document.getElementById('weekly-kpi-de');
+                const kpiDeSub = document.getElementById('weekly-kpi-de-detail');
+                const kpiStreak = document.getElementById('weekly-kpi-streak');
+                const kpiStreakSub = document.getElementById('weekly-kpi-streak-detail');
+
+                if (kpiWin) kpiWin.innerText = `${stats.win_rate || 0}%`;
+                if (kpiWinSub) kpiWinSub.innerText = `${stats.win_count || 0}/${stats.signals_count || stats.total_tested || 0} kỳ phát tín hiệu`;
+                if (kpiWinBar) kpiWinBar.style.width = `${Math.min(100, stats.win_rate || 0)}%`;
+                if (kpiHits) kpiHits.innerText = stats.total_hits || 0;
+                if (kpiHitsSub) kpiHitsSub.innerText = `TB ${stats.avg_hits_per_win || 0} nháy/kỳ trúng`;
+                if (kpiDe) kpiDe.innerText = stats.de_hits || 0;
+                if (kpiDeSub) kpiDeSub.innerText = `lần trúng 2 số cuối ĐB`;
+                if (kpiStreak) kpiStreak.innerText = stats.max_win_streak || 0;
+                if (kpiStreakSub) {
+                    const cStreak = stats.current_streak;
+                    const streakText = cStreak ? (cStreak.type === 'WIN' ? `Ăn ${cStreak.count} kỳ` : `Tạm đứt ${cStreak.count} kỳ`) : '--';
+                    kpiStreakSub.innerText = `kỳ liên tiếp (Hiện tại: ${streakText})`;
+                }
+
+                // 6. Update filter badge counts
+                const occ = data.occurrences || [];
+                const cAll = occ.length;
+                const cWin = occ.filter(x => x.is_win).length;
+                const cDe = occ.filter(x => x.is_de).length;
+                const cLose = occ.filter(x => !x.is_win && x.status !== 'CHỜ QUAY').length;
+                const cPending = occ.filter(x => x.status === 'CHỜ QUAY').length;
+
+                const countAll = document.getElementById('count-whist-all');
+                if (countAll) countAll.innerText = cAll;
+                const countWin = document.getElementById('count-whist-win');
+                if (countWin) countWin.innerText = cWin;
+                const countDe = document.getElementById('count-whist-de');
+                if (countDe) countDe.innerText = cDe;
+                const countLose = document.getElementById('count-whist-lose');
+                if (countLose) countLose.innerText = cLose;
+                const countPending = document.getElementById('count-whist-pending');
+                if (countPending) countPending.innerText = cPending;
+
+                if (statusMsg) {
+                    statusMsg.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i> Đã đối chiếu xong (${cAll} kỳ)`;
+                }
+
+                // 7. Render Historical Occurrences Table
+                renderWeeklyHistoryRows();
+
+            } catch(e) {
+                console.error("Lỗi khi nạp dữ liệu phân tích cầu theo thứ:", e);
+                if (statusMsg) {
+                    statusMsg.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-red-400"></i> Lỗi kết nối';
+                }
+            }
+        }
+
+        function renderWeeklyPredictionHero(pred, isOfficialNext = true) {
+            if (!pred) return;
+            const topPair = pred.top_pair;
+            const topRev = topPair.length === 2 ? topPair[1] + topPair[0] : topPair;
+
+            const targetInfoEl = document.getElementById('weekly-pred-target-info');
+            if (targetInfoEl) {
+                const dateStr = pred.target_date_display || `${pred.dow} (${pred.province})`;
+                targetInfoEl.innerText = isOfficialNext ? `Kỳ Tiếp Theo: ${dateStr}` : `Đang Xem: ${pred.dow} - Đài ${pred.province}`;
+            }
+
+            const mainPairEl = document.getElementById('weekly-pred-main-pair');
+            if (mainPairEl) mainPairEl.innerText = topPair;
+            const pairRevEl = document.getElementById('weekly-pred-pair-rev');
+            if (pairRevEl) pairRevEl.innerText = topRev;
+            const btEl = document.getElementById('weekly-pred-bt');
+            if (btEl) btEl.innerText = topPair;
+            const stEl = document.getElementById('weekly-pred-st');
+            if (stEl) stEl.innerText = `${topPair} - ${topRev}`;
+
+            // Secondary pairs chips
+            const secContainer = document.getElementById('weekly-pred-secondary-chips');
+            if (secContainer) {
+                const secPairs = pred.secondary_pairs || [];
+                if (secPairs.length === 0) {
+                    secContainer.innerHTML = '<span class="text-neutral-500 italic text-[11px]">Không có cặp phụ</span>';
+                } else {
+                    secContainer.innerHTML = secPairs.map(p => {
+                        const pairVal = typeof p === 'object' ? p.pair : p;
+                        const wVal = typeof p === 'object' && p.weeks ? ` (${p.weeks}t)` : '';
+                        return `
+                            <span onclick="switchTab('days10'); toggleHighlight('${pairVal}')" 
+                                  class="px-2 py-0.5 rounded-lg bg-black border border-neutral-700 text-yellow-300 font-mono text-xs font-bold cursor-pointer hover:bg-yellow-400 hover:text-black transition"
+                                  title="Bấm để phát sáng trên bảng KQXS">
+                                ${pairVal}${wVal}
+                            </span>
+                        `;
+                    }).join('');
+                }
+            }
+
+            const stabEl = document.getElementById('weekly-pred-stability');
+            if (stabEl) stabEl.innerText = `${pred.stability_pct || 0}%`;
+            const stabSubEl = document.getElementById('weekly-pred-stability-sub');
+            if (stabSubEl) stabSubEl.innerText = `${pred.top_weeks_count || 0}/${pred.total_weeks || 0} tuần nổ`;
+
+            const scoreEl = document.getElementById('weekly-pred-score');
+            if (scoreEl) scoreEl.innerText = `${pred.score || 75}/100`;
+
+            const chamEl = document.getElementById('weekly-pred-top-cham');
+            if (chamEl) chamEl.innerText = `Chạm ${pred.top_cham || '-'}`;
+            const chamSubEl = document.getElementById('weekly-pred-top-cham-sub');
+            if (chamSubEl) chamSubEl.innerText = `${pred.top_cham_hits || 0} lượt nổ`;
+
+            const sumEl = document.getElementById('weekly-pred-top-sum');
+            if (sumEl) sumEl.innerText = `Tổng ${pred.top_sum !== undefined ? pred.top_sum : '-'}`;
+            const sumSubEl = document.getElementById('weekly-pred-top-sum-sub');
+            if (sumSubEl) sumSubEl.innerText = `${pred.top_sum_hits || 0} lượt nổ`;
+
+            const reasonEl = document.getElementById('weekly-pred-reason');
+            if (reasonEl) {
+                reasonEl.innerText = pred.reason || `Cặp số [${topPair}] là cặp số có xác suất về ổn định nhất của ${pred.dow} (${pred.province}).`;
+            }
+        }
+
+        function renderWeeklyHistoryRows() {
+            const tbody = document.getElementById('weeklyHistoryTableBody');
             if (!tbody) return;
-            if (!list || list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-neutral-500 italic">Không có kỳ quay nào phù hợp với bộ lọc.</td></tr>`;
+
+            let filtered = weeklyOccurrencesList;
+
+            // 1. Filter theo Status
+            if (currentWeeklyStatusFilter === 'win') {
+                filtered = filtered.filter(x => x.is_win);
+            } else if (currentWeeklyStatusFilter === 'de') {
+                filtered = filtered.filter(x => x.is_de);
+            } else if (currentWeeklyStatusFilter === 'lose') {
+                filtered = filtered.filter(x => !x.is_win && x.status !== 'CHỜ QUAY');
+            } else if (currentWeeklyStatusFilter === 'pending') {
+                filtered = filtered.filter(x => x.status === 'CHỜ QUAY');
+            }
+
+            // 2. Filter theo DOW
+            if (currentWeeklyDowFilter !== 'all') {
+                filtered = filtered.filter(x => x.day_of_week && x.day_of_week.includes(currentWeeklyDowFilter));
+            }
+
+            if (!filtered || filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="py-12 text-center text-neutral-500 italic">
+                            <i class="fa-solid fa-filter-circle-xmark text-2xl mb-2 block"></i>
+                            Không có kỳ mở thưởng nào phù hợp với bộ lọc hiện tại.
+                        </td>
+                    </tr>
+                `;
                 return;
             }
 
-            tbody.innerHTML = list.map(item => {
-                const isWin = item.is_win;
-                const isDe = item.is_de;
-                let statusBadge = '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-neutral-800 text-neutral-400 border border-neutral-700">Trượt</span>';
-                if (isDe) {
-                    statusBadge = '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-purple-950 text-purple-300 border border-purple-700 font-mono shadow-[0_0_8px_rgba(168,85,247,0.4)]">🎯 NỔ ĐỀ</span>';
+            tbody.innerHTML = filtered.map(occ => {
+                const isPending = (occ.status === 'CHỜ QUAY');
+                const isWin = occ.is_win;
+                const isDe = occ.is_de;
+                const topPair = occ.predicted_display || (occ.predicted ? occ.predicted[0] : '--');
+
+                let statusBadge;
+                if (isPending) {
+                    statusBadge = `
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700 font-bold text-xs shadow animate-pulse">
+                            <i class="fa-solid fa-clock"></i> CHỜ QUAY
+                        </span>
+                    `;
+                } else if (isDe) {
+                    statusBadge = `
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-950/90 text-yellow-300 border border-yellow-600 font-bold text-xs shadow-[0_0_12px_rgba(234,179,8,0.35)]">
+                            <i class="fa-solid fa-trophy text-yellow-400"></i> TRÚNG ĐỀ
+                        </span>
+                    `;
                 } else if (isWin) {
-                    statusBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-700 font-mono shadow-[0_0_8px_rgba(0,255,136,0.3)]">✅ VỀ (${item.hits} nháy)</span>`;
+                    statusBadge = `
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/90 text-emerald-300 border border-emerald-600 font-bold text-xs shadow-[0_0_10px_rgba(16,185,129,0.3)]">
+                            <i class="fa-solid fa-square-check text-emerald-400"></i> TRÚNG LOTO
+                        </span>
+                    `;
+                } else {
+                    statusBadge = `
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-neutral-900 text-neutral-400 border border-neutral-700 font-medium text-xs">
+                            <i class="fa-solid fa-xmark text-red-400"></i> TRƯỢT
+                        </span>
+                    `;
+                }
+
+                // Cột Kết quả mở thưởng
+                let resultHtml;
+                if (isPending) {
+                    resultHtml = `<span class="text-neutral-500 italic text-[11px]">Chưa quay thưởng</span>`;
+                } else {
+                    const sp = occ.special_prize || '-';
+                    const hitsCount = occ.hits || 0;
+                    resultHtml = `
+                        <div class="text-neutral-300 text-xs font-mono">ĐB: <b class="text-white">${sp}</b></div>
+                        ${hitsCount > 0 ? `<div class="text-xs font-mono text-emerald-400 mt-0.5 font-bold">Về: ${topPair}</div>` : `<div class="text-[11px] font-mono text-neutral-500 mt-0.5">Không về</div>`}
+                    `;
+                }
+
+                // Số nháy về
+                let hitsHtml;
+                if (isPending) {
+                    hitsHtml = `<span class="text-neutral-500 font-mono text-xs">-</span>`;
+                } else if (occ.hits > 0) {
+                    hitsHtml = `<span class="font-mono font-bold text-yellow-400 text-xs px-2 py-0.5 rounded bg-yellow-950/60 border border-yellow-800/80">${occ.hits} nháy</span>`;
+                } else {
+                    hitsHtml = `<span class="font-mono text-neutral-500 text-xs">0</span>`;
                 }
 
                 return `
-                    <tr class="hover:bg-neutral-900/60 transition border-b border-neutral-800/40">
-                        <td class="py-2.5 px-3 font-mono font-medium text-neutral-200">
-                            ${item.date_display || item.draw_date}
+                    <tr class="hover:bg-neutral-800/40 transition">
+                        <td class="p-3">
+                            <div class="font-bold text-neutral-200 text-xs">${occ.day_of_week}, ${occ.date_display || occ.target_date}</div>
+                            <span class="text-[10px] text-neutral-400 font-mono">${occ.target_date}</span>
                         </td>
-                        <td class="py-2.5 px-3">
-                            <span class="text-white font-bold">${item.day_of_week}</span>
-                            <span class="text-neutral-500 text-[11px] block">${item.province || ''}</span>
+                        <td class="p-3">
+                            <div class="font-bold text-yellow-400 text-xs">CẦU THEO THỨ TRONG TUẦN</div>
+                            <div class="text-[10px] text-neutral-400 font-mono uppercase">CAU_THU (${occ.province || ''})</div>
                         </td>
-                        <td class="py-2.5 px-3 text-center">
-                            <span onclick="switchTab('days10'); toggleHighlight('${item.top_pair}')" class="font-mono font-black text-sm text-yellow-400 bg-black px-2.5 py-1 rounded-lg border border-yellow-500/40 cursor-pointer hover:bg-yellow-400 hover:text-black transition shadow">
-                                ${item.top_pair}
+                        <td class="p-3 text-center">
+                            <span onclick="switchTab('days10'); toggleHighlight('${topPair}')" 
+                                  class="px-3 py-1 rounded-lg bg-yellow-400 text-black font-mono font-black text-sm shadow cursor-pointer hover:scale-110 transition inline-block" 
+                                  title="Bấm để phát sáng trên bảng KQXS">
+                                ${topPair}
                             </span>
                         </td>
-                        <td class="py-2.5 px-3 text-center font-mono">
-                            <span class="text-neutral-400 text-xs">${item.special_prize || '-'}</span>
-                            <span class="block text-xs font-bold text-yellow-400">Đề: ${item.actual_de || '-'}</span>
+                        <td class="p-3 text-center">
+                            ${resultHtml}
                         </td>
-                        <td class="py-2.5 px-3 text-center">
+                        <td class="p-3 text-center">
                             ${statusBadge}
                         </td>
-                        <td class="py-2.5 px-3 text-center font-mono font-black ${item.hits > 0 ? 'text-yellow-400 text-sm' : 'text-neutral-500'}">
-                            ${item.hits > 0 ? `+${item.hits}` : '0'}
+                        <td class="p-3 text-center">
+                            ${hitsHtml}
                         </td>
-                        <td class="py-2.5 px-3 text-center">
-                            <button onclick="switchTab('days10'); toggleHighlight('${item.top_pair}');" class="px-2.5 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs transition">
-                                <i class="fa-solid fa-eye"></i> Xem KQ
+                        <td class="p-3 text-right">
+                            <button onclick="switchTab('days10'); toggleHighlight('${topPair}')" 
+                                    class="bg-neutral-800 hover:bg-yellow-400 hover:text-black text-neutral-300 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-neutral-700 transition shadow inline-flex items-center gap-1.5">
+                                <i class="fa-solid fa-magnifying-glass text-cyan-400"></i> Xem KQ
                             </button>
                         </td>
                     </tr>
