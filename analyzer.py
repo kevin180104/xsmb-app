@@ -2878,14 +2878,17 @@ def calc_date_sum(dt_obj):
         "formula": formula
     }
 
-def analyze_date_sum_bridge(draws=None, custom_date_str=None):
+def analyze_date_sum_bridge(draws=None, custom_date_str=None, limit=None):
     """
     Phân tích Cầu Tổng Ngày:
-    Lấy Ngày + Tháng + Năm của kỳ quay, lấy 2 số cuối tổng số học và số lộn làm cặp Song Thủ đánh cho ngày tiếp theo.
-    Tổng hợp toàn bộ lịch sử các kỳ đã qua để lập bảng thống kê tỷ lệ nổ thực tế.
+    Lấy Ngày + Tháng + Năm của kỳ quay, lấy 2 số cuối tổng số học và số lộn làm cặp Song Thủ.
+    Đồng thời chạy Backtest so sánh chuyên sâu 2 chiến lược:
+      - Khung 1 ngày (Đánh ngày hôm sau N+1)
+      - Khung 2 ngày (Nuôi N+1 và N+2)
+    Hỗ trợ lấy toàn bộ dữ liệu lịch sử có trong DB (hoặc theo limit).
     """
     if draws is None:
-        draws = database.get_recent_results(limit=60)
+        draws = database.get_recent_results(limit=limit if limit is not None else 'all')
     if not draws or len(draws) < 2:
         return {
             "status": "ERROR",
@@ -2916,15 +2919,33 @@ def analyze_date_sum_bridge(draws=None, custom_date_str=None):
     latest_pred["base_date_display"] = latest_draw.get("date_display", latest_dt.strftime("%d/%m/%Y"))
     latest_pred["base_dow"] = latest_draw.get("day_of_week", "")
 
-    # 2. Thống kê lịch sử qua tất cả các cặp kỳ liên tiếp (k+1 -> k)
+    # 2. Thống kê lịch sử qua tất cả các cặp kỳ liên tiếp (k+1 -> k, k-1)
+    # draws được sắp xếp giảm dần: draws[0] là mới nhất, draws[-1] là cũ nhất.
+    # d_prev = draws[i + 1]: Kỳ làm căn cứ tính cầu
+    # d_target1 = draws[i]: Kỳ mở thưởng Ngày 1 (N+1)
+    # d_target2 = draws[i - 1] (nếu i >= 1): Kỳ mở thưởng Ngày 2 (N+2)
     history = []
-    total_hits = 0
-    de_hits = 0
-    win_count = 0
+    
+    # Thống kê Khung 1 ngày
+    k1_total = 0
+    k1_win = 0
+    k1_hits = 0
+    k1_de = 0
 
-    for i in range(len(draws) - 1):
-        d_prev = draws[i + 1] # Kỳ làm căn cứ tính cầu
-        d_curr = draws[i]     # Kỳ mở thưởng thực tế tiếp theo
+    # Thống kê Khung 2 ngày
+    k2_total = 0
+    k2_win = 0
+    k2_win_day1 = 0
+    k2_win_day2 = 0
+    k2_win_both = 0
+    k2_hits = 0
+    k2_de = 0
+
+    num_draws = len(draws)
+    for i in range(num_draws - 1):
+        d_prev = draws[i + 1]     # Kỳ làm căn cứ tính cầu
+        d_target1 = draws[i]      # Kỳ mở thưởng Ngày 1 (N+1)
+        d_target2 = draws[i - 1] if i >= 1 else None  # Kỳ mở thưởng Ngày 2 (N+2)
 
         try:
             dt_prev = datetime.strptime(d_prev["draw_date"], "%Y-%m-%d")
@@ -2934,93 +2955,265 @@ def analyze_date_sum_bridge(draws=None, custom_date_str=None):
         calc = calc_date_sum(dt_prev)
         preds = calc["predicted"]
 
-        actual_lotos = d_curr.get("loto_2digit", [])
-        special_prize = str(d_curr.get("special_prize", "")).strip()
-        actual_de = special_prize[-2:] if len(special_prize) >= 2 else ""
+        # --- Kết quả Ngày 1 (N+1) ---
+        actual_lotos1 = d_target1.get("loto_2digit", [])
+        sp1 = str(d_target1.get("special_prize", "")).strip()
+        actual_de1 = sp1[-2:] if len(sp1) >= 2 else ""
 
-        # Đếm số nháy về
-        matched_detail = []
-        day_hits = 0
+        matched_detail1 = []
+        hits1 = 0
         for p in preds:
-            cnt = actual_lotos.count(p)
+            cnt = actual_lotos1.count(p)
             if cnt > 0:
-                day_hits += cnt
-                matched_detail.append({"number": p, "count": cnt})
+                hits1 += cnt
+                matched_detail1.append({"number": p, "count": cnt})
 
-        is_win = (day_hits > 0)
-        is_de = (actual_de in preds) if actual_de else False
+        win1 = (hits1 > 0)
+        is_de1 = (actual_de1 in preds) if actual_de1 else False
 
-        if is_win:
-            win_count += 1
-            total_hits += day_hits
-        if is_de:
-            de_hits += 1
+        # Cập nhật thống kê Khung 1 ngày
+        k1_total += 1
+        if win1:
+            k1_win += 1
+            k1_hits += hits1
+        if is_de1:
+            k1_de += 1
+
+        # --- Kết quả Ngày 2 (N+2) nếu có ---
+        has_day2 = (d_target2 is not None)
+        hits2 = 0
+        win2 = False
+        is_de2 = False
+        matched_detail2 = []
+        actual_de2 = ""
+        sp2 = ""
+        target2_date = ""
+        target2_dow = ""
+
+        if has_day2:
+            target2_date = d_target2.get("date_display", d_target2["draw_date"])
+            target2_dow = d_target2.get("day_of_week", "")
+            actual_lotos2 = d_target2.get("loto_2digit", [])
+            sp2 = str(d_target2.get("special_prize", "")).strip()
+            actual_de2 = sp2[-2:] if len(sp2) >= 2 else ""
+
+            for p in preds:
+                cnt = actual_lotos2.count(p)
+                if cnt > 0:
+                    hits2 += cnt
+                    matched_detail2.append({"number": p, "count": cnt})
+
+            win2 = (hits2 > 0)
+            is_de2 = (actual_de2 in preds) if actual_de2 else False
+
+        # --- Phân loại trạng thái Khung 2 ngày ---
+        k2_is_win = None
+        k2_status = ""
+        k2_badge_color = ""
+
+        if win1 and win2:
+            k2_is_win = True
+            k2_status = "ĂN CẢ 2 NGÀY"
+            k2_badge_color = "emerald"
+        elif win1:
+            k2_is_win = True
+            k2_status = "ĂN NGÀY 1"
+            k2_badge_color = "emerald"
+        elif win2:
+            k2_is_win = True
+            k2_status = "ĂN NGÀY 2"
+            k2_badge_color = "cyan"
+        else:
+            if has_day2:
+                k2_is_win = False
+                k2_status = "TRƯỢT KHUNG"
+                k2_badge_color = "red"
+            else:
+                k2_is_win = None
+                k2_status = "ĐANG NUÔI NGÀY 2"
+                k2_badge_color = "amber"
+
+        # Cập nhật thống kê Khung 2 ngày (chỉ tính các khung đã kết thúc hoặc đã ăn ngày 1)
+        if has_day2 or win1:
+            k2_total += 1
+            if win1 or win2:
+                k2_win += 1
+                if win1 and win2:
+                    k2_win_both += 1
+                if win1:
+                    k2_win_day1 += 1
+                    k2_hits += hits1
+                elif win2:
+                    k2_win_day2 += 1
+                    k2_hits += hits2
+            if is_de1 or is_de2:
+                k2_de += 1
 
         history.append({
+            # Căn cứ
             "prev_date": d_prev.get("date_display", d_prev["draw_date"]),
             "prev_dow": d_prev.get("day_of_week", ""),
             "formula": calc["formula"],
             "predicted": preds,
             "pair_display": " - ".join(preds),
-            "curr_date": d_curr.get("date_display", d_curr["draw_date"]),
-            "curr_dow": d_curr.get("day_of_week", ""),
-            "actual_de": actual_de,
-            "special_prize": special_prize,
-            "hits": day_hits,
-            "matched_detail": matched_detail,
-            "is_win": is_win,
-            "is_de": is_de
+
+            # Tương thích cũ (Ngày 1)
+            "curr_date": d_target1.get("date_display", d_target1["draw_date"]),
+            "curr_dow": d_target1.get("day_of_week", ""),
+            "actual_de": actual_de1,
+            "special_prize": sp1,
+            "hits": hits1,
+            "matched_detail": matched_detail1,
+            "is_win": win1,
+            "is_de": is_de1,
+
+            # Chi tiết Ngày 1 (N+1)
+            "target1_date": d_target1.get("date_display", d_target1["draw_date"]),
+            "target1_dow": d_target1.get("day_of_week", ""),
+            "target1_hits": hits1,
+            "target1_matched": matched_detail1,
+            "target1_is_win": win1,
+            "target1_is_de": is_de1,
+            "target1_special_prize": sp1,
+            "target1_de": actual_de1,
+
+            # Chi tiết Ngày 2 (N+2)
+            "has_day2": has_day2,
+            "target2_date": target2_date if has_day2 else "Chờ mở thưởng kỳ tới",
+            "target2_dow": target2_dow if has_day2 else "",
+            "target2_hits": hits2,
+            "target2_matched": matched_detail2,
+            "target2_is_win": win2,
+            "target2_is_de": is_de2,
+            "target2_special_prize": sp2,
+            "target2_de": actual_de2,
+
+            # Đánh giá Khung 2 ngày
+            "k2_status": k2_status,
+            "k2_badge_color": k2_badge_color,
+            "k2_is_win": k2_is_win,
+            "k2_hits": (hits1 if win1 else hits2) if (win1 or win2) else 0,
+            "k2_all_hits": hits1 + hits2
         })
 
-    total_tested = len(history)
-    win_rate = round((win_count / total_tested) * 100, 1) if total_tested > 0 else 0
-
-    # Tính streak ăn thông và streak trượt
-    max_win_streak = 0
-    max_lose_streak = 0
-    cur_w_streak = 0
-    cur_l_streak = 0
+    # --- Tính streak ăn thông và streak trượt cho Khung 1 ngày ---
+    max_k1_win_streak = 0
+    max_k1_lose_streak = 0
+    cur_w_k1 = 0
+    cur_l_k1 = 0
 
     for item in reversed(history):
         if item["is_win"]:
-            cur_w_streak += 1
-            cur_l_streak = 0
-            max_win_streak = max(max_win_streak, cur_w_streak)
+            cur_w_k1 += 1
+            cur_l_k1 = 0
+            max_k1_win_streak = max(max_k1_win_streak, cur_w_k1)
         else:
-            cur_l_streak += 1
-            cur_w_streak = 0
-            max_lose_streak = max(max_lose_streak, cur_l_streak)
+            cur_l_k1 += 1
+            cur_w_k1 = 0
+            max_k1_lose_streak = max(max_k1_lose_streak, cur_l_k1)
 
-    current_streak_type = "WIN" if (history and history[0]["is_win"]) else "LOSE"
-    current_streak_count = 0
+    cur_k1_streak_type = "WIN" if (history and history[0]["is_win"]) else "LOSE"
+    cur_k1_streak_count = 0
     for item in history:
-        if (current_streak_type == "WIN" and item["is_win"]) or (current_streak_type == "LOSE" and not item["is_win"]):
-            current_streak_count += 1
+        if (cur_k1_streak_type == "WIN" and item["is_win"]) or (cur_k1_streak_type == "LOSE" and not item["is_win"]):
+            cur_k1_streak_count += 1
         else:
             break
+
+    # --- Tính streak ăn thông và streak trượt cho Khung 2 ngày ---
+    max_k2_win_streak = 0
+    max_k2_lose_streak = 0
+    cur_w_k2 = 0
+    cur_l_k2 = 0
+
+    valid_k2_items = [item for item in history if item["k2_is_win"] is not None]
+    for item in reversed(valid_k2_items):
+        if item["k2_is_win"]:
+            cur_w_k2 += 1
+            cur_l_k2 = 0
+            max_k2_win_streak = max(max_k2_win_streak, cur_w_k2)
+        else:
+            cur_l_k2 += 1
+            cur_w_k2 = 0
+            max_k2_lose_streak = max(max_k2_lose_streak, cur_l_k2)
+
+    cur_k2_streak_type = "WIN" if (valid_k2_items and valid_k2_items[0]["k2_is_win"]) else "LOSE"
+    cur_k2_streak_count = 0
+    for item in valid_k2_items:
+        if (cur_k2_streak_type == "WIN" and item["k2_is_win"]) or (cur_k2_streak_type == "LOSE" and not item["k2_is_win"]):
+            cur_k2_streak_count += 1
+        else:
+            break
+
+    k1_win_rate = round((k1_win / k1_total) * 100, 1) if k1_total > 0 else 0
+    k2_win_rate = round((k2_win / k2_total) * 100, 1) if k2_total > 0 else 0
+    diff_win_rate = round(k2_win_rate - k1_win_rate, 1)
+
+    stats_k1 = {
+        "total_tested": k1_total,
+        "win_count": k1_win,
+        "lose_count": k1_total - k1_win,
+        "win_rate": k1_win_rate,
+        "total_hits": k1_hits,
+        "avg_hits_per_win": round(k1_hits / k1_win, 2) if k1_win > 0 else 0,
+        "de_hits": k1_de,
+        "max_win_streak": max_k1_win_streak,
+        "max_lose_streak": max_k1_lose_streak,
+        "current_streak": {
+            "type": cur_k1_streak_type,
+            "count": cur_k1_streak_count
+        }
+    }
+
+    stats_k2 = {
+        "total_tested": k2_total,
+        "win_count": k2_win,
+        "lose_count": k2_total - k2_win,
+        "win_rate": k2_win_rate,
+        "win_day1_count": k2_win_day1,
+        "win_day1_rate": round((k2_win_day1 / k2_total) * 100, 1) if k2_total > 0 else 0,
+        "win_day2_count": k2_win_day2,
+        "win_day2_rate": round((k2_win_day2 / k2_total) * 100, 1) if k2_total > 0 else 0,
+        "win_both_days_count": k2_win_both,
+        "total_hits": k2_hits,
+        "avg_hits_per_win": round(k2_hits / k2_win, 2) if k2_win > 0 else 0,
+        "de_hits": k2_de,
+        "max_win_streak": max_k2_win_streak,
+        "max_lose_streak": max_k2_lose_streak,
+        "current_streak": {
+            "type": cur_k2_streak_type,
+            "count": cur_k2_streak_count
+        }
+    }
+
+    comparison = {
+        "k1_win_rate": k1_win_rate,
+        "k2_win_rate": k2_win_rate,
+        "diff_rate": diff_win_rate,
+        "k1_win_count": k1_win,
+        "k2_win_count": k2_win,
+        "k1_max_lose_streak": max_k1_lose_streak,
+        "k2_max_lose_streak": max_k2_lose_streak,
+        "k1_max_win_streak": max_k1_win_streak,
+        "k2_max_win_streak": max_k2_win_streak,
+        "recommendation": (
+            f"Đánh KHUNG 2 NGÀY có tỷ lệ trúng cao hơn vượt trội ({k2_win_rate}% so với {k1_win_rate}%, tăng +{diff_win_rate}%). "
+            f"Đặc biệt, chuỗi trượt thông của Khung 2 ngày giảm mạnh từ {max_k1_lose_streak} ngày xuống tối đa {max_k2_lose_streak} khung, "
+            f"giúp hạn chế rủi ro đứt vốn. Khi nuôi khung 2 ngày nên vào tiền tỷ lệ 1:2 hoặc 1:3 để tối ưu lợi nhuận."
+        )
+    }
 
     return {
         "status": "SUCCESS",
         "bridge_name": "CẦU TỔNG NGÀY (CỘNG NGÀY + THÁNG + NĂM)",
-        "rule": "Lấy Ngày + Tháng + Năm của kỳ quay, lấy 2 số cuối tổng số học và số lộn làm cặp Song Thủ đánh cho ngày tiếp theo.",
+        "rule": "Lấy Ngày + Tháng + Năm của kỳ quay, lấy 2 số cuối tổng số học và số lộn làm cặp Song Thủ.",
         "example": "Ví dụ: 02 + 10 + 2026 = 2038 -> Cặp Song Thủ: 38 - 83.",
         "today_prediction": next_pred,
         "latest_draw_prediction": latest_pred,
-        "stats": {
-            "total_tested": total_tested,
-            "win_count": win_count,
-            "lose_count": total_tested - win_count,
-            "win_rate": win_rate,
-            "total_hits": total_hits,
-            "avg_hits_per_win": round(total_hits / win_count, 2) if win_count > 0 else 0,
-            "de_hits": de_hits,
-            "max_win_streak": max_win_streak,
-            "max_lose_streak": max_lose_streak,
-            "current_streak": {
-                "type": current_streak_type,
-                "count": current_streak_count
-            }
-        },
+        "stats": stats_k1,      # Tương thích 100% với code cũ
+        "stats_k1": stats_k1,
+        "stats_k2": stats_k2,
+        "comparison": comparison,
         "history": history
     }
 

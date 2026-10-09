@@ -10,17 +10,21 @@ env/
 venv/
 ENV/
 
-# Temporary DB files
+# Node modules & frontend caches
+node_modules/
+*/node_modules/
+.npm/
+
+# Temporary DB & Log files
 *.db-shm
 *.db-wal
+*.log
 
-# IDE / Editor
+# IDE / Editor / System
 .vscode/
 .idea/
 .agents/
 *.swp
 *.swo
-
-# OS files
 .DS_Store
 Thumbs.db

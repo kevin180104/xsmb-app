@@ -15,7 +15,7 @@ if hasattr(sys.stdout, 'reconfigure'):
     except Exception:
         pass
 
-from flask import Flask, render_template, jsonify, request, send_file
+from flask import Flask, render_template, jsonify, request, send_file, send_from_directory
 import database
 import crawler
 import analyzer
@@ -28,6 +28,25 @@ from pattern_engine.service import (
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+# Thư mục chứa bản build của ứng dụng Máy Tính Lô Đề (React + Vite)
+CALCULATOR_DIST = os.path.join(os.path.dirname(__file__), 'loto_calculator', 'dist')
+
+from flask import redirect
+
+@app.route('/calculator')
+def serve_calculator_redirect():
+    return redirect('/calculator/')
+
+@app.route('/calculator/')
+def serve_calculator():
+    """Ứng dụng web Máy Tính Lô Đề (React + TS + Tailwind + Recharts)"""
+    return send_from_directory(CALCULATOR_DIST, 'index.html')
+
+@app.route('/calculator/<path:filename>')
+def serve_calculator_assets(filename):
+    """Assets của ứng dụng Máy Tính Lô Đề"""
+    return send_from_directory(CALCULATOR_DIST, filename)
 
 # Khởi tạo bảng dữ liệu một lần duy nhất khi ứng dụng nạp (không gọi lặp lại ở từng route)
 database.init_db()
@@ -260,9 +279,17 @@ def api_check_xien():
 
 @app.route('/api/date-sum-bridge')
 def api_date_sum_bridge():
-    """Phân tích Cầu Tổng Ngày và lấy thống kê lịch sử kết quả"""
+    """Phân tích Cầu Tổng Ngày và lấy thống kê lịch sử kết quả (hỗ trợ limit=all, 30, 60, 90...)"""
     custom_date = request.args.get('date')
-    data = analyzer.analyze_date_sum_bridge(custom_date_str=custom_date)
+    limit_param = request.args.get('limit', 'all')
+    if limit_param == 'all' or not limit_param:
+        limit_val = 'all'
+    else:
+        try:
+            limit_val = int(limit_param)
+        except ValueError:
+            limit_val = 'all'
+    data = analyzer.analyze_date_sum_bridge(custom_date_str=custom_date, limit=limit_val)
     return jsonify(data)
 
 @app.route('/api/bridge-occurrences')

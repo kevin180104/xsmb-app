@@ -120,7 +120,7 @@ function renderTopHighlightCards(patterns) {
 
     const top3 = patterns.slice(0, 3);
     const badges = [
-        { label: 'TOP #1 VIP', border: 'border-yellow-500/70', bg: 'bg-yellow-500/10', text: 'text-yellow-400', glow: 'shadow-[0_0_20px_rgba(234,179,8,0.3)]' },
+        { label: '🏆 TOP #1 ỔN ĐỊNH NHẤT', border: 'border-yellow-500/80', bg: 'bg-yellow-500/15', text: 'text-yellow-300', glow: 'shadow-[0_0_25px_rgba(234,179,8,0.4)]' },
         { label: 'TOP #2', border: 'border-cyan-500/70', bg: 'bg-cyan-500/10', text: 'text-cyan-400', glow: 'shadow-[0_0_15px_rgba(6,182,212,0.2)]' },
         { label: 'TOP #3', border: 'border-emerald-500/70', bg: 'bg-emerald-500/10', text: 'text-emerald-400', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.2)]' },
     ];
@@ -251,7 +251,7 @@ function filterPatternsTable() {
     const searchVal = document.getElementById('pattern-search-input')?.value.toLowerCase().trim() || '';
     const strengthVal = document.getElementById('pattern-filter-strength')?.value || 'ALL';
     const minStreakVal = parseInt(document.getElementById('pattern-filter-streak')?.value || '0', 10);
-    const sortBy = document.getElementById('pattern-sort-select')?.value || 'confidence';
+    const sortBy = document.getElementById('pattern-sort-select')?.value || 'hitRate';
 
     let filtered = CURRENT_SCAN_DATA.patterns.filter(p => {
         if (searchVal && !p.name.toLowerCase().includes(searchVal) && !p.formula.toLowerCase().includes(searchVal)) {
@@ -266,11 +266,16 @@ function filterPatternsTable() {
         return true;
     });
 
-    // Sắp xếp
+    // Sắp xếp tương ứng theo chuẩn Cầu Thứ: Độ % ổn định -> Chuỗi ăn thông -> Độ tin cậy -> Lượt nổ
     filtered.sort((a, b) => {
+        if (sortBy === 'hitRate') {
+            return (b.metrics.rawHitRate - a.metrics.rawHitRate) || 
+                   (b.currentStreak - a.currentStreak) || 
+                   (b.metrics.confidenceScore - a.metrics.confidenceScore) ||
+                   (b.hits - a.hits);
+        }
+        if (sortBy === 'streak') return (b.currentStreak - a.currentStreak) || (b.metrics.rawHitRate - a.metrics.rawHitRate);
         if (sortBy === 'confidence') return b.metrics.confidenceScore - a.metrics.confidenceScore;
-        if (sortBy === 'hitRate') return b.metrics.rawHitRate - a.metrics.rawHitRate;
-        if (sortBy === 'streak') return b.currentStreak - a.currentStreak;
         if (sortBy === 'lift') return b.metrics.lift - a.metrics.lift;
         if (sortBy === 'occurrences') return b.occurrences - a.occurrences;
         return 0;

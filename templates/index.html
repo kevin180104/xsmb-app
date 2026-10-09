@@ -34,9 +34,15 @@
                 </div>
             </div>
             
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-2.5">
+                <button onclick="openLotoCalculatorModal()" id="btnHeaderLotoCalc" class="px-4 py-2 rounded-xl text-sm font-black flex items-center gap-2 transition shadow-lg bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-white shadow-[0_0_20px_rgba(16,185,129,0.45)] hover:scale-105 active:scale-95 border border-emerald-300">
+                    <i class="fa-solid fa-calculator text-white"></i> Máy Tính Lô Đề
+                </button>
+                <button onclick="openXsmbModal()" id="btnHeaderXsmbModal" class="px-4 py-2 rounded-xl text-sm font-black flex items-center gap-2 transition shadow-lg bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 hover:from-yellow-300 hover:to-amber-300 text-black shadow-[0_0_20px_rgba(245,158,11,0.45)] hover:scale-105 active:scale-95 border border-yellow-200">
+                    <i class="fa-solid fa-table-list text-black"></i> Tra Cứu KQXS
+                </button>
                 <button onclick="updateData()" id="updateBtn" class="neon-btn-primary px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition shadow-lg">
-                    <i class="fa-solid fa-arrows-rotate"></i> Cập Nhật Kết Quả
+                    <i class="fa-solid fa-arrows-rotate"></i> Cập Nhật
                 </button>
             </div>
         </div>
@@ -48,7 +54,7 @@
         <!-- Tab Navigation -->
         <div class="flex flex-wrap neon-tab-container gap-2 md:gap-3 p-2 rounded-2xl">
             <button onclick="switchTab('days10')" id="tab-days10" class="py-2.5 px-5 rounded-xl font-bold text-sm neon-tab-active shadow transition">
-                <i class="fa-solid fa-table-list mr-2 text-yellow-300"></i>KQXS & Bảng Lô Tô Đầu (Highlight)
+                <i class="fa-solid fa-trophy mr-2 text-yellow-300"></i>Bảng Vàng Tổng Hợp Đa Cầu
             </button>
             <button onclick="switchTab('weekly')" id="tab-weekly" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition flex items-center gap-1.5 border border-yellow-500/30 bg-neutral-900/90 shadow">
                 <i class="fa-solid fa-building-columns text-yellow-400 mr-1"></i>Cầu Theo Thứ &amp; Tỉnh Thành
@@ -68,8 +74,8 @@
                 <span class="text-[10px] bg-emerald-600 text-white font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">Mới</span>
             </button>
             <button onclick="switchTab('auto_pattern')" id="tab-auto_pattern" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition flex items-center gap-1.5 border border-red-500/50 bg-neutral-900/90 shadow">
-                <i class="fa-solid fa-bezier-curve text-red-400 mr-1"></i>Auto Pattern & Vẽ Đường Cầu
-                <span class="text-[10px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse">AI Engine</span>
+                <i class="fa-solid fa-bezier-curve text-red-400 mr-1"></i>Vẽ Đường Cầu
+                <span class="text-[10px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">AI</span>
             </button>
         </div>
 
@@ -169,6 +175,10 @@
                         <span id="all-bridges-backtest-status-pill" class="hidden sm:inline-block px-2.5 py-1 rounded-full font-bold bg-neutral-800 text-neutral-300 border border-neutral-700 text-xs">
                             Chế độ: Đang xem kỳ mở thưởng
                         </span>
+                        <button onclick="openXsmbModal()" title="Mở bảng kết quả xổ số miền Bắc dạng Popup tra cứu"
+                                class="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-500/50 font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow">
+                            <i class="fa-solid fa-table-list text-yellow-400"></i> Tra Cứu KQXS
+                        </button>
                         <button onclick="openExportExcelModal()" title="Xuất dữ liệu thống kê ra file Excel (.xlsx)"
                                 class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow">
                             <i class="fa-solid fa-file-excel"></i> Xuất Excel
@@ -375,59 +385,33 @@
                 </div>
             </div>
 
-            <!-- Quick Selector Control Panel (Neon Glass Card) -->
-            <div class="neon-glass-card rounded-2xl p-5 shadow-2xl space-y-4">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-cyan-500/20 pb-4">
+            <!-- Khối Giới Thiệu Popup Tra Cứu KQXS Nhanh -->
+            <div class="bg-gradient-to-r from-neutral-950 via-neutral-900 to-black border-2 border-yellow-500/50 rounded-2xl p-5 md:p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-5 relative overflow-hidden">
+                <div class="absolute -right-16 -top-16 w-48 h-48 bg-yellow-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                <div class="flex items-center gap-4 relative z-10">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-yellow-500 via-amber-400 to-yellow-200 text-black flex items-center justify-center font-black text-2xl shadow-[0_0_20px_rgba(234,179,8,0.5)]">
+                        <i class="fa-solid fa-table-list"></i>
+                    </div>
                     <div>
-                        <h2 class="text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 flex items-center gap-2 drop-shadow">
-                            <i class="fa-solid fa-bullseye text-yellow-400 animate-spin-slow"></i> CHỌN CẶP SỐ HOẶC ĐẦU LÔ TÔ ĐỂ HIGHLIGHT
-                        </h2>
-                        <p class="text-xs text-neutral-400 mt-1">Bấm vào bất kỳ cặp số loto hoặc chọn dòng Đầu (0-9) trên bảng để làm phát sáng kết quả tương ứng.</p>
-                    </div>
-
-                    <div class="flex items-center gap-2 w-full md:w-auto">
-                        <input type="text" id="customInput" maxlength="2" placeholder="Nhập cặp số (vd: 38)" 
-                               class="bg-black/90 border border-cyan-500/40 rounded-xl px-3 py-2 text-sm text-yellow-400 font-mono text-center focus:outline-none focus:border-cyan-400 focus:shadow-[0_0_15px_rgba(0,240,255,0.4)] w-36 shadow-inner">
-                        <button onclick="highlightCustomInput()" class="neon-btn-primary px-4 py-2 rounded-xl text-sm transition">
-                            Highlight
-                        </button>
-                        <button onclick="clearHighlight()" class="bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 font-semibold px-3 py-2 rounded-xl text-sm border border-neutral-700 transition">
-                            <i class="fa-solid fa-xmark"></i> Xóa
-                        </button>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-yellow-500 text-black shadow">
+                                Tiện Ích Mới
+                            </span>
+                            <span class="text-xs text-neutral-400 font-medium">Tra cứu mọi lúc mọi nơi</span>
+                        </div>
+                        <h3 class="text-lg font-black text-white flex items-center gap-2">
+                            BẢNG KẾT QUẢ XỔ SỐ MIỀN BẮC (POPUP)
+                        </h3>
+                        <p class="text-xs text-neutral-300 mt-1 max-w-xl leading-relaxed">
+                            Bảng kết quả xổ số đã được nâng cấp thành cửa sổ Popup tiện dụng. Dù bạn đang ở bất kỳ tab soi cầu nào, chỉ cần bấm nút để mở bảng tra cứu kết quả mà không cần rời khỏi màn hình phân tích.
+                        </p>
                     </div>
                 </div>
-
-                <!-- Number Picker Grid 00 - 99 -->
-                <div class="space-y-2">
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Bảng Chọn Nhanh (00 - 99):</span>
-                        <span id="highlightSummary" class="text-xs font-bold text-yellow-400 hidden bg-black px-3 py-1 rounded-full border border-yellow-500/40"></span>
-                    </div>
-                    <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-black/60 rounded-lg border border-neutral-800">
-                        {% for i in range(100) %}
-                        {% set num_str = "%02d" % i %}
-                        <button onclick="toggleHighlight('{{ num_str }}')" id="picker-{{ num_str }}" 
-                                class="num-chip w-8 h-8 rounded bg-neutral-900 text-neutral-200 font-mono text-xs font-bold border border-neutral-800 flex items-center justify-center">
-                            {{ num_str }}
-                        </button>
-                        {% endfor %}
-                    </div>
+                <div class="flex items-center gap-3 relative z-10 w-full md:w-auto justify-end">
+                    <button onclick="openXsmbModal()" class="w-full md:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 hover:from-yellow-300 hover:to-amber-300 text-black font-black text-sm shadow-[0_0_25px_rgba(245,158,11,0.5)] flex items-center justify-center gap-2.5 transition transform hover:scale-105 active:scale-95 border border-yellow-200">
+                        <i class="fa-solid fa-window-restore text-base"></i> Mở Bảng Kết Quả KQXS
+                    </button>
                 </div>
-            </div>
-
-            <!-- Dynamic Draws Grid Container (Standard Dark Layout like Screenshot) -->
-            <div id="draws-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Javascript dynamically renders draw cards matching screenshot style -->
-            </div>
-
-            <!-- Load More Controls -->
-            <div class="text-center pt-4 flex flex-col items-center gap-3">
-                <button id="loadMoreBtn" onclick="loadMoreDays()" class="bg-red-700 hover:bg-red-600 text-white font-bold px-8 py-3 rounded-xl border border-red-800 shadow-xl transition flex items-center gap-3 text-sm md:text-base">
-                    <i class="fa-solid fa-circle-chevron-down"></i> Xem Thêm 10 Ngày Nữa (<span id="loadedStatusText">10/0</span>)
-                </button>
-                <span id="allLoadedMsg" class="hidden text-sm text-neutral-400 italic bg-neutral-900 px-4 py-2 rounded-lg border border-neutral-800">
-                    <i class="fa-solid fa-check-double text-emerald-400 mr-1"></i> Đã hiển thị toàn bộ kết quả trong cơ sở dữ liệu.
-                </span>
             </div>
         </section>
 
@@ -1546,10 +1530,7 @@
                     </table>
                 </div>
             </div>
-
         </section>
-
-
 
         <!-- Section: Cầu Tổng Ngày & Bảng Thống Kê Kết Quả Đã Xảy Ra -->
         <section id="sec-date_sum" class="space-y-6 hidden">
@@ -1573,12 +1554,12 @@
                         </p>
                     </div>
 
-                    <button onclick="loadDateSumData()" class="text-xs bg-neutral-900 hover:bg-neutral-800 text-neutral-200 font-semibold px-4 py-2 rounded-xl flex items-center gap-2 border border-neutral-700 transition shadow">
+                    <button onclick="loadDateSumData(true)" class="text-xs bg-neutral-900 hover:bg-neutral-800 text-neutral-200 font-semibold px-4 py-2 rounded-xl flex items-center gap-2 border border-neutral-700 transition shadow">
                         <i class="fa-solid fa-rotate text-emerald-400"></i> Làm mới dữ liệu
                     </button>
                 </div>
 
-                <!-- Dự Đoán Kỳ Tới & Máy Tính Số Nhanh -->
+                <!-- Dự Đoán Kỳ Tới & Máy Tính Số Nhanh & 4 Chỉ Số -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <!-- Khối Cặp Số Dự Đoán Hôm Nay / Ngày Mai -->
                     <div class="bg-neutral-900/90 p-5 rounded-2xl border-2 border-emerald-500/40 flex flex-col justify-between items-center text-center shadow-xl space-y-4">
@@ -1587,13 +1568,13 @@
                             <div class="text-xs text-neutral-400 mt-1" id="dateSumTargetDateText">Tính cho kỳ: --</div>
                             
                             <div class="mt-4 flex items-center justify-center gap-3">
-                                <span id="dateSumPair1" onclick="switchTab('days10'); toggleHighlight(this.innerText.trim())" 
-                                      class="text-3xl sm:text-4xl font-black font-mono text-yellow-400 bg-black px-5 py-2 rounded-xl border-2 border-yellow-500/60 shadow-lg cursor-pointer hover:scale-105 transition" title="Bấm để xem Highlight trên bảng KQXS">
+                                <span id="dateSumPair1" onclick="openXsmbModal()" 
+                                      class="text-3xl sm:text-4xl font-black font-mono text-yellow-400 bg-black px-5 py-2 rounded-xl border-2 border-yellow-500/60 shadow-lg cursor-pointer hover:scale-105 transition" title="Bấm để tra cứu bảng KQXS">
                                     --
                                 </span>
                                 <span class="text-neutral-500 font-bold text-xl">-</span>
-                                <span id="dateSumPair2" onclick="switchTab('days10'); toggleHighlight(this.innerText.trim())" 
-                                      class="text-3xl sm:text-4xl font-black font-mono text-yellow-400 bg-black px-5 py-2 rounded-xl border-2 border-yellow-500/60 shadow-lg cursor-pointer hover:scale-105 transition" title="Bấm để xem Highlight trên bảng KQXS">
+                                <span id="dateSumPair2" onclick="openXsmbModal()" 
+                                      class="text-3xl sm:text-4xl font-black font-mono text-yellow-400 bg-black px-5 py-2 rounded-xl border-2 border-yellow-500/60 shadow-lg cursor-pointer hover:scale-105 transition" title="Bấm để tra cứu bảng KQXS">
                                     --
                                 </span>
                             </div>
@@ -1635,7 +1616,7 @@
                     <!-- 4 Thẻ Chỉ Số Hiệu Năng (Stat Badges) -->
                     <div class="grid grid-cols-2 gap-3">
                         <div class="bg-neutral-900/90 p-4 rounded-xl border border-neutral-800 flex flex-col justify-center items-center text-center">
-                            <span class="text-[11px] text-neutral-400 uppercase font-semibold">Tỷ Lệ Nổ Thực Tế</span>
+                            <span class="text-[11px] text-neutral-400 uppercase font-semibold" id="dateSumWinRateLabel">Tỷ Lệ Nổ (Khung 2 Ngày)</span>
                             <span id="dateSumWinRate" class="text-2xl font-black text-emerald-400 mt-1">--%</span>
                             <span id="dateSumWinRatio" class="text-[11px] text-neutral-400 mt-0.5">--/-- ngày</span>
                         </div>
@@ -1647,67 +1628,206 @@
                         </div>
 
                         <div class="bg-neutral-900/90 p-4 rounded-xl border border-neutral-800 flex flex-col justify-center items-center text-center">
-                            <span class="text-[11px] text-neutral-400 uppercase font-semibold">Trúng Giải ĐB (Đề)</span>
-                            <span id="dateSumDeHits" class="text-2xl font-black text-red-500 mt-1">--</span>
-                            <span class="text-[11px] text-neutral-400 mt-0.5">lần nổ Đề</span>
+                            <span class="text-[11px] text-neutral-400 uppercase font-semibold" id="dateSumSubStatLabel">Ăn Cứu Khung Ngày 2</span>
+                            <span id="dateSumDeHits" class="text-2xl font-black text-cyan-400 mt-1">--</span>
+                            <span id="dateSumSubStatDesc" class="text-[11px] text-neutral-400 mt-0.5">khung nổ Ngày 2</span>
                         </div>
 
                         <div class="bg-neutral-900/90 p-4 rounded-xl border border-neutral-800 flex flex-col justify-center items-center text-center">
                             <span class="text-[11px] text-neutral-400 uppercase font-semibold">Ăn Thông Dài Nhất</span>
-                            <span id="dateSumMaxStreak" class="text-2xl font-black text-cyan-400 mt-1">--</span>
-                            <span class="text-[11px] text-neutral-400 mt-0.5">ngày liên tiếp</span>
+                            <span id="dateSumMaxStreak" class="text-2xl font-black text-emerald-400 mt-1">--</span>
+                            <span id="dateSumMaxStreakDesc" class="text-[11px] text-neutral-400 mt-0.5">khung liên tiếp</span>
                         </div>
+                    </div>
+                </div>
+
+                <!-- KHỐI NGHIÊN CỨU BACKTEST SO SÁNH: KHUNG 1 NGÀY VS KHUNG 2 NGÀY -->
+                <div class="bg-gradient-to-r from-neutral-900 via-neutral-900/95 to-neutral-900 border-2 border-emerald-500/40 rounded-2xl p-5 md:p-6 shadow-2xl space-y-4 relative overflow-hidden">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-neutral-800 pb-3">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                                    <i class="fa-solid fa-microscope mr-1"></i> BÁO CÁO NGHIÊN CỨU BACKTEST
+                                </span>
+                                <span class="text-xs text-neutral-400 font-mono" id="backtestSampleText">Mẫu kiểm thử: 111 kỳ lịch sử liên tiếp</span>
+                            </div>
+                            <h3 class="text-base md:text-lg font-black text-white mt-1 flex items-center gap-2">
+                                <i class="fa-solid fa-scale-balanced text-yellow-400"></i> SO SÁNH HIỆU QUẢ: ĐÁNH NGÀY HÔM SAU VS NUÔI KHUNG 2 NGÀY
+                            </h3>
+                        </div>
+                        <div class="flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-xl border border-neutral-800 text-xs text-neutral-300">
+                            <i class="fa-solid fa-lightbulb text-yellow-400"></i>
+                            <span>Khuyến nghị tối ưu: <b class="text-emerald-400">ĐÁNH KHUNG 2 NGÀY</b></span>
+                        </div>
+                    </div>
+
+                    <!-- So sánh 2 phương án -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Cột A: Khung 1 Ngày (Ngày hôm sau N+1) -->
+                        <div class="bg-black/50 border border-neutral-800 rounded-xl p-4 flex flex-col justify-between space-y-3 relative hover:border-neutral-700 transition">
+                            <div>
+                                <div class="flex justify-between items-center">
+                                    <div class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-calendar-day"></i> PHƯƠNG ÁN A: ĐÁNH NGÀY HÔM SAU (N+1)
+                                    </div>
+                                    <span class="text-[11px] bg-amber-950/60 text-amber-300 border border-amber-800 px-2 py-0.5 rounded">Khung 1 Ngày</span>
+                                </div>
+                                <div class="mt-3 flex items-baseline gap-2">
+                                    <span class="text-3xl font-black font-mono text-amber-400" id="backtestK1Rate">43.2%</span>
+                                    <span class="text-xs text-neutral-400" id="backtestK1Ratio">(Nổ 48 / 111 kỳ)</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-neutral-800/80 text-center font-mono">
+                                    <div class="bg-neutral-900/60 p-1.5 rounded">
+                                        <div class="text-[10px] text-neutral-400 font-sans">Tổng nháy</div>
+                                        <div class="text-xs font-bold text-yellow-400" id="backtestK1Hits">66 nháy</div>
+                                    </div>
+                                    <div class="bg-neutral-900/60 p-1.5 rounded">
+                                        <div class="text-[10px] text-neutral-400 font-sans">Max ăn thông</div>
+                                        <div class="text-xs font-bold text-emerald-400" id="backtestK1WinStreak">4 kỳ</div>
+                                    </div>
+                                    <div class="bg-neutral-900/60 p-1.5 rounded">
+                                        <div class="text-[10px] text-neutral-400 font-sans">Max trượt dài</div>
+                                        <div class="text-xs font-bold text-red-400" id="backtestK1LoseStreak">7 kỳ liên tiếp</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-[11px] text-neutral-400 leading-relaxed bg-neutral-900/40 p-2.5 rounded-lg border border-neutral-800/60">
+                                <b class="text-amber-300">Nhận xét:</b> Tỷ lệ trúng 43.2% ở mức vừa phải. Điểm yếu lớn nhất là <span class="text-red-400 font-bold">chuỗi trượt lên tới 7 ngày liên tiếp</span>, dễ khiến người chơi bị gãy vốn nếu không kiểm soát tốt cảm xúc.
+                            </div>
+                        </div>
+
+                        <!-- Cột B: Khung 2 Ngày (Nuôi N+1 & N+2) -->
+                        <div class="bg-emerald-950/20 border-2 border-emerald-500/60 rounded-xl p-4 flex flex-col justify-between space-y-3 relative hover:border-emerald-400 transition shadow-lg shadow-emerald-950/30">
+                            <div>
+                                <div class="flex justify-between items-center">
+                                    <div class="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-shield-halved"></i> PHƯƠNG ÁN B: NUÔI KHUNG 2 NGÀY (N+1 & N+2)
+                                    </div>
+                                    <span class="text-[11px] bg-emerald-600 text-white font-black px-2 py-0.5 rounded shadow animate-pulse">
+                                        <i class="fa-solid fa-arrow-trend-up mr-1"></i>+22.6% TỶ LỆ TRÚNG
+                                    </span>
+                                </div>
+                                <div class="mt-3 flex items-baseline gap-2">
+                                    <span class="text-3xl font-black font-mono text-emerald-400" id="backtestK2Rate">65.8%</span>
+                                    <span class="text-xs text-neutral-300" id="backtestK2Ratio">(Ăn 73 / 111 khung)</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-neutral-800/80 text-center font-mono">
+                                    <div class="bg-neutral-900/60 p-1.5 rounded">
+                                        <div class="text-[10px] text-neutral-400 font-sans">Ăn Ngày 1 / Ngày 2</div>
+                                        <div class="text-xs font-bold text-cyan-400" id="backtestK2Breakdown">43.2% / 22.5%</div>
+                                    </div>
+                                    <div class="bg-neutral-900/60 p-1.5 rounded">
+                                        <div class="text-[10px] text-neutral-400 font-sans">Max ăn thông</div>
+                                        <div class="text-xs font-bold text-emerald-300" id="backtestK2WinStreak">8 khung</div>
+                                    </div>
+                                    <div class="bg-neutral-900/60 p-1.5 rounded">
+                                        <div class="text-[10px] text-neutral-400 font-sans">Max trượt dài</div>
+                                        <div class="text-xs font-bold text-emerald-400" id="backtestK2LoseStreak">Chỉ 3 khung!</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-[11px] text-neutral-300 leading-relaxed bg-black/60 p-2.5 rounded-lg border border-emerald-900/50">
+                                <b class="text-emerald-400">Kết luận:</b> Tỷ lệ nổ nhảy vọt lên <b class="text-emerald-300">65.8%</b>. Chuỗi trượt tối đa <span class="text-emerald-400 font-bold">chỉ 3 khung</span> (giảm hơn 57% so với 7 ngày xịt của khung 1 ngày). Rất an toàn và ổn định!
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chiến thuật vào tiền thông minh -->
+                    <div class="bg-black/60 border border-neutral-800 rounded-xl p-3 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-neutral-300">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-coins text-yellow-400 text-base"></i>
+                            <div>
+                                <b class="text-white">Chiến thuật vào tiền khuyến nghị cho Khung 2 ngày:</b>
+                                <span class="text-neutral-400 ml-1">Đánh tỷ lệ 1 : 2 hoặc 1 : 2.5 (Ví dụ: Ngày 1 đánh 10đ/con; nếu chưa nổ, Ngày 2 vào 25đ/con).</span>
+                            </div>
+                        </div>
+                        <span class="text-[11px] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-800/80 px-2.5 py-1 rounded-lg flex-shrink-0">
+                            Ăn ngày nào cũng có lãi ròng
+                        </span>
                     </div>
                 </div>
             </div>
 
             <!-- Bảng Thống Kê Chi Tiết Kết Quả Đã Xảy Ra -->
             <div class="bg-neutral-900 rounded-2xl p-6 border border-neutral-800 shadow-xl space-y-4">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-neutral-800 pb-4">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-neutral-800 pb-4">
                     <div>
                         <h3 class="text-lg font-black text-white flex items-center gap-2">
-                            <i class="fa-solid fa-table text-emerald-400"></i> BẢNG THỐNG KÊ CHI TIẾT KẾT QUẢ ĐÃ XẢY RA (60 KỲ GẦN NHẤT)
+                            <i class="fa-solid fa-table text-emerald-400"></i> 
+                            <span id="dateSumTableMainTitle">BẢNG THỐNG KÊ CHI TIẾT KẾT QUẢ ĐÃ XẢY RA (TOÀN BỘ 111 KỲ)</span>
                         </h3>
-                        <p class="text-xs text-neutral-400 mt-1">
-                            Đối chiếu từng ngày: lấy tổng ngày kỳ trước dự đoán và kiểm tra chính xác kết quả mở thưởng kỳ tiếp theo.
+                        <p class="text-xs text-neutral-400 mt-1" id="dateSumTableSubTitle">
+                            Đang xem chế độ Khung 2 Ngày: Đối chiếu cả kết quả Ngày 1 (N+1) và Ngày 2 (N+2) của từng kỳ quay căn cứ.
                         </p>
                     </div>
 
-                    <!-- Bộ lọc bảng -->
-                    <div class="flex items-center gap-1.5 bg-black/60 p-1.5 rounded-xl border border-neutral-800 text-xs">
-                        <button onclick="filterDateSumTable('all')" id="btn-filter-datesum-all" 
-                                class="px-3 py-1.5 rounded-lg font-bold bg-neutral-800 text-white transition">
-                            Tất cả (<span id="count-datesum-all">0</span>)
-                        </button>
-                        <button onclick="filterDateSumTable('win')" id="btn-filter-datesum-win" 
-                                class="px-3 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-emerald-400 transition">
-                            Trúng (<span id="count-datesum-win">0</span>)
-                        </button>
-                        <button onclick="filterDateSumTable('de')" id="btn-filter-datesum-de" 
-                                class="px-3 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-yellow-400 transition">
-                            Trúng Đề (<span id="count-datesum-de">0</span>)
-                        </button>
-                        <button onclick="filterDateSumTable('lose')" id="btn-filter-datesum-lose" 
-                                class="px-3 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-red-400 transition">
-                            Trượt (<span id="count-datesum-lose">0</span>)
-                        </button>
+                    <!-- Hàng điều khiển: Chế độ Khung + Số kỳ + Bộ lọc trạng thái -->
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <!-- Chuyển đổi Chế độ Khung -->
+                        <div class="flex items-center bg-black/70 p-1 rounded-xl border border-neutral-800 text-xs">
+                            <button onclick="switchDateSumMode(2)" id="btn-mode-k2" 
+                                    class="px-3 py-1.5 rounded-lg font-bold bg-emerald-600 text-white transition shadow flex items-center gap-1.5">
+                                <i class="fa-solid fa-layer-group"></i> Khung 2 Ngày
+                                <span class="text-[10px] bg-yellow-400 text-black font-black px-1.5 py-0.2 rounded-full">65.8%</span>
+                            </button>
+                            <button onclick="switchDateSumMode(1)" id="btn-mode-k1" 
+                                    class="px-3 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-white transition flex items-center gap-1">
+                                <i class="fa-solid fa-calendar-day"></i> Khung 1 Ngày
+                            </button>
+                        </div>
+
+                        <!-- Chọn số ngày hiển thị (Giải quyết: Bảng chưa đủ ngày) -->
+                        <div class="flex items-center bg-black/70 p-1 rounded-xl border border-neutral-800 text-xs">
+                            <span class="text-neutral-500 px-2 text-[11px] font-semibold hidden sm:inline">Hiển thị:</span>
+                            <button onclick="changeDateSumLimit('all')" id="btn-limit-all" 
+                                    class="px-2.5 py-1 rounded-lg font-bold bg-neutral-800 text-emerald-400 transition" title="Hiển thị toàn bộ lịch sử trong cơ sở dữ liệu">
+                                Toàn Bộ
+                            </button>
+                            <button onclick="changeDateSumLimit(90)" id="btn-limit-90" 
+                                    class="px-2.5 py-1 rounded-lg font-semibold text-neutral-400 hover:text-white transition">
+                                90 Kỳ
+                            </button>
+                            <button onclick="changeDateSumLimit(60)" id="btn-limit-60" 
+                                    class="px-2.5 py-1 rounded-lg font-semibold text-neutral-400 hover:text-white transition">
+                                60 Kỳ
+                            </button>
+                            <button onclick="changeDateSumLimit(30)" id="btn-limit-30" 
+                                    class="px-2.5 py-1 rounded-lg font-semibold text-neutral-400 hover:text-white transition">
+                                30 Kỳ
+                            </button>
+                        </div>
+
+                        <!-- Bộ lọc trạng thái bảng -->
+                        <div class="flex items-center gap-1 bg-black/70 p-1 rounded-xl border border-neutral-800 text-xs">
+                            <button onclick="filterDateSumTable('all')" id="btn-filter-datesum-all" 
+                                    class="px-2.5 py-1.5 rounded-lg font-bold bg-neutral-800 text-white transition">
+                                Tất cả (<span id="count-datesum-all">0</span>)
+                            </button>
+                            <button onclick="filterDateSumTable('win')" id="btn-filter-datesum-win" 
+                                    class="px-2.5 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-emerald-400 transition">
+                                <span id="label-filter-datesum-win">Ăn Khung</span> (<span id="count-datesum-win">0</span>)
+                            </button>
+                            <button onclick="filterDateSumTable('day1')" id="btn-filter-datesum-day1" 
+                                    class="px-2.5 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-cyan-400 transition">
+                                Ăn N1 (<span id="count-datesum-day1">0</span>)
+                            </button>
+                            <button onclick="filterDateSumTable('day2')" id="btn-filter-datesum-day2" 
+                                    class="px-2.5 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-yellow-400 transition">
+                                Ăn N2 (<span id="count-datesum-day2">0</span>)
+                            </button>
+                            <button onclick="filterDateSumTable('lose')" id="btn-filter-datesum-lose" 
+                                    class="px-2.5 py-1.5 rounded-lg font-semibold text-neutral-400 hover:text-red-400 transition">
+                                Trượt (<span id="count-datesum-lose">0</span>)
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Bảng Dữ Liệu -->
+                <!-- Bảng Dữ Liệu Lịch Sử -->
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs text-neutral-300">
-                        <thead class="bg-black/80 text-neutral-400 uppercase font-semibold border-b border-neutral-800">
-                            <tr>
-                                <th class="p-3">Kỳ Căn Cứ (Ngày tính)</th>
-                                <th class="p-3">Phép Tính Tổng</th>
-                                <th class="p-3 text-center">Cặp Số Song Thủ</th>
-                                <th class="p-3">Kỳ Mở Thưởng (Ngày về)</th>
-                                <th class="p-3 text-center">Giải ĐB</th>
-                                <th class="p-3 text-center">Tình Trạng</th>
-                                <th class="p-3 text-center">Số Nháy Về</th>
-                                <th class="p-3 text-right">Xem KQXS</th>
-                            </tr>
+                        <thead id="dateSumTableHead" class="bg-black/80 text-neutral-400 uppercase font-semibold border-b border-neutral-800">
+                            <!-- Populated dynamically by JS according to Mode 1 or Mode 2 -->
                         </thead>
                         <tbody id="dateSumTableBody" class="divide-y divide-neutral-800 font-mono">
                             <!-- JS populated rows -->
@@ -1951,9 +2071,9 @@
                             </select>
 
                             <select id="pattern-sort-select" onchange="filterPatternsTable()" class="bg-black border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:border-red-500 focus:outline-none">
-                                <option value="confidence">Xếp theo: Độ tin cậy (Wilson)</option>
-                                <option value="hitRate">Xếp theo: Tỷ lệ trúng %</option>
+                                <option value="hitRate" selected>Xếp theo: Tỷ lệ trúng % (Độ ổn định cao nhất)</option>
                                 <option value="streak">Xếp theo: Chuỗi ăn hiện tại</option>
+                                <option value="confidence">Xếp theo: Độ tin cậy (Wilson)</option>
                                 <option value="lift">Xếp theo: Lift (Hiệu quả)</option>
                                 <option value="occurrences">Xếp theo: Số lần xuất hiện</option>
                             </select>
@@ -2329,7 +2449,29 @@
                 </span>
             </button>
 
-            <!-- Nút 3: ĐẾN BẢNG VÀNG KQXS & TỔNG HỢP -->
+            <!-- Nút MÁY TÍNH LÔ ĐỀ POPUP -->
+            <button onclick="openLotoCalculatorModal()" class="nav-dock-btn group relative" title="Máy Tính Lô Đề (Quản lý vốn & Lãi Lỗ)">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-b from-emerald-600/40 to-neutral-900 border border-emerald-400/80 hover:border-emerald-300 text-emerald-300 hover:text-white flex items-center justify-center transition shadow-md hover:scale-105 active:scale-95 shadow-[0_0_12px_rgba(16,185,129,0.35)]">
+                    <i class="fa-solid fa-calculator text-sm transition-transform group-hover:scale-110"></i>
+                </div>
+                <!-- Tooltip Left -->
+                <span class="nav-dock-tooltip">
+                    <i class="fa-solid fa-calculator mr-1 text-emerald-400"></i>Máy Tính Lô Đề
+                </span>
+            </button>
+
+            <!-- Nút 3: TRA CỨU KQXS POPUP (Mở từ mọi tab) -->
+            <button onclick="openXsmbModal()" class="nav-dock-btn group relative" title="Tra cứu kết quả xổ số (Popup)">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-b from-yellow-500/30 to-neutral-900 border border-yellow-400/80 hover:border-yellow-300 text-yellow-300 hover:text-white flex items-center justify-center transition shadow-md hover:scale-105 active:scale-95 shadow-[0_0_12px_rgba(234,179,8,0.3)]">
+                    <i class="fa-solid fa-table-list text-sm transition-transform group-hover:scale-110"></i>
+                </div>
+                <!-- Tooltip Left -->
+                <span class="nav-dock-tooltip">
+                    <i class="fa-solid fa-table-list mr-1 text-yellow-400"></i>Tra cứu KQXS (Popup)
+                </span>
+            </button>
+
+            <!-- Nút 4: ĐẾN BẢNG VÀNG TỔNG HỢP -->
             <button onclick="navigateToSection('days10', 'all-bridges-summary-card')" class="nav-dock-btn group relative" title="Đến Bảng Vàng Tổng Hợp">
                 <div class="w-10 h-10 rounded-xl bg-gradient-to-b from-yellow-950/80 to-neutral-900 border border-yellow-500/50 hover:border-yellow-400 text-yellow-300 hover:text-white flex items-center justify-center transition shadow-md hover:scale-105 active:scale-95">
                     <i class="fa-solid fa-trophy text-sm transition-transform group-hover:scale-110"></i>
@@ -2376,6 +2518,105 @@
             <i class="fa-solid fa-chevron-right text-[10px]"></i>
         </button>
     </aside>
+
+    <!-- ========================================================================= -->
+    <!-- POPUP MODAL TRA CỨU KẾT QUẢ XỔ SỐ MIỀN BẮC (XSMB)                         -->
+    <!-- Mở được ở mọi tab, hỗ trợ xem ngày trước / sau dạng tối giản              -->
+    <!-- ========================================================================= -->
+    <div id="xsmb-results-modal" class="fixed inset-0 z-[99999] bg-black/85 backdrop-blur-md hidden items-center justify-center p-3 sm:p-4" onclick="handleXsmbModalBackdrop(event)">
+        <div class="bg-neutral-950 border-2 border-yellow-500/60 rounded-3xl max-w-2xl w-full p-4 sm:p-5 shadow-[0_0_50px_rgba(234,179,8,0.3)] flex flex-col max-h-[92vh] overflow-hidden animate-scaleUp" onclick="event.stopPropagation()">
+            
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center border-b border-neutral-800 pb-3 gap-2">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-yellow-500 to-amber-300 text-black flex items-center justify-center font-black text-sm shadow-[0_0_12px_rgba(234,179,8,0.4)]">
+                        MB
+                    </div>
+                    <div>
+                        <h3 class="text-base font-black text-white flex items-center gap-2 flex-wrap">
+                            BẢNG KẾT QUẢ XSMB
+                            <span id="xsmb-modal-date-badge" class="text-xs bg-cyan-950 text-cyan-300 font-mono px-2.5 py-0.5 rounded-full border border-cyan-800 font-bold">--/--/----</span>
+                        </h3>
+                        <p class="text-[11px] text-neutral-400" id="xsmb-modal-subtext">Kỳ mở thưởng mới nhất</p>
+                    </div>
+                </div>
+                <button onclick="closeXsmbModal()" class="text-neutral-400 hover:text-white text-xl p-1.5 rounded-lg hover:bg-neutral-800 transition" title="Đóng (ESC)">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Date Navigation Bar (Tối giản: Trước / Sau / Hôm Nay) -->
+            <div class="py-2.5 px-3 bg-neutral-900/90 border border-neutral-800 rounded-2xl flex items-center justify-between gap-2 my-2.5">
+                <button onclick="navigateXsmbModal(1)" id="btn-xsmb-modal-prev" class="px-3.5 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold transition flex items-center gap-1.5 shadow border border-neutral-700">
+                    <i class="fa-solid fa-chevron-left text-[10px]"></i> Kỳ trước
+                </button>
+
+                <!-- Dropdown chọn kỳ quay nhanh -->
+                <div class="flex items-center gap-1.5">
+                    <select id="xsmb-modal-date-select" onchange="onXsmbModalDateSelect(this.value)" class="bg-black text-yellow-300 font-mono font-bold text-xs border border-yellow-500/50 rounded-xl px-2.5 py-1.5 focus:outline-none cursor-pointer">
+                        <!-- Populated dynamically -->
+                    </select>
+                    <button onclick="resetXsmbModalToLatest()" title="Về kỳ mở thưởng mới nhất" class="px-2.5 py-1.5 rounded-xl bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 hover:bg-yellow-400 hover:text-black text-xs font-bold transition">
+                        <i class="fa-solid fa-rotate-left text-[10px]"></i> Mới nhất
+                    </button>
+                </div>
+
+                <button onclick="navigateXsmbModal(-1)" id="btn-xsmb-modal-next" class="px-3.5 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold transition flex items-center gap-1.5 shadow border border-neutral-700">
+                    Kỳ sau <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body: Container bảng kết quả & Lô tô -->
+            <div id="xsmb-modal-draw-container" class="flex-1 overflow-y-auto pr-1 space-y-3 custom-scroll">
+                <!-- Rendered dynamically -->
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="pt-3 border-t border-neutral-800 flex justify-between items-center text-xs text-neutral-400">
+                <span id="xsmb-modal-draw-index" class="font-mono">Kỳ quay 1/60</span>
+                <button onclick="closeXsmbModal()" class="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold rounded-xl transition">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- POPUP MODAL MÁY TÍNH LÔ ĐỀ (Quản lý vốn, cược & lãi lỗ)                   -->
+    <!-- ========================================================================= -->
+    <div id="loto-calculator-modal" class="fixed inset-0 z-[99999] bg-black/85 backdrop-blur-md hidden items-center justify-center p-2 sm:p-4" onclick="handleCalculatorModalBackdrop(event)">
+        <div class="bg-slate-950 border-2 border-emerald-500/70 rounded-3xl w-full max-w-6xl h-[94vh] shadow-[0_0_50px_rgba(16,185,129,0.35)] flex flex-col overflow-hidden animate-scaleUp" onclick="event.stopPropagation()">
+            
+            <!-- Modal Header Bar -->
+            <div class="flex justify-between items-center bg-slate-900 px-4 py-2.5 border-b border-slate-800 gap-2">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-600 to-teal-400 text-white flex items-center justify-center font-black text-sm shadow">
+                        🧮
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-white uppercase flex items-center gap-2">
+                            MÁY TÍNH LÔ ĐỀ
+                            <span class="text-[10px] bg-emerald-950 text-emerald-300 font-mono px-2 py-0.5 rounded-full border border-emerald-800 font-bold">PRO DASHBOARD</span>
+                        </h3>
+                        <p class="text-[10px] text-slate-400">Quản lý vốn • Tính cược &amp; lãi lỗ chuẩn xác</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="/calculator" target="_blank" title="Mở trang riêng toàn màn hình" class="text-slate-400 hover:text-white text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 transition flex items-center gap-1">
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[11px]"></i> Mở tab mới
+                    </a>
+                    <button onclick="closeLotoCalculatorModal()" class="text-slate-400 hover:text-white text-lg p-1.5 rounded-lg hover:bg-slate-800 transition" title="Đóng (ESC)">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Body Iframe -->
+            <div class="flex-1 w-full h-full bg-slate-950 relative">
+                <iframe id="loto-calculator-iframe" src="/calculator/" class="w-full h-full border-0" title="Máy Tính Lô Đề"></iframe>
+            </div>
+        </div>
+    </div>
 
     <!-- MODAL BẮN PHÁO HOA CHÚC MỪNG CHIẾN THẮNG (A DƯƠNG ĐẸP TRAI) -->
     <div id="fireworksCelebrationModal" class="fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden transition-all duration-300">

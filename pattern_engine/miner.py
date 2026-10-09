@@ -231,10 +231,12 @@ class PatternMiner:
                 if not stats["isOverfit"]:
                     pa = int(self.p_a[pair_idx])
                     pb = int(self.p_b[pair_idx])
+                    hit_rate = round(h_total / T, 4)
                     candidates_pool.append({
                         "pa": pa,
                         "pb": pb,
                         "op": op,
+                        "hit_rate": hit_rate,
                         "conf": conf,
                         "streak": streak,
                         "lift": stats["lift"],
@@ -242,9 +244,13 @@ class PatternMiner:
                         "stats": stats
                     })
 
-        # Xếp hạng đa tiêu chí: Confidence -> Streak -> Lift -> Hits
+        # Xếp hạng đa tiêu chí tương ứng với cách xếp hạng của Cầu Thứ, Tỉnh Thành:
+        # 1. Độ ổn định % cao nhất (hit_rate)
+        # 2. Chuỗi ăn thông liên tiếp gần nhất (streak)
+        # 3. Điểm tin cậy thống kê (conf)
+        # 4. Tổng số nháy nổ (hits)
         candidates_pool.sort(
-            key=lambda x: (x["conf"], x["streak"], x["lift"], x["hits"]),
+            key=lambda x: (x["hit_rate"], x["streak"], x["conf"], x["hits"]),
             reverse=True
         )
 
