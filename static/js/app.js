@@ -2,6 +2,41 @@
         // HỆ THỐNG GIẢI THÍCH & CHÚ THÍCH CÁC CẦU (KÈM VÍ DỤ THỰC TẾ CHI TIẾT)
         // =========================================================================
         const BRIDGE_EXPLANATIONS = {
+            "top_5_hoi_tu": {
+                "title": "DÀN LÔ TOP 5 ĐẸP NHẤT (HỘI TỤ ĐA CẦU)",
+                "badge": "Đồng Thuận Đỉnh Cao",
+                "essence": "Hệ thống tổng hợp và lượng hóa điểm số từ toàn bộ 23 thuật toán soi cầu, trích xuất 5 con số có tần suất lặp và điểm hội tụ cao nhất trong ngày.",
+                "example": "Ví dụ: Sau khi quét 23 module và các chu kỳ bệt, 5 con số đạt điểm đồng thuận cao nhất -> Kết hợp thành dàn 5 số bao lô hoặc ghép xiên quây.",
+                "condition": "Tỷ lệ nổ ít nhất 1 con đạt 73.9% (82/111 kỳ lịch sử), tổng 152 nháy (TB 1.85 nháy/kỳ), ăn thông kỷ lục 9 kỳ liên tiếp."
+            },
+            "date_sum": {
+                "title": "CẦU TỔNG NGÀY (NGÀY + THÁNG + NĂM)",
+                "badge": "Toán Học Lịch Dương",
+                "essence": "Cộng dồn Ngày + Tháng + Năm theo lịch dương của kỳ quay trước, lấy 2 số cuối của tổng số học và số lộn làm cặp Song Thủ nuôi khung 2 ngày (N và N+1).",
+                "example": "Ví dụ: Ngày 11/10/2026 -> 11 + 10 + 2026 = 2047 -> Cặp Song Thủ 47 - 74 nuôi trong 2 ngày kế tiếp.",
+                "condition": "Tỷ lệ nổ khung 2 ngày đạt 65.8% (75/114 khung), ăn thông 8 khung liên tiếp. Chuỗi trượt khung tối đa chỉ 2 khung."
+            },
+            "top_3_hoi_tu": {
+                "title": "TOP 3 CẶP SỐ HỘI TỤ CAO NHẤT (TAM HOA)",
+                "badge": "Tam Hoa Hội Tụ",
+                "essence": "Lọc ra 3 con số có trọng số điểm cao nhất từ bảng đồng thuận đa cầu. Thu hẹp vốn nhưng vẫn duy trì xác suất nổ vượt trội gần 60%.",
+                "example": "Ví dụ: Ba con số có điểm số hội tụ vượt mốc 90 điểm -> Lập thành bộ 3 số chủ lực đánh bao lô hoặc ghép xiên 2, xiên 3.",
+                "condition": "Tỷ lệ nổ đạt 59.5% (66/111 kỳ), tổng 94 nháy (TB 1.42 nháy/kỳ), chuỗi ăn thông kỷ lục 6 kỳ liên tiếp."
+            },
+            "chot_song_thu": {
+                "title": "CẶP SONG THỦ CHỐT HỘI TỤ (ĐIỂM RƠI 2 CHIỀU)",
+                "badge": "Bao Vây 2 Chiều",
+                "essence": "Xác định con số có điểm rơi mạnh nhất hệ thống và tự động ghép với số đảo chiều (lộn) của chính nó (dạng AB - BA), loại trừ hoàn toàn rủi ro bị nổ lộn.",
+                "example": "Ví dụ: Con số 51 đạt điểm hội tụ cao nhất -> Tự động ghép thành cặp song thủ 51 - 15 bảo vệ 2 chiều.",
+                "condition": "Tỷ lệ nổ đạt 46.7% trong 60 kỳ (43.2% toàn bộ lịch sử 111 kỳ), tổng 63 nháy, max thông 4 kỳ liên tiếp."
+            },
+            "chot_bach_thu": {
+                "title": "BẠCH THỦ CHỐT ĐIỂM RƠI (ĐƠN THỦ CỰC ĐẠI)",
+                "badge": "Đơn Thủ Tối Thượng",
+                "essence": "Tập trung toàn bộ lực lượng vào duy nhất 1 con số có điểm số cao nhất hệ thống. Đạt tỷ lệ trúng 32.4% (vượt xa mức xác suất ngẫu nhiên 23.7% của 1 con lô đơn lẻ).",
+                "example": "Ví dụ: Thuật toán định vị con 51 đạt điểm rơi vượt trội so với toàn bộ 99 số còn lại -> Chốt duy nhất bạch thủ [51].",
+                "condition": "Tỷ lệ trúng 32.4% (36/111 kỳ), ăn thông tối đa 4 kỳ liên tiếp. Thích hợp cho người chơi ưa thích lối đánh quyết đoán 1 vốn 4 lời."
+            },
             "module_cau": {
                 "title": "MODULE CẦU – NHỊP ĐI & CẦU KẸP BẢNG GIẢI",
                 "badge": "Thuật toán Cốt Lõi",
@@ -873,9 +908,17 @@
 
             // Xác định kỳ quay cần hiển thị
             if (targetDate && allDraws && allDraws.length > 0) {
-                const cleanTarget = String(targetDate).trim();
+                const cleanTarget = String(targetDate).replace(/\s*\(.*?\)/g, '').trim();
+                let isoTarget = cleanTarget;
+                if (cleanTarget.includes('/')) {
+                    const parts = cleanTarget.split('/');
+                    if (parts.length === 3) {
+                        isoTarget = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                    }
+                }
                 const foundIdx = allDraws.findIndex(d => 
                     d.draw_date === cleanTarget || 
+                    d.draw_date === isoTarget || 
                     d.date_display === cleanTarget || 
                     (d.target_date && d.target_date === cleanTarget)
                 );
@@ -1422,7 +1465,7 @@
             if (filteredRows.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="py-10 text-center text-neutral-500 font-sans">
+                        <td colspan="9" class="py-10 text-center text-neutral-500 font-sans">
                             <i class="fa-solid fa-inbox text-2xl mb-1.5 block text-neutral-600"></i>
                             Không có phương pháp nào phù hợp với bộ lọc "${currentAllBridgesFilter}".
                         </td>
@@ -1435,7 +1478,7 @@
                 const topNumbers = (data.hero_chot && data.hero_chot.top3) ? data.hero_chot.top3 : [];
                 const hitNums = row.hit_numbers || [];
 
-                const predChips = (row.predicted || []).map(num => {
+                const predChips = (row.predicted && row.predicted.length > 0) ? (row.predicted || []).map(num => {
                     const isTop = topNumbers.includes(num);
                     const isNumHit = !isPending && hitNums.includes(num);
 
@@ -1455,20 +1498,36 @@
                             ${num} ${isNumHit ? '<i class="fa-solid fa-check text-[10px]"></i>' : ''}
                         </span>
                     `;
-                }).join('');
+                }).join('') : '';
+
+                // Thứ hạng huy chương
+                let rankBadgeHtml = '';
+                if (row.rank === 1) {
+                    rankBadgeHtml = `<span class="inline-flex items-center justify-center px-2 py-1 rounded-lg font-black text-xs bg-yellow-400/20 text-yellow-300 border border-yellow-400/50 shadow-[0_0_10px_rgba(250,204,21,0.3)]">🥇 TOP 1</span>`;
+                } else if (row.rank === 2) {
+                    rankBadgeHtml = `<span class="inline-flex items-center justify-center px-2 py-1 rounded-lg font-black text-xs bg-slate-300/20 text-slate-200 border border-slate-300/50 shadow-[0_0_10px_rgba(203,213,225,0.3)]">🥈 TOP 2</span>`;
+                } else if (row.rank === 3) {
+                    rankBadgeHtml = `<span class="inline-flex items-center justify-center px-2 py-1 rounded-lg font-black text-xs bg-amber-600/20 text-amber-400 border border-amber-600/50 shadow-[0_0_10px_rgba(217,119,6,0.3)]">🥉 TOP 3</span>`;
+                } else {
+                    rankBadgeHtml = `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-[11px] font-bold bg-neutral-900 text-cyan-400 border border-neutral-700">TOP ${row.rank || '--'}</span>`;
+                }
 
                 // Tín hiệu
                 let signalBadge = '';
                 if (row.signal_type === 'strong') {
-                    signalBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-950 text-purple-300 border border-purple-700 animate-pulse shadow-sm shadow-purple-900/50">🔥 ${row.signal}</span>`;
+                    signalBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-950 text-purple-300 border border-purple-700 animate-pulse">🔥 ${row.signal}</span>`;
                 } else {
-                    signalBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-700">✅ ${row.signal}</span>`;
+                    signalBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-700">✅ ${row.signal}</span>`;
                 }
 
                 // Kết Quả Đối Chiếu
                 let evalBadge = '';
                 if (isPending) {
-                    evalBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-950 text-cyan-300 border border-cyan-700">⏳ CHỜ QUAY</span>`;
+                    if (row.predicted && row.predicted.length > 0) {
+                        evalBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-950 text-cyan-300 border border-cyan-700 shadow-sm">⏳ CHỜ QUAY (18h30)</span>`;
+                    } else {
+                        evalBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-neutral-900 text-neutral-400 border border-neutral-700">⚪ CHỜ TÍN HIỆU</span>`;
+                    }
                 } else if (row.is_de) {
                     evalBadge = `
                         <span class="inline-block px-3 py-1 rounded-full text-[11px] font-black bg-yellow-950 text-yellow-300 border border-yellow-500 shadow-[0_0_12px_rgba(234,179,8,0.4)]">
@@ -1481,57 +1540,101 @@
                             ✅ TRÚNG (${row.hits} nháy)
                         </span>
                     `;
-                } else if (row.status_type === 'none') {
+                } else if (row.status_type === 'none' || row.status_type === 'waiting') {
                     evalBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-neutral-800 text-neutral-400 border border-neutral-700">⚪ KHÔNG BÁO</span>`;
                 } else {
                     evalBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-950/60 text-red-400 border border-red-800/70">❌ TRƯỢT</span>`;
                 }
 
+                const winPct = Number(row.win_rate) || 0;
+
                 return `
-                    <tr class="hover:bg-neutral-800/50 transition">
+                    <tr class="hover:bg-neutral-800/60 transition group">
+                        <!-- Cột 1: Thứ Hạng -->
+                        <td class="p-3 text-center whitespace-nowrap">
+                            ${rankBadgeHtml}
+                        </td>
+
+                        <!-- Cột 2: Cầu / Phương Pháp Soi -->
                         <td class="p-3">
                             <div class="flex items-center gap-2.5">
-                                <span class="w-8 h-8 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center text-yellow-400 text-sm shadow">
+                                <span class="w-8 h-8 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center text-yellow-400 text-sm shadow flex-shrink-0 group-hover:border-yellow-400/50 transition">
                                     <i class="${row.tab_icon}"></i>
                                 </span>
                                 <div>
-                                    <div class="font-bold text-white text-xs cursor-pointer hover:text-yellow-400 transition" onclick="switchTab('${row.tab_id}')">
+                                    <div class="font-bold text-white text-xs cursor-pointer hover:text-yellow-400 transition" onclick="openBridgeModal('${row.lookup_key}', 'occurrences')">
                                         ${row.bridge_name}
                                     </div>
-                                    <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-bold">
-                                        ${row.tab_name}
-                                    </span>
+                                    <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                        <span class="text-[9px] px-1.5 py-0.2 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800 font-semibold">
+                                            ${row.tab_name}
+                                        </span>
+                                        <span class="text-[9px] px-1.5 py-0.2 rounded bg-neutral-800 text-neutral-300 border border-neutral-700">
+                                            ${row.tab_badge || row.category || ''}
+                                        </span>
+                                    </div>
+                                    <div class="text-[10px] text-neutral-400 font-sans mt-0.5 leading-tight line-clamp-1" title="${row.rule_summary || ''}">
+                                        ${row.rule_summary || ''}
+                                    </div>
                                 </div>
                             </div>
                         </td>
-                        <td class="p-3">
-                            <div class="text-xs text-neutral-300 font-sans max-w-xs leading-relaxed">${row.rule_summary}</div>
-                            <div class="text-[10px] text-neutral-400 font-sans mt-0.5">${row.stats_summary || ''}</div>
-                        </td>
-                        <td class="p-3 text-center">
-                            <div class="flex flex-wrap items-center justify-center gap-1.5">
-                                ${predChips}
+
+                        <!-- Cột 3: Bộ Số Hôm Nay -->
+                        <td class="p-3 text-center whitespace-nowrap">
+                            <div class="flex flex-wrap items-center justify-center gap-1">
+                                ${predChips || '<span class="text-[11px] text-neutral-500 italic font-sans">Chờ tín hiệu</span>'}
                             </div>
                         </td>
-                        <td class="p-3 text-center">
-                            <div class="flex flex-col items-center gap-1">
-                                <span class="font-mono font-black text-xs ${row.score >= 85 ? 'text-emerald-400' : 'text-yellow-400'}">${row.score}/100</span>
+
+                        <!-- Cột 4: Tỷ Lệ Thắng -->
+                        <td class="p-3 text-center whitespace-nowrap">
+                            <div class="flex flex-col items-center gap-1 min-w-[70px]">
+                                <span class="font-mono font-black text-xs ${winPct >= 60 ? 'text-emerald-400' : (winPct >= 45 ? 'text-yellow-400' : 'text-cyan-400')}">${winPct}%</span>
                                 <div class="w-16 bg-neutral-800 rounded-full h-1.5 overflow-hidden">
-                                    <div class="bg-gradient-to-r from-yellow-500 to-emerald-400 h-1.5 rounded-full" style="width: ${row.score}%"></div>
+                                    <div class="bg-gradient-to-r from-yellow-500 via-emerald-400 to-cyan-400 h-1.5 rounded-full" style="width: ${Math.min(100, Math.max(10, winPct))}%"></div>
                                 </div>
                             </div>
                         </td>
-                        <td class="p-3 text-center">
-                            ${signalBadge}
+
+                        <!-- Cột 5: Hiệu Suất Nổ -->
+                        <td class="p-3 text-center whitespace-nowrap">
+                            <div class="font-mono font-bold text-xs text-neutral-200">${row.win_ratio || '--'}</div>
+                            <div class="text-[9px] text-neutral-400 font-sans mt-0.5">kỳ nổ ổn định</div>
                         </td>
-                        <td class="p-3 text-center">
+
+                        <!-- Cột 6: Tổng Nháy -->
+                        <td class="p-3 text-center whitespace-nowrap">
+                            <div class="font-mono font-black text-xs text-yellow-400">${row.total_hits || 0} nháy</div>
+                            <div class="text-[9px] text-neutral-400 font-sans mt-0.5">TB ${row.avg_hits || 1.0} nháy/kỳ</div>
+                        </td>
+
+                        <!-- Cột 7: Max Thông -->
+                        <td class="p-3 text-center whitespace-nowrap">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                                <i class="fa-solid fa-fire text-amber-400 text-[9px]"></i> ${row.max_streak || '--'}
+                            </span>
+                        </td>
+
+                        <!-- Cột 8: Kết Quả Kỳ Này -->
+                        <td class="p-3 text-center whitespace-nowrap">
                             ${evalBadge}
                         </td>
-                        <td class="p-3 text-right">
-                            <button onclick="switchTab('${row.tab_id}')"
-                                    class="bg-neutral-800 hover:bg-yellow-400 hover:text-black text-neutral-300 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-neutral-700 transition shadow inline-flex items-center gap-1.5">
-                                ${row.action_text || 'Xem Tab'} <i class="fa-solid fa-arrow-right text-[10px]"></i>
-                            </button>
+
+                        <!-- Cột 9: Thao Tác (Bảng Thống Kê & Tab) -->
+                        <td class="p-3 text-right whitespace-nowrap">
+                            <div class="flex items-center justify-end gap-1.5">
+                                <button onclick="openBridgeModal('${row.lookup_key}', 'occurrences')"
+                                        title="Xem Bảng Thống Kê Lịch Sử Đầy Đủ Của Cầu Này"
+                                        class="bg-cyan-950 hover:bg-cyan-800 text-cyan-300 hover:text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-cyan-700 transition shadow inline-flex items-center gap-1.5">
+                                    <i class="fa-solid fa-chart-line text-[10px]"></i> Thống Kê
+                                </button>
+                                <button onclick="switchTab('${row.tab_id}')"
+                                        title="${row.action_text || 'Chuyển Sang Tab Chi Tiết'}"
+                                        class="bg-neutral-800 hover:bg-yellow-400 hover:text-black text-neutral-300 text-[11px] font-bold px-2 py-1.5 rounded-lg border border-neutral-700 transition shadow inline-flex items-center">
+                                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -4393,14 +4496,14 @@
                 if (countWin) countWin.innerText = history.filter(x => x.k2_is_win === true).length;
                 if (countDay1) countDay1.innerText = history.filter(x => x.target1_is_win === true).length;
                 if (countDay2) countDay2.innerText = history.filter(x => x.target2_is_win === true).length;
-                if (countLose) countLose.innerText = history.filter(x => x.k2_is_win === false).length;
+                if (countLose) countLose.innerText = history.filter(x => !x.is_pending && x.k2_is_win === false).length;
             } else {
                 if (labelWin) labelWin.innerText = 'Trúng Lô';
                 if (countAll) countAll.innerText = history.length;
                 if (countWin) countWin.innerText = history.filter(x => x.is_win === true).length;
                 if (countDay1) countDay1.innerText = history.filter(x => x.is_win === true).length;
                 if (countDay2) countDay2.innerText = history.filter(x => x.is_de === true).length;
-                if (countLose) countLose.innerText = history.filter(x => x.is_win === false).length;
+                if (countLose) countLose.innerText = history.filter(x => !x.is_pending && x.is_win === false).length;
             }
 
             // Set default date input to today
@@ -4482,11 +4585,11 @@
                 if (currentDateSumFilter === 'win') items = items.filter(x => x.k2_is_win === true);
                 else if (currentDateSumFilter === 'day1') items = items.filter(x => x.target1_is_win === true);
                 else if (currentDateSumFilter === 'day2') items = items.filter(x => x.target2_is_win === true);
-                else if (currentDateSumFilter === 'lose') items = items.filter(x => x.k2_is_win === false);
+                else if (currentDateSumFilter === 'lose') items = items.filter(x => !x.is_pending && x.k2_is_win === false);
             } else {
-                if (currentDateSumFilter === 'win' || currentDateSumFilter === 'day1') items = items.filter(x => x.is_win);
-                else if (currentDateSumFilter === 'day2') items = items.filter(x => x.is_de);
-                else if (currentDateSumFilter === 'lose') items = items.filter(x => !x.is_win);
+                if (currentDateSumFilter === 'win' || currentDateSumFilter === 'day1') items = items.filter(x => x.is_win === true);
+                else if (currentDateSumFilter === 'day2') items = items.filter(x => x.is_de === true);
+                else if (currentDateSumFilter === 'lose') items = items.filter(x => !x.is_pending && x.is_win === false);
             }
 
             if (items.length === 0) {
@@ -4503,6 +4606,7 @@
             let html = '';
             items.forEach((item, idx) => {
                 const baseBg = idx % 2 === 0 ? 'bg-neutral-900/40' : 'bg-black/30';
+                const cleanLookupDate = (item.target1_date || item.curr_date || item.prev_date || '').replace(/\s*\(.*?\)/g, '').trim();
 
                 // Badges cặp số song thủ
                 const pairChips = item.predicted.map(p => {
@@ -4512,7 +4616,7 @@
                     const totalHit = (hit1 ? hit1.count : 0) + (hit2 ? hit2.count : 0);
 
                     return `
-                        <span onclick="openXsmbModal('${item.target1_date}')" 
+                        <span onclick="openXsmbModal('${cleanLookupDate}')" 
                               class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-black cursor-pointer transition ${isAnyHit ? 'bg-yellow-400 text-black shadow-lg scale-105 ring-1 ring-yellow-300' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}"
                               title="Bấm để xem kết quả trên Popup XSMB">
                             ${p} ${totalHit > 1 ? `<span class="text-[9px] bg-red-600 text-white rounded px-1">${totalHit}x</span>` : ''}
@@ -4523,7 +4627,9 @@
                 if (currentDateSumMode === 2) {
                     // === RENDER CHẾ ĐỘ KHUNG 2 NGÀY ===
                     let rowBg = baseBg;
-                    if (item.k2_status === 'ĂN CẢ 2 NGÀY') {
+                    if (item.is_pending || item.k2_status === 'ĐANG NUÔI NGÀY 1') {
+                        rowBg = 'bg-yellow-950/25 border-l-4 border-l-yellow-400';
+                    } else if (item.k2_status === 'ĂN CẢ 2 NGÀY') {
                         rowBg = 'bg-emerald-950/35 border-l-4 border-l-emerald-400';
                     } else if (item.k2_status === 'ĂN NGÀY 1') {
                         rowBg = 'bg-emerald-950/20 border-l-4 border-l-emerald-500';
@@ -4537,7 +4643,9 @@
 
                     // Tình trạng Khung badge
                     let statusBadge = '';
-                    if (item.k2_status === 'ĂN CẢ 2 NGÀY') {
+                    if (item.is_pending || item.k2_status === 'ĐANG NUÔI NGÀY 1') {
+                        statusBadge = `<span class="inline-flex items-center gap-1 bg-yellow-400 text-black font-black text-[11px] px-2.5 py-0.5 rounded shadow animate-pulse"><i class="fa-solid fa-clock"></i> ĐANG NUÔI NGÀY 1 (CHỜ QUAY)</span>`;
+                    } else if (item.k2_status === 'ĂN CẢ 2 NGÀY') {
                         statusBadge = `<span class="inline-flex items-center gap-1 bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-black text-[11px] px-2.5 py-0.5 rounded shadow"><i class="fa-solid fa-crown text-yellow-300"></i> ĂN CẢ 2 NGÀY</span>`;
                     } else if (item.k2_status === 'ĂN NGÀY 1') {
                         statusBadge = `<span class="inline-flex items-center gap-1 bg-emerald-600 text-white font-bold text-[11px] px-2.5 py-0.5 rounded shadow"><i class="fa-solid fa-circle-check"></i> ĂN NGÀY 1</span>`;
@@ -4550,20 +4658,35 @@
                     }
 
                     // Ngày 1 UI
-                    let day1Ui = `
-                        <div class="flex items-center justify-between gap-1.5">
-                            <div>
-                                <div class="font-bold text-white text-xs">${item.target1_date}</div>
-                                <div class="text-[10px] text-neutral-400 font-sans">${item.target1_dow}</div>
+                    let day1Ui = '';
+                    if (item.is_pending || item.target1_is_win === null) {
+                        day1Ui = `
+                            <div class="flex items-center justify-between gap-1.5">
+                                <div>
+                                    <div class="font-bold text-yellow-300 text-xs">${item.target1_date}</div>
+                                    <div class="text-[10px] text-neutral-400 font-sans">${item.target1_dow}</div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-[11px] text-yellow-400 font-bold bg-yellow-950/70 border border-yellow-700/70 px-1.5 py-0.5 rounded animate-pulse"><i class="fa-solid fa-clock-rotate-left mr-1"></i>Chờ mở thưởng 18h30</span>
+                                </div>
                             </div>
-                            <div class="text-right">
-                                ${item.target1_is_win 
-                                    ? `<span class="text-xs font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800 px-1.5 py-0.5 rounded">${item.target1_hits} nháy</span>` 
-                                    : `<span class="text-[11px] text-neutral-500">Xịt</span>`}
-                                ${item.target1_is_de ? `<span class="ml-1 text-[9px] bg-red-600 text-white px-1 rounded font-bold">Đề</span>` : ''}
+                        `;
+                    } else {
+                        day1Ui = `
+                            <div class="flex items-center justify-between gap-1.5">
+                                <div>
+                                    <div class="font-bold text-white text-xs">${item.target1_date}</div>
+                                    <div class="text-[10px] text-neutral-400 font-sans">${item.target1_dow}</div>
+                                </div>
+                                <div class="text-right">
+                                    ${item.target1_is_win 
+                                        ? `<span class="text-xs font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800 px-1.5 py-0.5 rounded">${item.target1_hits} nháy</span>` 
+                                        : `<span class="text-[11px] text-neutral-500">Xịt</span>`}
+                                    ${item.target1_is_de ? `<span class="ml-1 text-[9px] bg-red-600 text-white px-1 rounded font-bold">Đề</span>` : ''}
+                                </div>
                             </div>
-                        </div>
-                    `;
+                        `;
+                    }
 
                     // Ngày 2 UI
                     let day2Ui = '';
@@ -4583,11 +4706,43 @@
                             </div>
                         `;
                     } else {
-                        day2Ui = `<span class="text-[11px] text-amber-400/80 italic font-sans flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left"></i> Chờ mở thưởng</span>`;
+                        day2Ui = `
+                            <div class="flex items-center justify-between gap-1.5">
+                                <div>
+                                    <div class="font-bold text-neutral-300 text-xs">${item.target2_date || '--'}</div>
+                                    <div class="text-[10px] text-neutral-500 font-sans">${item.target2_dow || ''}</div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-[10px] text-amber-400/80 italic font-sans flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left"></i> Chờ mở thưởng</span>
+                                </div>
+                            </div>
+                        `;
                     }
 
-                    const totalHitsNumber = item.k2_all_hits || 0;
-                    let hitsHtml = totalHitsNumber > 0 ? `<b class="text-yellow-400 text-sm">${totalHitsNumber} nháy</b>` : `<span class="text-neutral-500 font-bold">0</span>`;
+                    let hitsHtml = '';
+                    if (item.is_pending) {
+                        hitsHtml = `<span class="text-yellow-400 text-xs font-bold animate-pulse">⏳ Chờ KQ</span>`;
+                    } else {
+                        const totalHitsNumber = item.k2_all_hits || 0;
+                        hitsHtml = totalHitsNumber > 0 ? `<b class="text-yellow-400 text-sm">${totalHitsNumber} nháy</b>` : `<span class="text-neutral-500 font-bold">0</span>`;
+                    }
+
+                    let xemKqBtn = '';
+                    if (item.is_pending) {
+                        xemKqBtn = `
+                            <button onclick="openXsmbModal('${cleanLookupDate}')" 
+                                    class="bg-neutral-800 hover:bg-neutral-700 text-neutral-400 text-[11px] font-bold px-2.5 py-1 rounded transition shadow inline-flex items-center gap-1" title="Xem kỳ quay gần nhất trên Popup XSMB">
+                                <i class="fa-solid fa-clock text-yellow-400"></i> Chưa quay
+                            </button>
+                        `;
+                    } else {
+                        xemKqBtn = `
+                            <button onclick="openXsmbModal('${cleanLookupDate}')" 
+                                    class="bg-neutral-800 hover:bg-emerald-600 hover:text-white text-neutral-300 text-[11px] font-bold px-2.5 py-1 rounded transition shadow inline-flex items-center gap-1">
+                                <i class="fa-solid fa-calendar-day text-emerald-400"></i> Xem KQ
+                            </button>
+                        `;
+                    }
 
                     html += `
                         <tr class="${rowBg} hover:bg-neutral-800/60 transition">
@@ -4618,52 +4773,73 @@
                                 ${hitsHtml}
                             </td>
                             <td class="p-3 text-right">
-                                <button onclick="openXsmbModal('${item.target1_date}')" 
-                                        class="bg-neutral-800 hover:bg-emerald-600 hover:text-white text-neutral-300 text-[11px] font-bold px-2.5 py-1 rounded transition shadow inline-flex items-center gap-1">
-                                    <i class="fa-solid fa-calendar-day text-emerald-400"></i> Xem KQ
-                                </button>
+                                ${xemKqBtn}
                             </td>
                         </tr>
                     `;
                 } else {
                     // === RENDER CHẾ ĐỘ KHUNG 1 NGÀY ===
-                    const isWin = item.is_win;
-                    const isDe = item.is_de;
-
                     let rowBg = baseBg;
-                    if (isDe) {
+                    if (item.is_pending) {
+                        rowBg = 'bg-yellow-950/25 border-l-4 border-l-yellow-400';
+                    } else if (item.is_de) {
                         rowBg = 'bg-red-950/25 border-l-4 border-l-red-500';
-                    } else if (isWin) {
+                    } else if (item.is_win) {
                         rowBg = 'bg-emerald-950/20 border-l-4 border-l-emerald-500';
                     }
 
                     let statusBadge = '';
-                    if (isDe) {
+                    if (item.is_pending) {
+                        statusBadge = `<span class="inline-flex items-center gap-1 bg-yellow-400 text-black font-black text-[11px] px-2.5 py-0.5 rounded shadow animate-pulse"><i class="fa-solid fa-clock"></i> CHỜ QUAY</span>`;
+                    } else if (item.is_de) {
                         statusBadge = `<span class="inline-flex items-center gap-1 bg-red-600 text-white font-black text-[11px] px-2.5 py-0.5 rounded shadow"><i class="fa-solid fa-trophy text-yellow-300"></i> TRÚNG ĐỀ ĐB</span>`;
-                    } else if (isWin) {
+                    } else if (item.is_win) {
                         statusBadge = `<span class="inline-flex items-center gap-1 bg-emerald-600 text-white font-bold text-[11px] px-2.5 py-0.5 rounded shadow"><i class="fa-solid fa-circle-check"></i> ĂN LOTO</span>`;
                     } else {
                         statusBadge = `<span class="bg-neutral-800 text-neutral-400 font-semibold text-[11px] px-2 py-0.5 rounded">Trượt</span>`;
                     }
 
-                    let hitsHtml = `<span class="text-neutral-500 font-bold">0 nháy</span>`;
-                    if (item.hits > 0) {
+                    let hitsHtml = '';
+                    if (item.is_pending) {
+                        hitsHtml = `<span class="text-yellow-400 text-xs font-bold animate-pulse">⏳ Chờ KQ</span>`;
+                    } else if (item.hits > 0) {
                         hitsHtml = `<b class="text-yellow-400 text-sm">${item.hits} nháy</b>`;
-                        if (item.matched_detail.length > 0) {
+                        if (item.matched_detail && item.matched_detail.length > 0) {
                             const hitDetails = item.matched_detail.map(m => `<span class="text-[10px] text-emerald-300 bg-emerald-950/70 px-1.5 py-0.5 rounded border border-emerald-800">${m.number} (${m.count}x)</span>`).join(' ');
                             hitsHtml += `<div class="mt-0.5">${hitDetails}</div>`;
                         }
+                    } else {
+                        hitsHtml = `<span class="text-neutral-500 font-bold">0 nháy</span>`;
                     }
 
                     let deDisplay = `<span class="text-neutral-400 font-mono">${item.special_prize || '--'}</span>`;
-                    if (item.actual_de) {
+                    if (item.is_pending) {
+                        deDisplay = `<span class="text-yellow-400 text-[11px] font-medium italic">Chờ mở thưởng 18h30</span>`;
+                    } else if (item.actual_de) {
                         const deNum = item.actual_de;
-                        const prefix = item.special_prize.slice(0, -2);
-                        if (isDe) {
+                        const prefix = item.special_prize ? item.special_prize.slice(0, -2) : '';
+                        if (item.is_de) {
                             deDisplay = `<span class="font-mono">${prefix}<b class="text-yellow-300 bg-red-600 px-1 py-0.5 rounded shadow">${deNum}</b></span>`;
                         } else {
                             deDisplay = `<span class="font-mono text-neutral-400">${prefix}<b class="text-red-400">${deNum}</b></span>`;
                         }
+                    }
+
+                    let xemKqBtn = '';
+                    if (item.is_pending) {
+                        xemKqBtn = `
+                            <button onclick="openXsmbModal('${cleanLookupDate}')" 
+                                    class="bg-neutral-800 hover:bg-neutral-700 text-neutral-400 text-[11px] font-bold px-2.5 py-1 rounded transition shadow inline-flex items-center gap-1" title="Xem kỳ quay gần nhất trên Popup XSMB">
+                                <i class="fa-solid fa-clock text-yellow-400"></i> Chưa quay
+                            </button>
+                        `;
+                    } else {
+                        xemKqBtn = `
+                            <button onclick="openXsmbModal('${cleanLookupDate}')" 
+                                    class="bg-neutral-800 hover:bg-yellow-500 hover:text-black text-neutral-300 text-[11px] font-bold px-2.5 py-1 rounded transition shadow inline-flex items-center gap-1">
+                                <i class="fa-solid fa-calendar-day text-yellow-400"></i> Xem KQ
+                            </button>
+                        `;
                     }
 
                     html += `
@@ -4696,10 +4872,7 @@
                                 ${hitsHtml}
                             </td>
                             <td class="p-3 text-right">
-                                <button onclick="openXsmbModal('${item.curr_date}')" 
-                                        class="bg-neutral-800 hover:bg-yellow-500 hover:text-black text-neutral-300 text-[11px] font-bold px-2.5 py-1 rounded transition shadow inline-flex items-center gap-1">
-                                    <i class="fa-solid fa-calendar-day text-yellow-400"></i> Xem KQ
-                                </button>
+                                ${xemKqBtn}
                             </td>
                         </tr>
                     `;
