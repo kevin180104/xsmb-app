@@ -192,7 +192,7 @@ def api_crawl_today():
         if updated:
             invalidate_pattern_cache()
             dates_str = ", ".join([item["date_display"] for item in updated])
-            win_stats = evaluate_and_save_daily_wins(updated[0]["draw_date"])
+            win_stats = evaluate_and_save_daily_wins(updated[-1]["draw_date"])
             return jsonify({
                 "success": True,
                 "count": len(updated),

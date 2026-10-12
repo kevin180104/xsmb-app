@@ -515,6 +515,57 @@ def quick_check_response():
 
     return "\n".join(output_lines)
 
+def get_historical_dow_prediction(target_dow, draws_before):
+    """
+    Xác định cặp số chủ lực của một Thứ dựa hoàn toàn vào dữ liệu lịch sử XẢY RA TRƯỚC target date.
+    Đảm bảo 100% nguyên tắc trung thực, không nhìn trước tương lai (No Lookahead Bias / Không tráo đổi kết quả).
+    """
+    if not draws_before or len(draws_before) < 4:
+        return None, 0, 0
+    
+    standard_dows = [
+        ("Thứ 2", "Hà Nội"),
+        ("Thứ 3", "Quảng Ninh"),
+        ("Thứ 4", "Bắc Ninh"),
+        ("Thứ 5", "Hà Nội"),
+        ("Thứ 6", "Hải Phòng"),
+        ("Thứ 7", "Nam Định"),
+        ("Chủ Nhật", "Thái Bình")
+    ]
+    
+    t_dow_str = str(target_dow).strip().lower()
+    matched_std_dow = None
+    for std_dow, _ in standard_dows:
+        if std_dow.lower() in t_dow_str or (std_dow == "Thứ 2" and "thứ hai" in t_dow_str) or (std_dow == "Thứ 3" and "thứ ba" in t_dow_str) or (std_dow == "Thứ 4" and "thứ tư" in t_dow_str) or (std_dow == "Thứ 5" and "thứ năm" in t_dow_str) or (std_dow == "Thứ 6" and "thứ sáu" in t_dow_str) or (std_dow == "Thứ 7" and "thứ bảy" in t_dow_str):
+            matched_std_dow = std_dow
+            break
+            
+    if not matched_std_dow:
+        matched_std_dow = target_dow
+        
+    same_dow_draws = []
+    for d in draws_before:
+        dow = d.get('day_of_week', '').strip().lower()
+        if (matched_std_dow.lower() in dow) or (matched_std_dow == "Thứ 2" and "thứ hai" in dow) or (matched_std_dow == "Thứ 3" and "thứ ba" in dow) or (matched_std_dow == "Thứ 4" and "thứ tư" in dow) or (matched_std_dow == "Thứ 5" and "thứ năm" in dow) or (matched_std_dow == "Thứ 6" and "thứ sáu" in dow) or (matched_std_dow == "Thứ 7" and "thứ bảy" in dow):
+            same_dow_draws.append(d)
+            
+    total_weeks = len(same_dow_draws)
+    if total_weeks == 0:
+        return None, 0, 0
+        
+    pair_counts = {}
+    pair_weeks = {}
+    for i in range(100):
+        p = f"{i:02d}"
+        w_cnt = sum(1 for d in same_dow_draws if p in d.get('loto_2digit', []))
+        h_cnt = sum(d.get('loto_2digit', []).count(p) for d in same_dow_draws)
+        pair_weeks[p] = w_cnt
+        pair_counts[p] = h_cnt
+        
+    sorted_pairs = sorted(pair_weeks.keys(), key=lambda p: (pair_weeks[p], pair_counts[p]), reverse=True)
+    top_pair = sorted_pairs[0]
+    return top_pair, pair_weeks[top_pair], total_weeks
+
 def analyze_weekly_bridges(draws=None, limit=60):
     """
     Quan sát dữ liệu theo tuần, phân tích các cầu chạy theo từng Thứ trong tuần.
@@ -522,15 +573,14 @@ def analyze_weekly_bridges(draws=None, limit=60):
     để tìm ra ngày trong tuần có cặp số về ổn định nhất.
     Hỗ trợ tính toán dự đoán kỳ mở thưởng tiếp theo (Next Draw) và giải thích chi tiết.
     """
-    base_draws = database.get_recent_results(limit=60)
+    if draws is None:
+        draws = database.get_recent_results(limit=limit if str(limit) != 'all' else 500)
+    base_draws = draws
     if not base_draws or len(base_draws) < 14:
         return {
             "status": "ERROR",
             "message": "Chưa đủ dữ liệu tối thiểu 2 tuần để phân tích theo tuần."
         }
-
-    if draws is None:
-        draws = database.get_recent_results(limit=limit) if str(limit) != '60' else base_draws
 
     standard_dows = [
         ("Thứ 2", "Hà Nội"),
@@ -659,7 +709,7 @@ def analyze_weekly_bridges(draws=None, limit=60):
     w_win = 0
     w_hits = 0
     w_de = 0
-    for d in draws:
+    for idx, d in enumerate(draws):
         d_dow = d.get('day_of_week', '').strip().lower()
         matched = None
         for k, item in dow_map.items():
@@ -668,7 +718,12 @@ def analyze_weekly_bridges(draws=None, limit=60):
                 break
         if not matched:
             continue
-        p = matched['top_pair']
+            
+        # Xác định cặp số chủ lực theo đúng lịch sử xảy ra trước kỳ quay này (không nhìn trước tương lai)
+        draws_before = base_draws[idx + 1 : idx + 61]
+        hist_p, _, _ = get_historical_dow_prediction(matched['dow'], draws_before)
+        p = hist_p if hist_p else matched['top_pair']
+        
         lotos = d.get('loto_2digit', [])
         hit_cnt = lotos.count(p)
         sp = str(d.get('special_prize', '')).strip()
@@ -3261,66 +3316,138 @@ def get_bridge_occurrences(bridge_key='date_sum', limit=60):
 
     # 2. Cầu Theo Thứ Trong Tuần
     if bridge_key in ['weekly', 'cau_thu']:
-        weekly_res = analyze_weekly_bridges(limit=limit)
+        limit_n = int(limit) if str(limit) != 'all' else 120
+        all_cached_draws = database.get_recent_results(limit=max(150, limit_n + 60))
+        draws_map = {d["draw_date"]: idx for idx, d in enumerate(all_cached_draws)}
+
+        # Phân tích trạng thái hiện tại (dành cho Hero Card và Grid 7 ngày)
+        weekly_res = analyze_weekly_bridges(draws=all_cached_draws[:60])
         days_analysis = weekly_res.get("days_analysis", [])
-        dow_map = {item['dow']: item for item in days_analysis}
-        
-        draws = database.get_recent_results(limit=limit)
+
         occurrences = []
         win_count = 0
         total_hits = 0
         de_hits = 0
 
-        for d in draws:
+        standard_provinces = {
+            "Thứ 2": "Hà Nội", "Thứ 3": "Quảng Ninh", "Thứ 4": "Bắc Ninh",
+            "Thứ 5": "Hà Nội", "Thứ 6": "Hải Phòng", "Thứ 7": "Nam Định", "Chủ Nhật": "Thái Bình"
+        }
+
+        # A. Bổ sung kỳ quay Hôm nay / Kỳ tới (Chờ quay) lên đầu bảng nếu chưa có kết quả
+        if all_cached_draws:
+            latest_draw = all_cached_draws[0]
+            today_dt = datetime.now()
+            today_str = today_dt.strftime("%Y-%m-%d")
+            days_vn = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
+
+            pending_date_str = None
+            pending_date_display = None
+            pending_dow = None
+
+            if latest_draw["draw_date"] < today_str:
+                # Hôm nay chưa có kết quả (chờ mở thưởng 18h30 hôm nay)
+                pending_date_str = today_str
+                pending_date_display = today_dt.strftime("%d/%m/%Y") + " (Hôm nay)"
+                pending_dow = days_vn[today_dt.weekday()]
+            elif latest_draw["draw_date"] == today_str:
+                # Hôm nay đã mở thưởng xong, kỳ kế tiếp là ngày mai
+                next_dt = today_dt + timedelta(days=1)
+                pending_date_str = next_dt.strftime("%Y-%m-%d")
+                pending_date_display = next_dt.strftime("%d/%m/%Y") + " (Kỳ tới)"
+                pending_dow = days_vn[next_dt.weekday()]
+
+            if pending_date_str and pending_dow:
+                pending_prov = standard_provinces.get(pending_dow, "Miền Bắc")
+                pred_pair, p_w, p_tw = get_historical_dow_prediction(pending_dow, all_cached_draws[:60])
+                if not pred_pair and weekly_res.get("next_prediction"):
+                    pred_pair = weekly_res["next_prediction"].get("top_pair")
+
+                if pred_pair:
+                    occurrences.append({
+                        "source_date": pending_date_display,
+                        "target_date": pending_date_str,
+                        "date_display": pending_date_display,
+                        "day_of_week": pending_dow,
+                        "dow_name": pending_dow,
+                        "province": pending_prov,
+                        "formula": f"Cặp số chủ lực của {pending_dow} ({pending_prov}): [{pred_pair}]",
+                        "predicted": [pred_pair],
+                        "predicted_display": pred_pair,
+                        "status": "CHỜ QUAY",
+                        "is_win": None,
+                        "hits": 0,
+                        "hit_numbers": [],
+                        "matched_detail": [],
+                        "is_de": False,
+                        "special_prize": "Chờ mở thưởng 18h30",
+                        "actual_de": "",
+                        "is_current": True
+                    })
+
+        # B. Duyệt qua các kỳ đã quay trong lịch sử
+        test_draws = all_cached_draws[:limit_n]
+        for d in test_draws:
+            t_date = d["draw_date"]
+            cur_idx = draws_map.get(t_date, 0)
+            draws_before = all_cached_draws[cur_idx + 1 : cur_idx + 61]
+
             d_dow = d.get('day_of_week', '').strip()
-            matched_item = None
-            for k, item in dow_map.items():
-                if k.lower() in d_dow.lower() or d_dow.lower() in k.lower():
-                    matched_item = item
-                    break
-            if not matched_item:
+            pred_pair, w_cnt, total_w = get_historical_dow_prediction(d_dow, draws_before)
+            if not pred_pair:
                 continue
-            pair = matched_item['top_pair']
+
             actual_lotos = d.get('loto_2digit', [])
-            hits = actual_lotos.count(pair)
+            hits = actual_lotos.count(pred_pair)
             sp = str(d.get('special_prize', '')).strip()
             de = sp[-2:] if len(sp) >= 2 else ''
             is_win = (hits > 0)
-            is_de = (pair == de) if de else False
+            is_de = (pred_pair == de) if de else False
+
             if is_win:
                 win_count += 1
                 total_hits += hits
             if is_de:
                 de_hits += 1
+
             status_label = "TRÚNG ĐỀ" if is_de else ("TRÚNG LOTO" if is_win else "TRƯỢT")
+
+            prov = ""
+            for s_dow, s_prov in standard_provinces.items():
+                if s_dow.lower() in d_dow.lower():
+                    prov = s_prov
+                    break
+
             occurrences.append({
                 "source_date": d.get("date_display", d.get("draw_date")),
                 "target_date": d.get("draw_date"),
                 "date_display": d.get("date_display", d.get("draw_date")),
                 "day_of_week": d.get("day_of_week"),
-                "dow_name": matched_item["dow"],
-                "province": matched_item["province"],
-                "formula": f"Cặp số chủ lực của {matched_item['dow']} ({matched_item['province']}): [{pair}]",
-                "predicted": [pair],
-                "predicted_display": pair,
+                "dow_name": d_dow,
+                "province": prov,
+                "formula": f"Cặp số chủ lực của {d_dow} ({prov}): [{pred_pair}] ({w_cnt}/{total_w} tuần nổ)",
+                "predicted": [pred_pair],
+                "predicted_display": pred_pair,
                 "status": status_label,
                 "is_win": is_win,
                 "hits": hits,
-                "hit_numbers": [pair] if hits > 0 else [],
-                "matched_detail": [{"number": pair, "count": hits}] if hits > 0 else [],
+                "hit_numbers": [pred_pair] if hits > 0 else [],
+                "matched_detail": [{"number": pred_pair, "count": hits}] if hits > 0 else [],
                 "is_de": is_de,
                 "special_prize": sp,
-                "actual_de": de
+                "actual_de": de,
+                "is_current": False
             })
 
-        total_tested = len(occurrences)
+        completed_occ = [o for o in occurrences if not o.get("is_current") and o.get("status") != "CHỜ QUAY"]
+        total_tested = len(completed_occ)
         win_rate = round((win_count / total_tested) * 100, 1) if total_tested > 0 else 0
         avg_hits = round(total_hits / win_count, 2) if win_count > 0 else 0
 
-        # Tính toán streak động
+        # Tính toán streak động trên các kỳ ĐÃ QUAY (bỏ qua pending)
         max_streak = 0
         curr_streak = 0
-        for occ in reversed(occurrences):
+        for occ in reversed(completed_occ):
             if occ.get("is_win"):
                 curr_streak += 1
                 if curr_streak > max_streak:
@@ -3329,8 +3456,8 @@ def get_bridge_occurrences(bridge_key='date_sum', limit=60):
                 curr_streak = 0
 
         live_streak = 0
-        live_type = "WIN" if occurrences and occurrences[0].get("is_win") else "LOSE"
-        for occ in occurrences:
+        live_type = "WIN" if completed_occ and completed_occ[0].get("is_win") else "LOSE"
+        for occ in completed_occ:
             is_w = occ.get("is_win")
             if (live_type == "WIN" and is_w) or (live_type == "LOSE" and not is_w):
                 live_streak += 1

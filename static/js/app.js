@@ -3154,8 +3154,10 @@
 
         async function updateData() {
             const btn = document.getElementById('updateBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang Cập Nhật...';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang Cập Nhật...';
+            }
             try {
                 const res = await fetch('/api/crawl-today', { method: 'POST' });
                 const json = await res.json();
@@ -3166,19 +3168,30 @@
                         showToast(`🎉 ${json.win_stats.user_greeting}! Nổ ${json.win_stats.win_count} cầu!`);
                     }
                 } else {
-                    alert(json.message);
+                    if (typeof showToast === 'function') {
+                        showToast(json.message);
+                    } else {
+                        alert(json.message);
+                    }
                 }
 
-                // Cập nhật lại các bảng dữ liệu
+                // Cập nhật lại tất cả các bảng dữ liệu trên toàn bộ giao diện
                 if (typeof fetchAllDraws === 'function') await fetchAllDraws();
                 if (typeof renderDraws === 'function') renderDraws(10);
-                if (typeof loadAllBridgesSummary === 'function') loadAllBridgesSummary(true);
+                if (typeof loadAllBridgesSummary === 'function') await loadAllBridgesSummary(true);
+                if (typeof loadWeeklyAnalysis === 'function') await loadWeeklyAnalysis(true);
+                if (typeof loadDateSumData === 'function') await loadDateSumData(true);
+                if (typeof loadAnalyzerData === 'function') await loadAnalyzerData(true);
+                if (typeof loadBridgesCatalog === 'function') await loadBridgesCatalog(true);
+                if (typeof loadBacktestDates === 'function') await loadBacktestDates();
                 checkAndInitLatestWinStats();
             } catch(e) {
                 alert("Lỗi khi cập nhật dữ liệu: " + (e.message || "Vui lòng thử lại"));
             } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Cập Nhật Kết Quả';
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Cập Nhật';
+                }
             }
         }
 
