@@ -48,8 +48,9 @@ class BacktestResult:
     history: List[DayEvaluationRecord]
 
     def to_dict(self, include_history_limit: Optional[int] = 15) -> Dict[str, Any]:
-        """Chuyển thành dict JSON thân thiện với REST API"""
-        hist_slice = self.history if include_history_limit is None else self.history[-include_history_limit:]
+        """Chuyển thành dict JSON thân thiện với REST API (sắp xếp ngày mới nhất lên đầu)"""
+        raw_slice = self.history if include_history_limit is None else self.history[-include_history_limit:]
+        hist_slice = list(reversed(raw_slice))
         history_dicts = []
         for h in hist_slice:
             history_dicts.append({

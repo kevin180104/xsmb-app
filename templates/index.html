@@ -2001,9 +2001,44 @@
                             <p id="vis-pattern-formula" class="text-xs text-neutral-400 font-mono">Công thức: --</p>
                         </div>
 
-                        <!-- Cụm Điều Khiển Layer & Nút Xuất Ảnh PNG -->
-                        <div class="flex flex-wrap items-center gap-3">
-                            <div class="flex items-center gap-3 bg-black/60 px-3 py-1.5 rounded-xl border border-neutral-800 text-xs">
+                        <!-- Cụm Điều Khiển Layer, Zoom & Số kỳ hiển thị -->
+                        <div class="flex flex-wrap items-center gap-2.5">
+                            <!-- Bộ chọn số kỳ hiển thị (3, 5, 8, 12 kỳ) -->
+                            <div class="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-xl border border-neutral-800 text-xs shadow-inner">
+                                <span class="text-neutral-400 font-bold flex items-center gap-1">
+                                    <i class="fa-solid fa-calendar-days text-yellow-400"></i> Số kỳ:
+                                </span>
+                                <select id="pattern-display-draws" onchange="changeDisplayDraws(this.value)" class="bg-transparent text-white font-black font-mono focus:outline-none cursor-pointer">
+                                    <option value="3" class="bg-neutral-900 text-white">3 Kỳ (Xem nhanh)</option>
+                                    <option value="5" class="bg-neutral-900 text-white">5 Kỳ (Gọn gàng)</option>
+                                    <option value="8" selected class="bg-neutral-900 text-white">8 Kỳ (Chuẩn)</option>
+                                    <option value="12" class="bg-neutral-900 text-white">12 Kỳ (Mở rộng)</option>
+                                </select>
+                            </div>
+
+                            <!-- Cụm Phóng to / Thu nhỏ (Zoom) -->
+                            <div class="flex items-center gap-1 bg-black/60 px-2.5 py-1.5 rounded-xl border border-neutral-800 text-xs shadow-inner">
+                                <span class="text-neutral-400 font-bold mr-1 hidden sm:inline flex items-center gap-1">
+                                    <i class="fa-solid fa-magnifying-glass text-cyan-400"></i> Zoom:
+                                </span>
+                                <button onclick="zoomPatternMap(-0.1)" class="w-6 h-6 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-black flex items-center justify-center transition hover:scale-105 active:scale-95" title="Thu nhỏ (-)">
+                                    <i class="fa-solid fa-minus text-[10px]"></i>
+                                </button>
+                                <span id="pattern-zoom-indicator" class="font-mono font-bold text-cyan-300 px-1 min-w-[42px] text-center text-xs">100%</span>
+                                <button onclick="zoomPatternMap(0.1)" class="w-6 h-6 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-black flex items-center justify-center transition hover:scale-105 active:scale-95" title="Phóng to (+)">
+                                    <i class="fa-solid fa-plus text-[10px]"></i>
+                                </button>
+                                <button onclick="resetPatternZoom()" class="px-1.5 py-0.5 rounded-md bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white text-[10px] font-bold transition ml-0.5" title="Khôi phục kích thước chuẩn (100%)">
+                                    1:1
+                                </button>
+                            </div>
+
+                            <!-- Nhóm Tùy Chọn Layer & Dòng điện -->
+                            <div class="flex items-center gap-2.5 bg-black/60 px-3 py-1.5 rounded-xl border border-neutral-800 text-xs">
+                                <label class="flex items-center gap-1.5 cursor-pointer text-yellow-300 hover:text-yellow-200" title="Bật/Tắt hiệu ứng dòng điện Neon chạy sống động">
+                                    <input type="checkbox" id="chk-layer-electric" checked onchange="redrawCurrentSvg()" class="rounded text-yellow-500 focus:ring-0">
+                                    <span class="font-bold"><i class="fa-solid fa-bolt text-[11px] text-yellow-400 animate-pulse"></i> Dòng điện</span>
+                                </label>
                                 <label class="flex items-center gap-1.5 cursor-pointer text-neutral-300 hover:text-white">
                                     <input type="checkbox" id="chk-layer-bridges" checked onchange="redrawCurrentSvg()" class="rounded text-red-500 focus:ring-0">
                                     <span>Đường nối</span>
@@ -2014,13 +2049,18 @@
                                 </label>
                             </div>
 
+                            <!-- Nút Toàn Màn Hình -->
+                            <button onclick="togglePatternFullscreen()" class="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow" title="Xem toàn màn hình tràn viền">
+                                <i class="fa-solid fa-expand text-cyan-400"></i> <span class="hidden sm:inline">Toàn màn hình</span>
+                            </button>
+
                             <button onclick="redrawCurrentSvg()" class="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold rounded-xl transition" title="Vẽ lại theo kích thước mới">
                                 <i class="fa-solid fa-arrows-rotate"></i>
                             </button>
 
                             <!-- Nút Xuất Ảnh (Section XIX) -->
                             <button id="btn-export-pattern-img" onclick="exportPatternInfographicImage()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-black rounded-xl transition shadow flex items-center gap-2">
-                                <i class="fa-solid fa-image"></i> Xuất Ảnh Đường Cầu (PNG)
+                                <i class="fa-solid fa-image"></i> Xuất Ảnh (PNG)
                             </button>
                         </div>
                     </div>
@@ -2043,9 +2083,11 @@
                             </div>
                         </div>
 
-                        <!-- Vùng Chứa Các Thẻ Kỳ Quay và Lớp SVG Overlay -->
-                        <div id="pattern-draws-container" class="relative min-h-[400px]">
-                            <!-- SVG and Draw cards will be rendered here -->
+                        <!-- Vùng Chứa Các Thẻ Kỳ Quay và Lớp SVG Overlay kèm hỗ trợ Zoom mượt mà -->
+                        <div id="pattern-zoom-viewport" class="w-full overflow-x-auto">
+                            <div id="pattern-draws-container" class="relative min-h-[400px]">
+                                <!-- SVG and Draw cards will be rendered here -->
+                            </div>
                         </div>
                     </div>
                 </div>

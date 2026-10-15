@@ -9,6 +9,8 @@ let CURRENT_SCAN_DATA = null;
 let CURRENT_ACTIVE_PATTERN = null;
 let CURRENT_GRAPH_DATA = null;
 let SVG_RESIZE_OBSERVER = null;
+let CURRENT_DISPLAY_DRAWS = 8;
+let CURRENT_ZOOM_LEVEL = 1.0;
 window.ALL_LOADED_PATTERNS = {};
 
 // Helper cập nhật text an toàn không bao giờ throw lỗi nếu ID không tồn tại
@@ -330,7 +332,7 @@ async function selectPatternForVisualization(pattern, shouldScroll = false) {
     }
 
     try {
-        const url = `/api/patterns/details?pos_a=${pa}&pos_b=${pb}&op=${op}&target_type=${targetType}&day_offset=${dayOffset}&draws=8`;
+        const url = `/api/patterns/details?pos_a=${pa}&pos_b=${pb}&op=${op}&target_type=${targetType}&day_offset=${dayOffset}&draws=${CURRENT_DISPLAY_DRAWS}`;
         console.log('[Pattern Visualizer] Loading details:', url);
         const res = await fetch(url);
         const data = await res.json();
@@ -633,8 +635,10 @@ function drawSvgOverlay(graph) {
         });
     }
 
-    // 2. Vẽ các đường cạnh Edges
+    // 2. Vẽ các đường cạnh Edges (Hỗ trợ hiệu ứng dòng điện Neon chạy)
     const showBridgesLayer = document.getElementById('chk-layer-bridges')?.checked ?? true;
+    const showElectricFlow = document.getElementById('chk-layer-electric')?.checked ?? true;
+
     if (showBridgesLayer && graph.edges) {
         graph.edges.forEach(e => {
             const p1 = getCenter(e.from);
@@ -644,23 +648,35 @@ function drawSvgOverlay(graph) {
             if (e.type === 'source_pair') {
                 // Đường nối ngang giữa 2 source trên cùng kỳ
                 svgContent += `
-                    <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" class="svg-bridge-line dashed" stroke="#ef4444" stroke-width="2.5" />
+                    <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" class="svg-bridge-line halo-red" />
+                    <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" class="svg-bridge-line dashed" />
                 `;
+                if (showElectricFlow) {
+                    svgContent += `
+                        <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" class="svg-bridge-line electric-pulse-beam red" />
+                    `;
+                }
             } else if (e.type === 'bridge_hit') {
                 // Đường nối từ kỳ dưới (p1) LÊN kỳ trên (p2)
                 const dx = p2.x - p1.x;
                 const dy = p2.y - p1.y; // dy < 0 vì p2 ở bên trên p1
                 
-                // Bézier hướng lên mượt mà:
-                // cy1 đi lên từ p1, cy2 ở phía dưới p2 một khoảng
+                // Bézier hướng lên mượt mà
                 const cx1 = p1.x + dx * 0.15;
                 const cy1 = p1.y + dy * 0.45;
                 const cx2 = p2.x - dx * 0.15;
                 const cy2 = p2.y - dy * 0.45;
+                const pathD = `M ${p1.x} ${p1.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${p2.x} ${p2.y}`;
 
                 svgContent += `
-                    <path d="M ${p1.x} ${p1.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${p2.x} ${p2.y}" class="svg-bridge-line hit" stroke="#ef4444" stroke-width="3" marker-end="url(#arrow-red)" />
+                    <path d="${pathD}" class="svg-bridge-line halo-green" />
+                    <path d="${pathD}" class="svg-bridge-line hit" marker-end="url(#arrow-green)" />
                 `;
+                if (showElectricFlow) {
+                    svgContent += `
+                        <path d="${pathD}" class="svg-bridge-line electric-pulse-beam green" />
+                    `;
+                }
             } else if (e.type === 'bridge_upcoming') {
                 // Đường cong vút chỉ thẳng lên hộp dự đoán của kỳ mở thưởng tiếp theo (màu vàng kim VIP)
                 const dx = p2.x - p1.x;
@@ -670,10 +686,17 @@ function drawSvgOverlay(graph) {
                 const cy1 = p1.y + dy * 0.45;
                 const cx2 = p2.x - dx * 0.15;
                 const cy2 = p2.y - dy * 0.45;
+                const pathD = `M ${p1.x} ${p1.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${p2.x} ${p2.y}`;
 
                 svgContent += `
-                    <path d="M ${p1.x} ${p1.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${p2.x} ${p2.y}" class="svg-bridge-line" stroke="#facc15" stroke-width="3.5" stroke-dasharray="6, 4" marker-end="url(#arrow-gold)" />
+                    <path d="${pathD}" class="svg-bridge-line halo-gold" />
+                    <path d="${pathD}" class="svg-bridge-line upcoming" stroke-dasharray="6, 4" marker-end="url(#arrow-gold)" />
                 `;
+                if (showElectricFlow) {
+                    svgContent += `
+                        <path d="${pathD}" class="svg-bridge-line electric-pulse-beam gold" />
+                    `;
+                }
             }
         });
     }
@@ -685,6 +708,70 @@ function drawSvgOverlay(graph) {
 function redrawCurrentSvg() {
     if (CURRENT_GRAPH_DATA && CURRENT_GRAPH_DATA.graph) {
         drawSvgOverlay(CURRENT_GRAPH_DATA.graph);
+    }
+}
+
+// Thay đổi số lượng kỳ hiển thị trên bản đồ (3, 5, 8, 12 kỳ)
+function changeDisplayDraws(drawsCount) {
+    CURRENT_DISPLAY_DRAWS = parseInt(drawsCount, 10) || 8;
+    console.log('[Pattern Visualizer] Changing display draws count to:', CURRENT_DISPLAY_DRAWS);
+    if (CURRENT_ACTIVE_PATTERN) {
+        selectPatternForVisualization(CURRENT_ACTIVE_PATTERN, false);
+    }
+}
+
+// Phóng to / Thu nhỏ bản đồ đường cầu
+function zoomPatternMap(delta) {
+    let newZoom = Math.round((CURRENT_ZOOM_LEVEL + delta) * 10) / 10;
+    if (newZoom < 0.6) newZoom = 0.6;
+    if (newZoom > 1.6) newZoom = 1.6;
+    CURRENT_ZOOM_LEVEL = newZoom;
+
+    const indicator = document.getElementById('pattern-zoom-indicator');
+    if (indicator) {
+        indicator.innerText = `${Math.round(CURRENT_ZOOM_LEVEL * 100)}%`;
+    }
+
+    const container = document.getElementById('pattern-draws-container');
+    if (container) {
+        container.style.zoom = CURRENT_ZOOM_LEVEL;
+    }
+
+    // Đợi layout resize ổn định rồi vẽ lại SVG overlay khớp từng tọa độ
+    setTimeout(() => {
+        redrawCurrentSvg();
+    }, 60);
+}
+
+// Khôi phục tỉ lệ ban đầu 100%
+function resetPatternZoom() {
+    CURRENT_ZOOM_LEVEL = 1.0;
+    const indicator = document.getElementById('pattern-zoom-indicator');
+    if (indicator) indicator.innerText = '100%';
+    const container = document.getElementById('pattern-draws-container');
+    if (container) container.style.zoom = 1.0;
+    setTimeout(() => {
+        redrawCurrentSvg();
+    }, 60);
+}
+
+// Xem toàn màn hình (Fullscreen)
+function togglePatternFullscreen() {
+    const section = document.getElementById('pattern-visualization-section');
+    if (!section) return;
+
+    if (!document.fullscreenElement) {
+        section.requestFullscreen().then(() => {
+            setTimeout(redrawCurrentSvg, 150);
+        }).catch(err => {
+            console.warn('[Pattern Visualizer] Không thể kích hoạt Fullscreen:', err);
+        });
+    } else {
+        document.exitFullscreen().then(() => {
+            setTimeout(redrawCurrentSvg, 150);
+        }).catch(err => {
+            console.warn('[Pattern Visualizer] Không thể thoát Fullscreen:', err);
+        });
     }
 }
 
@@ -707,18 +794,30 @@ function openPatternDetailDrawer(pattern) {
     setElText('drawer-pattern-maxstreak', `${pattern.maxHitStreak} kỳ`);
     setElText('drawer-pattern-nextpred', pattern.nextPrediction?.join(' - ') || '--');
 
-    // Lịch sử gần đây
+    // Lịch sử gần đây (Sắp xếp theo thứ tự ngày mới nhất lên đầu)
     const historyList = document.getElementById('drawer-history-list');
     if (historyList && pattern.recentHistory) {
-        historyList.innerHTML = pattern.recentHistory.map(h => {
+        // Đảm bảo luôn sắp xếp ngày mới nhất lên trên cùng
+        const sortedHistory = [...pattern.recentHistory].sort((a, b) => {
+            const dateA = a.targetDate || a.sourceDate || '';
+            const dateB = b.targetDate || b.sourceDate || '';
+            return dateB.localeCompare(dateA);
+        });
+
+        historyList.innerHTML = sortedHistory.map((h, idx) => {
             const st = h.hit
-                ? `<span class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-600 text-white">TRÚNG (${h.matchedNumbers.join(', ')})</span>`
-                : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-800 text-neutral-400">TRƯỢT</span>`;
+                ? `<span class="px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-600 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]"><i class="fa-solid fa-check mr-1"></i>TRÚNG (${h.matchedNumbers.join(', ')})</span>`
+                : `<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 text-neutral-400 border border-neutral-700"><i class="fa-solid fa-xmark mr-1"></i>TRƯỢT</span>`;
+            
+            const isLatest = idx === 0;
             return `
-                <div class="p-2.5 rounded-xl bg-neutral-900/90 border border-neutral-800 flex justify-between items-center text-xs">
+                <div class="p-3 rounded-xl ${isLatest ? 'bg-neutral-900 border-2 border-yellow-500/70 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'bg-neutral-900/90 border border-neutral-800'} flex justify-between items-center text-xs transition hover:border-neutral-700">
                     <div>
-                        <div class="font-bold text-white">${h.sourceDateDisplay} -> ${h.targetDateDisplay}</div>
-                        <div class="text-[11px] text-neutral-400 font-mono">Dự đoán: [${h.predictedNumbers.join(', ')}]</div>
+                        <div class="font-bold text-white flex items-center gap-2 mb-0.5">
+                            <span>${h.sourceDateDisplay} ➔ ${h.targetDateDisplay}</span>
+                            ${isLatest ? '<span class="px-1.5 py-0.5 text-[9px] font-black bg-yellow-500 text-black rounded font-mono uppercase tracking-wider">Mới nhất</span>' : ''}
+                        </div>
+                        <div class="text-[11px] text-neutral-400 font-mono">Dự đoán: <b class="text-yellow-300 font-bold">[${h.predictedNumbers.join(', ')}]</b></div>
                     </div>
                     <div>${st}</div>
                 </div>

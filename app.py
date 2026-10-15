@@ -51,6 +51,23 @@ def serve_calculator_assets(filename):
 # Khởi tạo bảng dữ liệu một lần duy nhất khi ứng dụng nạp (không gọi lặp lại ở từng route)
 database.init_db()
 
+# Tự động chạy tiến trình ngầm kiểm tra và cào bù kết quả mới nhất đến hôm nay
+import threading
+
+def _auto_sync_on_startup():
+    try:
+        print("[AutoSync] Đang kiểm tra và đồng bộ kết quả XSMB mới nhất đến hôm nay...")
+        updated = crawler.update_missing_results()
+        if updated:
+            invalidate_pattern_cache()
+            print(f"[AutoSync] Đã cập nhật thành công {len(updated)} kỳ quay mới nhất!")
+        else:
+            print("[AutoSync] Dữ liệu kết quả XSMB đã ở trạng thái mới nhất.")
+    except Exception as e:
+        print(f"[AutoSync] Lỗi khi đồng bộ kết quả: {e}")
+
+threading.Thread(target=_auto_sync_on_startup, daemon=True).start()
+
 @app.route('/')
 def index():
     """Trang chủ: Hiển thị bảng kết quả và giao diện chính"""

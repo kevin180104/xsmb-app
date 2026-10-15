@@ -376,9 +376,9 @@ def generate_visualization_payload(
         "prediction": backtest_res.next_prediction
     })
 
-    # Chuẩn bị văn bản giải thích chi tiết
+    # Chuẩn bị văn bản giải thích chi tiết (Ngày gần nhất lên trước)
     explanation_steps = []
-    for h in backtest_res.history[-6:]:
+    for h in reversed(backtest_res.history[-6:]):
         st = "TRÚNG" if h.hit else "TRƯỢT"
         matched_txt = f", về số [{', '.join(h.matched_numbers)}]" if h.hit else ""
         step_expl = explain_digit_operation(rule, h.digit_a, h.digit_b, h.predicted_numbers)
