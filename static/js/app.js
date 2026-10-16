@@ -731,6 +731,12 @@
             renderDraws(10);
             loadAllBridgesSummary();
             checkAndInitLatestWinStats();
+
+            // Check URL hash to switch to the right tab directly on load
+            const hash = window.location.hash ? window.location.hash.substring(1) : '';
+            if (hash && ['days10', 'weekly', 'analyzer', 'backtest', 'bridges23', 'date_sum', 'auto_pattern'].includes(hash)) {
+                switchTab(hash);
+            }
         });
 
         async function fetchAllDraws() {

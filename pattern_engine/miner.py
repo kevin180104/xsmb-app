@@ -123,6 +123,7 @@ class PatternMiner:
         min_occurrences: int = 10,
         min_confidence: float = 0.40,
         min_streak: int = 0,
+        exact_streak: Optional[int] = 4,
         target_type_str: str = "loto_2digit",
         day_offset: int = 1,
         top_n: int = 50
@@ -181,7 +182,9 @@ class PatternMiner:
                     else:
                         break
 
-                if min_streak > 0 and streak < min_streak:
+                if exact_streak is not None and streak != exact_streak:
+                    continue
+                elif min_streak > 0 and streak < min_streak:
                     continue
 
                 # Max streak

@@ -13,6 +13,11 @@ let CURRENT_DISPLAY_DRAWS = 8;
 let CURRENT_ZOOM_LEVEL = 1.0;
 window.ALL_LOADED_PATTERNS = {};
 
+let CURRENT_STREAK_RESPONSE = null;
+let CURRENT_STREAK_FILTER = 'all';
+window.CURRENT_AUTO_PATTERN_DATE = null;
+let CACHED_DRAW_RESULTS = null;
+
 // Helper cập nhật text an toàn không bao giờ throw lỗi nếu ID không tồn tại
 function setElText(id, val) {
     const el = document.getElementById(id);
@@ -21,10 +26,245 @@ function setElText(id, val) {
     }
 }
 
+// Định dạng hiển thị Ngày - tháng - năm (DD - MM - YYYY)
+function formatToDayMonthYear(isoDateStr) {
+    if (!isoDateStr) return '-- - -- - ----';
+    const parts = isoDateStr.split('-');
+    if (parts.length !== 3) return isoDateStr;
+    return `${parts[2]} - ${parts[1]} - ${parts[0]}`;
+}
+
+// Đồng bộ ô input text hiển thị Ngày - tháng - năm
+function syncAutoPatternDateDisplay(isoDateStr) {
+    const dispEl = document.getElementById('auto-pattern-custom-date-display');
+    if (dispEl && isoDateStr) {
+        dispEl.value = formatToDayMonthYear(isoDateStr);
+    }
+}
+
+// Bắt sự kiện khi người dùng chọn ngày từ bảng lịch native
+function onAutoPatternDateNativeChange(val) {
+    if (!val) return;
+    syncAutoPatternDateDisplay(val);
+    calculateAutoPatternDate();
+}
+
+// Mở bảng lịch chọn ngày native khi nhấn vào icon lịch vàng hoặc ô nhập
+function openAutoPatternDatePicker() {
+    const input = document.getElementById('auto-pattern-custom-date');
+    if (input) {
+        if (typeof input.showPicker === 'function') {
+            try {
+                input.showPicker();
+            } catch (err) {
+                input.focus();
+            }
+        } else {
+            input.focus();
+        }
+    }
+}
+
+// Cập nhật trạng thái active cho các nút chọn nhanh
+function updateAutoPatternQuickDateButtons(currentDateVal, draws) {
+    const btnLatest = document.getElementById('btn-auto-quick-latest');
+    const btnYest = document.getElementById('btn-auto-quick-yesterday');
+    const btnToday = document.getElementById('btn-auto-quick-today');
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const latestStr = (draws && draws.length > 0) ? draws[0].draw_date : '';
+    const yestStr = (draws && draws.length > 1) ? draws[1].draw_date : '';
+
+    const activeCls = 'px-3 py-2 rounded-xl text-xs font-black bg-amber-500/25 text-amber-300 border border-amber-500/70 shadow-[0_0_12px_rgba(245,158,11,0.3)] transition cursor-pointer';
+    const inactiveCls = 'px-3 py-2 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition cursor-pointer';
+
+    if (btnLatest) btnLatest.className = (currentDateVal === latestStr) ? activeCls : inactiveCls;
+    if (btnYest) btnYest.className = (currentDateVal === yestStr) ? activeCls : inactiveCls;
+    if (btnToday) btnToday.className = (currentDateVal === todayStr) ? activeCls : inactiveCls;
+}
+
+// Bật/tắt dải tham số đào tìm nâng cao
+function togglePatternAdvancedSettings() {
+    const wrapper = document.getElementById('pattern-advanced-settings-wrapper');
+    const icon = document.getElementById('icon-toggle-pattern-settings');
+    if (!wrapper) return;
+    const isHidden = wrapper.classList.contains('hidden');
+    if (isHidden) {
+        wrapper.classList.remove('hidden');
+        if (icon) icon.style.transform = 'rotate(180deg)';
+    } else {
+        wrapper.classList.add('hidden');
+        if (icon) icon.style.transform = 'rotate(0deg)';
+    }
+}
+
+// Lấy danh sách kết quả mở thưởng có cache
+async function getCachedDrawResults() {
+    if (CACHED_DRAW_RESULTS && CACHED_DRAW_RESULTS.length > 0) {
+        return CACHED_DRAW_RESULTS;
+    }
+    try {
+        const res = await fetch('/api/results');
+        const data = await res.json();
+        CACHED_DRAW_RESULTS = data;
+        return data;
+    } catch (e) {
+        console.error('Lỗi tải kết quả mở thưởng:', e);
+        return [];
+    }
+}
+
+// Chọn nhanh ngày: latest, yesterday, today
+async function quickSelectAutoPatternDate(type) {
+    const input = document.getElementById('auto-pattern-custom-date');
+    if (!input) return;
+
+    const draws = await getCachedDrawResults();
+    let targetDateStr = '';
+
+    if (type === 'latest') {
+        if (draws && draws.length > 0) {
+            targetDateStr = draws[0].draw_date;
+        } else {
+            targetDateStr = new Date().toISOString().split('T')[0];
+        }
+    } else if (type === 'yesterday') {
+        if (draws && draws.length > 1) {
+            targetDateStr = draws[1].draw_date;
+        } else {
+            const d = new Date();
+            d.setDate(d.getDate() - 1);
+            targetDateStr = d.toISOString().split('T')[0];
+        }
+    } else if (type === 'today') {
+        targetDateStr = new Date().toISOString().split('T')[0];
+    }
+
+    if (targetDateStr) {
+        input.value = targetDateStr;
+        syncAutoPatternDateDisplay(targetDateStr);
+        await calculateAutoPatternDate();
+    }
+}
+
+// 1. KIỂM TRA CÔNG THỨC CHO NGÀY BẤT KỲ & LIÊN THÔNG VỚI TOÀN BỘ TAB
+async function calculateAutoPatternDate() {
+    const input = document.getElementById('auto-pattern-custom-date');
+    if (!input || !input.value) return;
+
+    const dateVal = input.value; // YYYY-MM-DD
+    syncAutoPatternDateDisplay(dateVal);
+    const parts = dateVal.split('-');
+    if (parts.length !== 3) return;
+
+    const yyyy = parseInt(parts[0], 10);
+    const mm = parseInt(parts[1], 10);
+    const dd = parseInt(parts[2], 10);
+
+    const total = dd + mm + yyyy;
+    const p1 = String(total % 100).padStart(2, '0');
+    const p2 = p1[1] + p1[0];
+    const displayDate = `${String(dd).padStart(2, '0')}/${String(mm).padStart(2, '0')}/${yyyy}`;
+    const displayDateHyphen = `${String(dd).padStart(2, '0')} - ${String(mm).padStart(2, '0')} - ${yyyy}`;
+
+    // Cập nhật công thức và cặp Song Thủ
+    const formulaEl = document.getElementById('auto-pattern-date-formula');
+    if (formulaEl) {
+        formulaEl.innerHTML = `${String(dd).padStart(2, '0')} + ${String(mm).padStart(2, '0')} + ${yyyy} = <b class="text-amber-400 font-bold">${total}</b>`;
+    }
+    setElText('auto-pattern-song-thu-1', p1);
+    setElText('auto-pattern-song-thu-2', p2);
+
+    // Lưu biến toàn cục liên thông
+    window.CURRENT_AUTO_PATTERN_DATE = dateVal;
+
+    // Cập nhật nhãn ngày trên Top 3
+    const topDateInd = document.getElementById('pattern-top-date-indicator');
+    if (topDateInd) {
+        topDateInd.innerHTML = `Dự đoán tới ngày: <b class="text-amber-400 font-bold">${displayDateHyphen}</b>`;
+    }
+
+    // Đối chiếu kết quả mở thưởng thực tế
+    const outcomeBadge = document.getElementById('auto-pattern-outcome-badge');
+    const syncStatus = document.getElementById('auto-pattern-sync-status');
+    if (syncStatus) {
+        syncStatus.innerHTML = `Đang liên thông Top 3, Bảng vẽ SVG &amp; Bảng xếp hạng (${displayDate})...`;
+    }
+
+    try {
+        const draws = await getCachedDrawResults();
+        updateAutoPatternQuickDateButtons(dateVal, draws);
+        const drawOnDate = draws.find(d => d.draw_date === dateVal);
+        if (drawOnDate) {
+            const lotoList = drawOnDate.loto_2digit || [];
+            let countP1 = 0;
+            let countP2 = 0;
+            lotoList.forEach(num => {
+                if (num === p1) countP1++;
+                if (num === p2 && p1 !== p2) countP2++;
+            });
+            const totalHits = countP1 + countP2;
+            if (outcomeBadge) {
+                if (totalHits > 0) {
+                    let hitDetails = [];
+                    if (countP1 > 0) hitDetails.push(`${p1} (${countP1} nháy)`);
+                    if (countP2 > 0) hitDetails.push(`${p2} (${countP2} nháy)`);
+                    outcomeBadge.innerHTML = `
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                            <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                            <span>NỔ ${totalHits} NHÁY ngày ${drawOnDate.date_display || displayDate}: ${hitDetails.join(', ')}</span>
+                        </span>
+                    `;
+                } else {
+                    outcomeBadge.innerHTML = `
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-800 text-neutral-400 border border-neutral-700 flex items-center gap-1.5">
+                            <i class="fa-solid fa-circle-xmark text-red-400"></i>
+                            <span>Chưa nổ ngày ${drawOnDate.date_display || displayDate} (Chờ nuôi khung)</span>
+                        </span>
+                    `;
+                }
+            }
+        } else {
+            if (outcomeBadge) {
+                outcomeBadge.innerHTML = `
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5">
+                        <i class="fa-solid fa-clock text-amber-400"></i>
+                        <span>Kỳ quay ${displayDate}: Đang chờ kết quả mở thưởng (Khung 2 ngày)</span>
+                    </span>
+                `;
+            }
+        }
+    } catch (err) {
+        console.error('Lỗi kiểm tra kết quả ngày:', err);
+    }
+
+    // Kích hoạt quét tự động liên thông cho ngày được chọn
+    await triggerAutoDiscovery(dateVal);
+
+    if (syncStatus) {
+        syncStatus.innerHTML = `Đã kết nối liên thông Top 3, Bảng vẽ SVG &amp; Bảng xếp hạng (${displayDate})`;
+    }
+}
+
 // Khởi tạo tab Auto Pattern
-function initAutoPatternTab() {
+async function initAutoPatternTab() {
     console.log('[Pattern Visualizer] initAutoPatternTab triggered');
-    if (!CURRENT_SCAN_DATA) {
+    // Tự động tải bảng cầu 4 ngày thông hôm qua
+    if (!CURRENT_STREAK_RESPONSE) {
+        loadStreakBridges('yesterday', 4, true);
+    }
+
+    const dateInput = document.getElementById('auto-pattern-custom-date');
+    if (dateInput && !dateInput.value) {
+        const draws = await getCachedDrawResults();
+        if (draws && draws.length > 0) {
+            dateInput.value = draws[0].draw_date;
+        } else {
+            dateInput.value = new Date().toISOString().split('T')[0];
+        }
+        syncAutoPatternDateDisplay(dateInput.value);
+        await calculateAutoPatternDate();
+    } else if (!CURRENT_SCAN_DATA) {
         triggerAutoDiscovery();
     } else {
         setTimeout(redrawCurrentSvg, 150);
@@ -32,12 +272,14 @@ function initAutoPatternTab() {
 }
 
 // Kích hoạt quét tự động [TỰ TÌM ĐƯỜNG CẦU]
-async function triggerAutoDiscovery() {
+async function triggerAutoDiscovery(anchorDateOverride = null) {
     const rangeDays = document.getElementById('pattern-range-select')?.value || '60';
     const minOcc = document.getElementById('pattern-min-occ')?.value || '10';
     const minConf = document.getElementById('pattern-min-conf')?.value || '0.40';
     const minStreak = document.getElementById('pattern-min-streak')?.value || '0';
     const targetType = document.getElementById('pattern-target-type')?.value || 'loto_2digit';
+
+    const anchorDate = anchorDateOverride || window.CURRENT_AUTO_PATTERN_DATE || null;
 
     const scanBtn = document.getElementById('btn-run-auto-discovery');
     const loadingEl = document.getElementById('pattern-scan-loading');
@@ -51,7 +293,10 @@ async function triggerAutoDiscovery() {
     if (resultsContainer) resultsContainer.classList.add('opacity-40');
 
     try {
-        const url = `/api/patterns/scan?days=${encodeURIComponent(rangeDays)}&min_occurrences=${minOcc}&min_confidence=${minConf}&min_streak=${minStreak}&target_type=${targetType}&top_n=50`;
+        let url = `/api/patterns/scan?days=${encodeURIComponent(rangeDays)}&min_occurrences=${minOcc}&min_confidence=${minConf}&min_streak=${minStreak}&exact_streak=4&target_type=${targetType}&top_n=50`;
+        if (anchorDate) {
+            url += `&anchor_date=${encodeURIComponent(anchorDate)}`;
+        }
         console.log('[Pattern Visualizer] Fetching:', url);
         const res = await fetch(url);
         const data = await res.json();
@@ -72,10 +317,12 @@ async function triggerAutoDiscovery() {
             renderTopHighlightCards(data.patterns);
             renderPatternsTable(data.patterns);
 
-            // Mặc định nạp pattern xếp hạng #1 vào bảng vẽ SVG
-            if (data.patterns && data.patterns.length > 0) {
-                const topP = data.patterns[0];
-                selectPatternForVisualization(topP, false);
+            // Mặc định nạp pattern xếp hạng #1 (cầu ăn thông 4 ngày) vào bảng vẽ SVG tại anchorDate
+            const streak4List = (data.patterns || []).filter(p => p.currentStreak === 4);
+            const chosenList = streak4List.length > 0 ? streak4List : (data.patterns || []);
+            if (chosenList.length > 0) {
+                const topP = chosenList[0];
+                selectPatternForVisualization(topP, false, anchorDate);
             }
         } else {
             alert(data.message || 'Lỗi khi quét pattern.');
@@ -85,7 +332,7 @@ async function triggerAutoDiscovery() {
     } finally {
         if (scanBtn) {
             scanBtn.disabled = false;
-            scanBtn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles mr-2 text-yellow-300"></i> TỰ TÌM ĐƯỜNG CẦU`;
+            scanBtn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles mr-2 text-yellow-300"></i> TỰ TÌM ĐƯỜNG CẦU (QUÉT LẠI)`;
         }
         if (loadingEl) loadingEl.classList.add('hidden');
         if (resultsContainer) resultsContainer.classList.remove('opacity-40');
@@ -106,35 +353,87 @@ function renderScanSummary(summary) {
     setElText('sum-draws-analyzed', `${summary.drawsAnalyzed} kỳ`);
 }
 
-// Hiển thị các thẻ Top 3 nổi bật
+// Hiển thị các thẻ Top 3 nổi bật (Lùi lại dự đoán tới ngày activeDate)
+// Hiển thị các thẻ Top 3 nổi bật (Chỉ xếp hạng cho cầu ăn thông 4 ngày)
 function renderTopHighlightCards(patterns) {
     const container = document.getElementById('pattern-top-cards-container');
     if (!container) return;
 
-    if (!patterns || patterns.length === 0) {
+    const activeDate = window.CURRENT_AUTO_PATTERN_DATE || CURRENT_SCAN_DATA?.anchorDate || null;
+    const activeDateFormatted = activeDate ? formatToDayMonthYear(activeDate) : 'Kỳ mới nhất';
+
+    // Cập nhật nhãn dự đoán tới ngày trên tiêu đề
+    const topDateInd = document.getElementById('pattern-top-date-indicator');
+    if (topDateInd) {
+        topDateInd.innerHTML = `Dự đoán tới ngày: <b class="text-amber-400 font-bold">${activeDateFormatted}</b>`;
+    }
+
+    // Lọc xếp hạng CHỈ CHO CẦU ĂN THÔNG 4 NGÀY theo đúng yêu cầu người dùng
+    const streak4Patterns = (patterns || []).filter(p => p.currentStreak === 4);
+
+    if (streak4Patterns.length === 0) {
         container.innerHTML = `
-            <div class="col-span-full p-6 text-center text-neutral-400 bg-neutral-900/60 rounded-xl border border-neutral-800">
-                Không tìm thấy pattern nào thỏa mãn ngưỡng lọc hiện tại. Hãy thử giảm Độ Tin Cậy hoặc Số lần xuất hiện tối thiểu.
+            <div class="col-span-full p-8 text-center text-neutral-400 bg-neutral-900/80 rounded-2xl border border-neutral-800 space-y-2">
+                <i class="fa-solid fa-circle-exclamation text-amber-400 text-2xl mb-1"></i>
+                <p class="text-sm font-bold text-white">Không có đường cầu nào đang ăn thông đúng 4 ngày tính đến ngày ${activeDateFormatted}.</p>
+                <p class="text-xs text-neutral-400">Bạn có thể chọn ngày khác ([Hôm qua], [Kỳ mới nhất]...) để xem các đường cầu 4 ngày thông tương ứng.</p>
             </div>
         `;
         return;
     }
 
-    const top3 = patterns.slice(0, 3);
+    const top3 = streak4Patterns.slice(0, 3);
     const badges = [
-        { label: '🏆 TOP #1 ỔN ĐỊNH NHẤT', border: 'border-yellow-500/80', bg: 'bg-yellow-500/15', text: 'text-yellow-300', glow: 'shadow-[0_0_25px_rgba(234,179,8,0.4)]' },
-        { label: 'TOP #2', border: 'border-cyan-500/70', bg: 'bg-cyan-500/10', text: 'text-cyan-400', glow: 'shadow-[0_0_15px_rgba(6,182,212,0.2)]' },
-        { label: 'TOP #3', border: 'border-emerald-500/70', bg: 'bg-emerald-500/10', text: 'text-emerald-400', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.2)]' },
+        { label: '🏆 TOP #1 CẦU 4 NGÀY THÔNG', border: 'border-yellow-500/80', bg: 'bg-yellow-500/15', text: 'text-yellow-300', glow: 'shadow-[0_0_25px_rgba(234,179,8,0.4)]' },
+        { label: 'TOP #2 CẦU 4 NGÀY THÔNG', border: 'border-cyan-500/70', bg: 'bg-cyan-500/10', text: 'text-cyan-400', glow: 'shadow-[0_0_15px_rgba(6,182,212,0.2)]' },
+        { label: 'TOP #3 CẦU 4 NGÀY THÔNG', border: 'border-emerald-500/70', bg: 'bg-emerald-500/10', text: 'text-emerald-400', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.2)]' },
     ];
 
     container.innerHTML = top3.map((p, idx) => {
         const b = badges[idx] || badges[0];
-        const nextPred = p.nextPrediction?.join(' - ') || '--';
         const hitRatePct = (p.metrics.rawHitRate * 100).toFixed(1);
         const confPct = (p.metrics.confidenceScore * 100).toFixed(1);
-        const streakBadge = p.currentStreak > 0
-            ? `<span class="px-2 py-0.5 rounded-full text-xs font-black bg-red-600/90 text-white animate-pulse">Ăn thông ${p.currentStreak} ngày</span>`
-            : `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-800 text-neutral-400">Nghỉ ${p.lastSeenDaysAgo} ngày</span>`;
+
+        // Trích xuất bản ghi dự đoán lùi lại tới ngày activeDate
+        const targetHist = (activeDate && p.recentHistory) 
+            ? (p.recentHistory.find(h => h.targetDate === activeDate) || p.recentHistory[0]) 
+            : null;
+
+        let displayPredNumbers = '';
+        let targetLabel = '';
+        let outcomeBadgeHtml = '';
+
+        if (targetHist && targetHist.targetDate === activeDate) {
+            displayPredNumbers = targetHist.predictedNumbers.join(' - ');
+            targetLabel = `Dự đoán tới ngày ${targetHist.targetDateDisplay || activeDateFormatted}:`;
+            if (targetHist.hit) {
+                const hitsCount = targetHist.hitLocations?.length || targetHist.matchedNumbers?.length || 1;
+                outcomeBadgeHtml = `
+                    <div class="mt-2 text-xs font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/50 px-2.5 py-1 rounded-xl flex items-center justify-between shadow-[0_0_12px_rgba(16,185,129,0.3)]">
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-circle-check text-emerald-400"></i> ĐÃ NỔ NGÀY ${targetHist.targetDateDisplay || activeDateFormatted}
+                        </span>
+                        <span class="font-mono font-black text-yellow-300">${targetHist.matchedNumbers.join(', ')} (${hitsCount} nháy)</span>
+                    </div>
+                `;
+            } else {
+                outcomeBadgeHtml = `
+                    <div class="mt-2 text-xs font-semibold text-neutral-400 bg-neutral-900 border border-neutral-700 px-2.5 py-1 rounded-xl flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-xmark text-red-400"></i> Chưa về ngày ${targetHist.targetDateDisplay || activeDateFormatted}
+                    </div>
+                `;
+            }
+        } else {
+            displayPredNumbers = p.nextPrediction?.join(' - ') || '--';
+            targetLabel = `Dự đoán tới ngày ${activeDateFormatted}:`;
+            outcomeBadgeHtml = `
+                <div class="mt-2 text-xs font-bold text-amber-300 bg-amber-950/80 border border-amber-500/50 px-2.5 py-1 rounded-xl flex items-center gap-1.5">
+                    <i class="fa-solid fa-clock text-amber-400"></i> Đang chờ kết quả mở thưởng
+                </div>
+            `;
+        }
+
+        const streakBadge = `<span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-red-600 text-white shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse">Ăn thông 4 ngày</span>`;
 
         return `
             <div class="pattern-draw-card p-5 border-2 ${b.border} ${b.bg} ${b.glow} rounded-2xl flex flex-col justify-between transition hover:scale-[1.02]">
@@ -165,11 +464,14 @@ function renderTopHighlightCards(patterns) {
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-red-950/40 border border-red-500/40 mb-4">
-                        <span class="text-xs font-bold text-red-300 flex items-center gap-1.5">
-                            <i class="fa-solid fa-bullseye text-red-400"></i> Dự đoán kỳ tới:
-                        </span>
-                        <span class="text-base font-black font-mono text-yellow-300 tracking-wider">${nextPred}</span>
+                    <div class="p-2.5 rounded-xl bg-red-950/40 border border-red-500/40 mb-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-red-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-bullseye text-red-400"></i> ${targetLabel}
+                            </span>
+                            <span class="text-base font-black font-mono text-yellow-300 tracking-wider">${displayPredNumbers}</span>
+                        </div>
+                        ${outcomeBadgeHtml}
                     </div>
                 </div>
 
@@ -196,6 +498,8 @@ function renderPatternsTable(patterns) {
         return;
     }
 
+    const activeDate = window.CURRENT_AUTO_PATTERN_DATE || CURRENT_SCAN_DATA?.anchorDate || null;
+
     tbody.innerHTML = patterns.map((p, idx) => {
         const hitRatePct = (p.metrics.rawHitRate * 100).toFixed(1);
         const confPct = (p.metrics.confidenceScore * 100).toFixed(1);
@@ -206,7 +510,21 @@ function renderPatternsTable(patterns) {
             'OVERFIT': 'bg-red-950 text-red-400 border-red-700'
         }[p.metrics.statisticalStrength] || 'bg-neutral-800 text-neutral-400';
 
-        const nextPred = p.nextPrediction?.join(' - ') || '--';
+        // Lùi lại dự đoán tới activeDate
+        const targetHist = (activeDate && p.recentHistory) 
+            ? (p.recentHistory.find(h => h.targetDate === activeDate) || p.recentHistory[0]) 
+            : null;
+
+        let tablePredHtml = '';
+        if (targetHist && targetHist.targetDate === activeDate) {
+            const hitBadge = targetHist.hit
+                ? `<span class="ml-1 text-[10px] font-black text-emerald-400 bg-emerald-950 border border-emerald-500/60 px-1.5 py-0.5 rounded">Nổ</span>`
+                : `<span class="ml-1 text-[10px] font-bold text-neutral-500 bg-neutral-900 border border-neutral-800 px-1 py-0.5 rounded">Xịt</span>`;
+            tablePredHtml = `<span class="text-yellow-300 font-mono font-bold">${targetHist.predictedNumbers.join('-')}</span> ${hitBadge}`;
+        } else {
+            const nextPred = p.nextPrediction?.join(' - ') || '--';
+            tablePredHtml = `<span class="text-yellow-400 font-mono font-black">${nextPred}</span>`;
+        }
 
         return `
             <tr class="border-b border-neutral-800 hover:bg-neutral-800/40 transition">
@@ -231,7 +549,7 @@ function renderPatternsTable(patterns) {
                         ${p.metrics.statisticalStrength}
                     </span>
                 </td>
-                <td class="p-3 text-center font-mono font-black text-yellow-400 text-xs">${nextPred}</td>
+                <td class="p-3 text-center font-mono text-xs">${tablePredHtml}</td>
                 <td class="p-3 text-center">
                     <div class="flex items-center justify-center gap-1.5">
                         <button onclick="selectPatternById('${p.patternId}', true)" class="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition shadow" title="Vẽ đường cầu">
@@ -290,7 +608,8 @@ function filterPatternsTable() {
 function selectPatternById(patternId, shouldScroll = false) {
     const pattern = window.ALL_LOADED_PATTERNS[patternId];
     if (pattern) {
-        selectPatternForVisualization(pattern, shouldScroll);
+        const anchorDate = window.CURRENT_AUTO_PATTERN_DATE || null;
+        selectPatternForVisualization(pattern, shouldScroll, anchorDate);
     }
 }
 
@@ -302,16 +621,34 @@ function openPatternDetailDrawerById(patternId) {
 }
 
 // Chọn một pattern để trực quan hóa (Section IX)
-async function selectPatternForVisualization(pattern, shouldScroll = false) {
+async function selectPatternForVisualization(pattern, shouldScroll = false, anchorDate = null) {
     if (!pattern) return;
     CURRENT_ACTIVE_PATTERN = pattern;
+    if (anchorDate) {
+        CURRENT_ACTIVE_PATTERN.anchorDate = anchorDate;
+    } else if (CURRENT_ACTIVE_PATTERN && !anchorDate && CURRENT_ACTIVE_PATTERN.anchorDate) {
+        // Keep existing anchorDate if re-selecting same active pattern
+        anchorDate = CURRENT_ACTIVE_PATTERN.anchorDate;
+    }
 
     // Cập nhật tiêu đề và công thức trong khu vực Visualization
     setElText('vis-pattern-title', pattern.name);
     setElText('vis-pattern-formula', pattern.formula);
-    setElText('vis-pattern-pred', pattern.nextPrediction?.join(' - ') || '--');
+
+    const activeDate = anchorDate || window.CURRENT_AUTO_PATTERN_DATE || null;
+    let visPredStr = pattern.nextPrediction?.join(' - ') || '--';
+    if (activeDate && pattern.recentHistory) {
+        const hist = pattern.recentHistory.find(h => h.targetDate === activeDate);
+        if (hist) {
+            visPredStr = hist.predictedNumbers.join(' - ');
+            if (hist.hit) {
+                visPredStr += ' (Trúng)';
+            }
+        }
+    }
+    setElText('vis-pattern-pred', visPredStr);
     setElText('vis-pattern-streak', pattern.currentStreak > 0
-        ? `Chuỗi ăn hiện tại: ${pattern.currentStreak} kỳ liên tiếp`
+        ? `Chuỗi ăn: ${pattern.currentStreak} kỳ liên tiếp`
         : `Lần nổ gần nhất: ${pattern.lastSeenDaysAgo} kỳ trước`
     );
 
@@ -332,7 +669,10 @@ async function selectPatternForVisualization(pattern, shouldScroll = false) {
     }
 
     try {
-        const url = `/api/patterns/details?pos_a=${pa}&pos_b=${pb}&op=${op}&target_type=${targetType}&day_offset=${dayOffset}&draws=${CURRENT_DISPLAY_DRAWS}`;
+        let url = `/api/patterns/details?pos_a=${pa}&pos_b=${pb}&op=${op}&target_type=${targetType}&day_offset=${dayOffset}&draws=${CURRENT_DISPLAY_DRAWS}`;
+        if (anchorDate) {
+            url += `&anchor_date=${encodeURIComponent(anchorDate)}`;
+        }
         console.log('[Pattern Visualizer] Loading details:', url);
         const res = await fetch(url);
         const data = await res.json();
@@ -716,7 +1056,7 @@ function changeDisplayDraws(drawsCount) {
     CURRENT_DISPLAY_DRAWS = parseInt(drawsCount, 10) || 8;
     console.log('[Pattern Visualizer] Changing display draws count to:', CURRENT_DISPLAY_DRAWS);
     if (CURRENT_ACTIVE_PATTERN) {
-        selectPatternForVisualization(CURRENT_ACTIVE_PATTERN, false);
+        selectPatternForVisualization(CURRENT_ACTIVE_PATTERN, false, CURRENT_ACTIVE_PATTERN.anchorDate);
     }
 }
 
@@ -880,3 +1220,496 @@ async function exportPatternInfographicImage() {
         }
     }
 }
+
+// =========================================================================
+// MODULE TRA CỨU CẦU ĂN THÔNG THEO NGÀY & ĐỐI CHIẾU KẾT QUẢ KỲ KẾ TIẾP
+// =========================================================================
+
+// Nạp danh sách cầu ăn thông theo ngày
+async function loadStreakBridges(dateVal = 'yesterday', streakVal = 4, exactVal = true) {
+    const loadingEl = document.getElementById('streak-loading-indicator');
+    const resultsWrapper = document.getElementById('streak-results-wrapper');
+    const searchBtn = document.getElementById('btn-fetch-streak-bridges');
+    const targetType = document.getElementById('streak-target-type')?.value || 'loto_2digit';
+
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    if (resultsWrapper) resultsWrapper.classList.add('opacity-40');
+    if (searchBtn) {
+        searchBtn.disabled = true;
+        searchBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang Tra Cứu...`;
+    }
+
+    try {
+        const url = `/api/patterns/streak-bridges?date=${encodeURIComponent(dateVal)}&streak=${streakVal}&exact=${exactVal}&target_type=${targetType}&op=CONCAT_PAIR&limit=300`;
+        console.log('[Streak Explorer] Fetching:', url);
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.status === 'SUCCESS') {
+            CURRENT_STREAK_RESPONSE = data;
+
+            // 1. Cập nhật dropdown ngày nếu có
+            populateStreakDatesDropdown(data.availableDates, data.queryDate);
+
+            // 2. Cập nhật nút chọn nhanh Hôm qua / Mới nhất
+            updateQuickDateButtons(data.queryDate, data.availableDates);
+
+            // 3. Cập nhật các thẻ KPI tổng quan
+            renderStreakKpis(data);
+
+            // 4. Render danh sách bảng
+            renderStreakTable();
+        } else {
+            alert(data.message || 'Lỗi khi tra cứu cầu thông.');
+        }
+    } catch (err) {
+        console.error('[Streak Explorer] Lỗi gọi API streak bridges:', err);
+    } finally {
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (resultsWrapper) resultsWrapper.classList.remove('opacity-40');
+        if (searchBtn) {
+            searchBtn.disabled = false;
+            searchBtn.innerHTML = `<i class="fa-solid fa-magnifying-glass-chart mr-1 text-yellow-300"></i> TRA CỨU CẦU THÔNG`;
+        }
+    }
+}
+
+// Điền danh sách ngày vào dropdown
+function populateStreakDatesDropdown(datesList, selectedDate) {
+    const sel = document.getElementById('streak-date-select');
+    if (!sel || !datesList) return;
+
+    sel.innerHTML = datesList.map(d => {
+        let tag = '';
+        if (d.isLatest) tag = ' (Kỳ mới nhất)';
+        else if (d.isYesterday) tag = ' (Hôm qua)';
+        const isSelected = (d.drawDate === selectedDate) ? 'selected' : '';
+        return `<option value="${d.drawDate}" ${isSelected}>${d.dayOfWeek}, ${d.dateDisplay}${tag}</option>`;
+    }).join('');
+}
+
+// Đổi màu active cho nút Hôm qua / Mới nhất
+function updateQuickDateButtons(currentDate, datesList) {
+    const btnYest = document.getElementById('btn-quick-yesterday');
+    const btnLatest = document.getElementById('btn-quick-latest');
+    if (!datesList || datesList.length === 0) return;
+
+    const latestObj = datesList.find(d => d.isLatest);
+    const yesterdayObj = datesList.find(d => d.isYesterday);
+
+    if (btnYest) {
+        if (yesterdayObj && yesterdayObj.drawDate === currentDate) {
+            btnYest.className = 'px-2 py-0.5 rounded-md text-[10px] font-black bg-red-600 text-white transition hover:bg-red-500 cursor-pointer shadow-sm';
+        } else {
+            btnYest.className = 'px-2 py-0.5 rounded-md text-[10px] font-bold bg-neutral-800 text-neutral-300 transition hover:bg-neutral-700 hover:text-white cursor-pointer';
+        }
+    }
+
+    if (btnLatest) {
+        if (latestObj && latestObj.drawDate === currentDate) {
+            btnLatest.className = 'px-2 py-0.5 rounded-md text-[10px] font-black bg-red-600 text-white transition hover:bg-red-500 cursor-pointer shadow-sm';
+        } else {
+            btnLatest.className = 'px-2 py-0.5 rounded-md text-[10px] font-bold bg-neutral-800 text-neutral-300 transition hover:bg-neutral-700 hover:text-white cursor-pointer';
+        }
+    }
+}
+
+// Khi người dùng bấm nút nhanh Hôm qua hoặc Kỳ mới nhất
+function quickSelectStreakDate(type) {
+    const streakVal = parseInt(document.getElementById('streak-length-select')?.value || '4', 10);
+    const exactVal = document.getElementById('streak-exact-select')?.value === 'true';
+    loadStreakBridges(type, streakVal, exactVal);
+}
+
+// Khi đổi ngày từ select dropdown
+function onStreakDateSelectChange() {
+    const sel = document.getElementById('streak-date-select');
+    if (!sel) return;
+    const dateVal = sel.value;
+    const streakVal = parseInt(document.getElementById('streak-length-select')?.value || '4', 10);
+    const exactVal = document.getElementById('streak-exact-select')?.value === 'true';
+    loadStreakBridges(dateVal, streakVal, exactVal);
+}
+
+// Kích hoạt tìm kiếm thủ công
+function triggerStreakSearch() {
+    const dateVal = document.getElementById('streak-date-select')?.value || 'yesterday';
+    const streakVal = parseInt(document.getElementById('streak-length-select')?.value || '4', 10);
+    const exactVal = document.getElementById('streak-exact-select')?.value === 'true';
+    loadStreakBridges(dateVal, streakVal, exactVal);
+}
+
+// Cập nhật các chỉ số KPI
+function renderStreakKpis(data) {
+    setElText('streak-total-count', data.totalBridges?.toLocaleString() || '0');
+    setElText('streak-count-desc', `${data.exactStreak ? 'đúng' : 'từ'} ${data.streak} ngày thông`);
+    setElText('streak-selected-badge', `Ngày soi: ${data.queryDayOfWeek} ${data.queryDateDisplay}`);
+
+    const iconBox = document.getElementById('streak-outcome-icon');
+
+    if (data.isTargetPending) {
+        setElText('streak-win-rate', 'Chờ Xổ');
+        setElText('streak-win-detail', 'Chưa có kết quả');
+        setElText('streak-target-badge', `Mở thưởng 18h15: ${data.targetDayOfWeek} ${data.targetDateDisplay}`);
+        if (iconBox) {
+            iconBox.className = 'w-12 h-12 rounded-xl bg-yellow-500/20 border border-yellow-500/50 flex items-center justify-center text-yellow-400 text-xl font-black flex-shrink-0 animate-pulse';
+            iconBox.innerHTML = '<i class="fa-solid fa-clock"></i>';
+        }
+    } else {
+        setElText('streak-win-rate', `${data.winRate}%`);
+        setElText('streak-win-detail', `${data.winCount} thắng / ${data.loseCount} gãy`);
+        setElText('streak-target-badge', `Kỳ đối chiếu: ${data.targetDayOfWeek} ${data.targetDateDisplay}`);
+        if (iconBox) {
+            if (data.winRate >= 30) {
+                iconBox.className = 'w-12 h-12 rounded-xl bg-emerald-600/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-xl font-black flex-shrink-0';
+                iconBox.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+            } else {
+                iconBox.className = 'w-12 h-12 rounded-xl bg-red-600/20 border border-red-500/50 flex items-center justify-center text-red-400 text-xl font-black flex-shrink-0';
+                iconBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+            }
+        }
+    }
+
+    // Top các con số nổ
+    const topNumContainer = document.getElementById('streak-top-numbers');
+    if (topNumContainer) {
+        if (!data.topNumbers || data.topNumbers.length === 0) {
+            topNumContainer.innerHTML = `<span class="text-xs text-neutral-500 italic">Không có số nào</span>`;
+        } else {
+            topNumContainer.innerHTML = data.topNumbers.slice(0, 6).map(n => {
+                const isHitCls = n.isHit 
+                    ? 'bg-emerald-600 text-white font-black shadow-[0_0_10px_rgba(16,185,129,0.5)] border-emerald-400' 
+                    : 'bg-neutral-800 text-neutral-300 font-bold border-neutral-700';
+                return `
+                    <span class="px-2 py-0.5 rounded-lg text-xs font-mono border ${isHitCls} flex items-center gap-1" title="${n.bridgesCount} cầu báo, ${n.hitBridgesCount} cầu nổ">
+                        ${n.number} <span class="text-[10px] opacity-80">(${n.bridgesCount}c${n.hitBridgesCount > 0 ? `•${n.hitBridgesCount}n` : ''})</span>
+                    </span>
+                `;
+            }).join('');
+        }
+    }
+
+    // Cập nhật số lượng trên các nút lọc
+    setElText('count-filter-all', data.totalBridges || 0);
+    setElText('count-filter-win', data.winCount || 0);
+    setElText('count-filter-lose', data.loseCount || 0);
+}
+
+// Chuyển tab lọc kết quả: all, win, lose
+function setStreakStatusFilter(status) {
+    CURRENT_STREAK_FILTER = status;
+    ['all', 'win', 'lose'].forEach(st => {
+        const btn = document.getElementById(`btn-streak-filter-${st}`);
+        if (btn) {
+            if (st === status) {
+                btn.className = 'px-3 py-1 rounded-lg text-xs font-black bg-neutral-800 text-white border border-neutral-700 transition cursor-pointer';
+            } else {
+                let textCol = 'text-neutral-400 hover:text-white';
+                if (st === 'win') textCol = 'text-emerald-400 hover:bg-emerald-950/40';
+                if (st === 'lose') textCol = 'text-red-400 hover:bg-red-950/40';
+                btn.className = `px-3 py-1 rounded-lg text-xs font-bold ${textCol} border border-transparent transition cursor-pointer`;
+            }
+        }
+    });
+    renderStreakTable();
+}
+
+function filterStreakTableRows() {
+    renderStreakTable();
+}
+
+function getFilteredStreakBridges() {
+    if (!CURRENT_STREAK_RESPONSE || !CURRENT_STREAK_RESPONSE.bridges) return [];
+    const searchVal = document.getElementById('streak-search-input')?.value.toLowerCase().trim() || '';
+    return CURRENT_STREAK_RESPONSE.bridges.filter(b => {
+        if (CURRENT_STREAK_FILTER === 'win' && b.isHit !== true) return false;
+        if (CURRENT_STREAK_FILTER === 'lose' && b.isHit !== false) return false;
+        if (searchVal) {
+            const matchPred = b.predictedNumbers.some(p => p.includes(searchVal));
+            const matchA = b.labelA.toLowerCase().includes(searchVal) || b.displayPrizeA.toLowerCase().includes(searchVal);
+            const matchB = b.labelB.toLowerCase().includes(searchVal) || b.displayPrizeB.toLowerCase().includes(searchVal);
+            if (!matchPred && !matchA && !matchB) return false;
+        }
+        return true;
+    });
+}
+
+// Hiển thị bảng chi tiết các cầu thông
+function renderStreakTable() {
+    const tbody = document.getElementById('streak-table-body');
+    if (!tbody || !CURRENT_STREAK_RESPONSE) return;
+
+    const data = CURRENT_STREAK_RESPONSE;
+    const list = getFilteredStreakBridges();
+
+    if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-neutral-400 italic">Không có cầu nào thỏa mãn điều kiện lọc.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = list.map((b, idx) => {
+        // Cột kết quả
+        let outcomeBadge = '';
+        if (b.isHit === true) {
+            const locInfo = b.hitLocations && b.hitLocations.length > 0 
+                ? b.hitLocations.map(l => l.prize).slice(0, 2).join(', ') 
+                : '';
+            outcomeBadge = `
+                <div class="flex flex-col items-center">
+                    <span class="px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-600 text-white shadow-sm flex items-center gap-1">
+                        <i class="fa-solid fa-check"></i> ĂN LÔ [${b.matchedNumbers.join(', ')}] (${b.hitCount} nháy)
+                    </span>
+                    ${locInfo ? `<span class="text-[10px] text-emerald-300/80 mt-0.5">${locInfo}</span>` : ''}
+                </div>
+            `;
+        } else if (b.isHit === false) {
+            outcomeBadge = `
+                <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-950/70 text-red-400 border border-red-800/60 inline-flex items-center gap-1">
+                    <i class="fa-solid fa-xmark"></i> GÃY CẦU (Trượt)
+                </span>
+            `;
+        } else {
+            outcomeBadge = `
+                <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-yellow-950/80 text-yellow-300 border border-yellow-700/60 inline-flex items-center gap-1">
+                    <i class="fa-solid fa-clock animate-pulse"></i> Chờ mở thưởng
+                </span>
+            `;
+        }
+
+        return `
+            <tr class="hover:bg-neutral-800/40 transition border-b border-neutral-800/60">
+                <td class="p-3 font-mono font-bold text-center text-neutral-500 text-xs">#${idx + 1}</td>
+                <td class="p-3">
+                    <div class="font-bold text-white text-xs mb-0.5">
+                        <span class="text-red-400">${b.displayPrizeA}</span> [${b.labelA}]
+                        <span class="text-neutral-500 mx-1">ghép</span>
+                        <span class="text-amber-400">${b.displayPrizeB}</span> [${b.labelB}]
+                    </div>
+                    <div class="text-[10px] text-neutral-500 font-mono">Vị trí #${b.posA} & #${b.posB}</div>
+                </td>
+                <td class="p-3 text-center font-mono font-black text-xs text-cyan-300">
+                    <span class="px-2 py-0.5 bg-neutral-900 border border-neutral-800 rounded">
+                        ${b.digits[0]} &amp; ${b.digits[1]}
+                    </span>
+                </td>
+                <td class="p-3 text-center">
+                    <span class="px-2.5 py-1 rounded-lg bg-yellow-500/15 border border-yellow-500/50 text-yellow-300 font-black font-mono text-sm tracking-wider">
+                        ${b.predictionDisplay}
+                    </span>
+                </td>
+                <td class="p-3 text-center">
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-red-600/90 text-white font-mono shadow-sm">
+                        Ăn ${b.streak} ngày
+                    </span>
+                </td>
+                <td class="p-3 text-center">
+                    ${outcomeBadge}
+                </td>
+                <td class="p-3 text-center">
+                    <div class="flex items-center justify-center gap-1.5">
+                        <button onclick="openStreakDetailModalByIndex(${idx})" 
+                                class="px-2.5 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white font-bold text-xs transition border border-neutral-700 flex items-center gap-1 shadow cursor-pointer active:scale-95" 
+                                title="Xem chi tiết kết quả trúng hay xịt của cầu này">
+                            <i class="fa-solid fa-circle-info text-cyan-400"></i> Chi Tiết
+                        </button>
+                        <button onclick="visualizeStreakBridgeByIndex(${idx})" 
+                                class="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs transition shadow flex items-center justify-center gap-1 cursor-pointer border border-red-400/50 active:scale-95" 
+                                title="Vẽ sơ đồ cầu SVG này tại ngày soi">
+                            <i class="fa-solid fa-bezier-curve"></i> Vẽ Cầu
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Bấm Vẽ Cầu từ bảng Streak Explorer theo index
+function visualizeStreakBridgeByIndex(idx) {
+    const list = getFilteredStreakBridges();
+    const b = list[idx];
+    if (!b || !CURRENT_STREAK_RESPONSE) return;
+    const data = CURRENT_STREAK_RESPONSE;
+    visualizeStreakBridge(b.posA, b.posB, b.operation, data.targetType, data.queryDate, b.labelA, b.labelB, b.displayPrizeA, b.displayPrizeB, b.predictedNumbers, b.streak);
+}
+
+// Bấm Vẽ Cầu từ bảng Streak Explorer
+function visualizeStreakBridge(posA, posB, op, targetType, anchorDate, labelA, labelB, dispA, dispB, predStrs, streak) {
+    const patternObj = {
+        patternId: `P_${op}_${posA}_${posB}`,
+        name: `Cầu ${dispA} [${labelA}] ghép ${dispB} [${labelB}]`,
+        formula: `${labelA} & ${labelB} (${op})`,
+        nextPrediction: predStrs,
+        currentStreak: streak,
+        lastSeenDaysAgo: 0,
+        sources: [{ globalIndex: posA }, { globalIndex: posB }],
+        operation: op,
+        target: { type: targetType, dayOffset: 1 }
+    };
+    selectPatternForVisualization(patternObj, true, anchorDate);
+}
+
+// =========================================================================
+// MODAL CHI TIẾT CẦU ĂN THÔNG & ĐỐI CHIẾU KẾT QUẢ TRÚNG HAY XỊT
+// =========================================================================
+
+let CURRENT_MODAL_BRIDGE = null;
+
+function openStreakDetailModalByIndex(idx) {
+    const list = getFilteredStreakBridges();
+    const b = list[idx];
+    if (!b || !CURRENT_STREAK_RESPONSE) return;
+    openStreakDetailModal(b);
+}
+
+function openStreakDetailModal(b) {
+    CURRENT_MODAL_BRIDGE = b;
+    const data = CURRENT_STREAK_RESPONSE;
+    const modal = document.getElementById('streak-detail-modal');
+    if (!modal) return;
+
+    setElText('streak-modal-badge', b.patternId);
+    setElText('streak-modal-streak-badge', `Ăn thông ${b.streak} ngày liên tiếp`);
+    setElText('streak-modal-title', `Cầu ${b.displayPrizeA} [${b.labelA}] ghép ${b.displayPrizeB} [${b.labelB}]`);
+    setElText('streak-modal-formula', `Vị trí #${b.posA} & #${b.posB} • Phép ghép ${b.operation}`);
+
+    // Banner Kết Quả Kỳ Đối Chiếu: Trúng hay Xịt
+    const bannerEl = document.getElementById('streak-modal-outcome-banner');
+    if (bannerEl) {
+        if (b.isHit === true) {
+            const locDetails = (b.hitLocations && b.hitLocations.length > 0)
+                ? b.hitLocations.map(l => `<span class="px-2 py-0.5 rounded bg-emerald-900/60 border border-emerald-500/50 text-white font-mono font-bold text-[11px]">${l.prize}: <b class="text-yellow-300">${l.value}</b> (đuôi ${l.hitNumber})</span>`).join(' ')
+                : '';
+            bannerEl.className = 'p-4 rounded-2xl border-2 border-emerald-500/80 bg-gradient-to-r from-emerald-950/90 via-neutral-900 to-emerald-950/90 shadow-[0_0_25px_rgba(16,185,129,0.3)] space-y-2';
+            bannerEl.innerHTML = `
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <span class="text-xs font-black uppercase text-emerald-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-check text-base"></i> KẾT QUẢ ĐỐI CHIẾU KỲ ${data.targetDateDisplay} (${data.targetDayOfWeek})
+                    </span>
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-600 text-white animate-pulse shadow">
+                        TRÚNG ${b.hitCount} NHÁY
+                    </span>
+                </div>
+                <div class="text-xl font-black text-white">
+                    🎉 KẾT QUẢ: <span class="text-emerald-400">TRÚNG</span> (ĂN LÔ <span class="text-yellow-300 font-mono">[${b.matchedNumbers.join(', ')}]</span>)
+                </div>
+                <p class="text-xs text-neutral-300">
+                    Cầu lấy 2 chữ số <b class="text-yellow-400 font-mono">[${b.digits.join(' & ')}]</b> từ ngày <b class="text-white">${data.queryDateDisplay}</b> báo cặp số <b class="text-yellow-300 font-mono">[${b.predictionDisplay}]</b> đã nổ chính xác trên bảng kết quả ngày <b class="text-white">${data.targetDateDisplay}</b>! Cầu tiếp tục ăn thông sang ngày thứ <b>${b.streak + 1}</b>!
+                </p>
+                ${locDetails ? `
+                    <div class="pt-2 border-t border-emerald-500/30 flex flex-wrap items-center gap-1.5">
+                        <span class="text-[11px] text-emerald-300 font-bold">Vị trí nổ giải:</span>
+                        ${locDetails}
+                    </div>
+                ` : ''}
+            `;
+        } else if (b.isHit === false) {
+            bannerEl.className = 'p-4 rounded-2xl border-2 border-red-500/80 bg-gradient-to-r from-red-950/90 via-neutral-900 to-red-950/90 shadow-[0_0_25px_rgba(239,68,68,0.3)] space-y-2';
+            bannerEl.innerHTML = `
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <span class="text-xs font-black uppercase text-red-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-xmark text-base"></i> KẾT QUẢ ĐỐI CHIẾU KỲ ${data.targetDateDisplay} (${data.targetDayOfWeek})
+                    </span>
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-red-600 text-white shadow">
+                        GÃY CẦU (XỊT)
+                    </span>
+                </div>
+                <div class="text-xl font-black text-white">
+                    ❌ KẾT QUẢ: <span class="text-red-400">XỊT</span> (Cặp số <span class="text-yellow-300 font-mono">[${b.predictionDisplay}]</span> không về)
+                </div>
+                <p class="text-xs text-neutral-300">
+                    Cầu lấy 2 chữ số <b class="text-yellow-400 font-mono">[${b.digits.join(' & ')}]</b> từ kỳ <b class="text-white">${data.queryDateDisplay}</b> dự đoán cặp số <b class="text-yellow-300 font-mono">[${b.predictionDisplay}]</b>. Cả 2 con số đều không xuất hiện trong 27 giải mở thưởng ngày <b class="text-white">${data.targetDateDisplay}</b>. Chuỗi ăn thông dừng lại ở <b>${b.streak} ngày</b> liên tiếp.
+                </p>
+            `;
+        } else {
+            bannerEl.className = 'p-4 rounded-2xl border-2 border-yellow-500/80 bg-gradient-to-r from-yellow-950/90 via-neutral-900 to-amber-950/90 shadow-[0_0_25px_rgba(234,179,8,0.3)] space-y-2';
+            bannerEl.innerHTML = `
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <span class="text-xs font-black uppercase text-yellow-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-clock text-base animate-pulse"></i> ĐANG CHỜ MỞ THƯỞNG 18H15 HÔM NAY (${data.targetDateDisplay})
+                    </span>
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-yellow-500 text-black">
+                        CHỜ KẾT QUẢ
+                    </span>
+                </div>
+                <div class="text-xl font-black text-white">
+                    🎯 CẶP SỐ BÁO VIP: <span class="text-yellow-300 font-mono text-2xl">[${b.predictionDisplay}]</span>
+                </div>
+                <p class="text-xs text-neutral-300">
+                    Đường cầu đã ăn thông liên tiếp <b class="text-emerald-400">${b.streak} ngày</b> tính đến kỳ <b class="text-white">${data.queryDateDisplay}</b>. Hôm nay báo cặp song thủ <b class="text-yellow-300 font-mono">[${b.predictionDisplay}]</b> cho kỳ mở thưởng ngày <b class="text-white">${data.targetDateDisplay}</b>.
+                </p>
+            `;
+        }
+    }
+
+    // Lịch sử chuỗi ăn thông từng ngày
+    const historyListEl = document.getElementById('streak-modal-history-list');
+    if (historyListEl) {
+        const hist = b.streakHistory || [];
+        if (hist.length === 0) {
+            historyListEl.innerHTML = `<div class="p-4 text-center text-neutral-500 italic">Không có dữ liệu lịch sử chuỗi.</div>`;
+        } else {
+            // Sắp xếp ngày mới nhất lên đầu
+            const sortedHist = [...hist].reverse();
+            historyListEl.innerHTML = sortedHist.map(h => {
+                let statusBadge = '';
+                if (h.isPending) {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-yellow-950/80 text-yellow-300 border border-yellow-700/60 flex items-center gap-1"><i class="fa-solid fa-clock animate-pulse"></i> Chờ xổ</span>`;
+                } else if (h.isHit) {
+                    const locsText = h.hitLocations && h.hitLocations.length > 0 
+                        ? h.hitLocations.map(l => l.prize).slice(0, 2).join(', ') 
+                        : '';
+                    statusBadge = `
+                        <div class="text-right">
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-600 text-white shadow-sm flex items-center gap-1 justify-end">
+                                <i class="fa-solid fa-check"></i> TRÚNG [${h.matchedNumbers.join(', ')}] (${h.hitCount} nháy)
+                            </span>
+                            ${locsText ? `<div class="text-[10px] text-emerald-300/80 mt-0.5">${locsText}</div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-950/80 text-red-400 border border-red-800/60 flex items-center gap-1"><i class="fa-solid fa-xmark"></i> TRƯỢT (XỊT)</span>`;
+                }
+
+                const isOutcome = h.isOutcomeDay;
+                const borderCls = isOutcome 
+                    ? (h.isHit ? 'border-2 border-emerald-500/80 bg-emerald-950/30' : h.isPending ? 'border-2 border-yellow-500/80 bg-yellow-950/30' : 'border-2 border-red-500/80 bg-red-950/30')
+                    : 'border border-neutral-800 bg-neutral-900/60';
+
+                return `
+                    <div class="p-3 rounded-xl ${borderCls} flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 transition hover:bg-neutral-800/40">
+                        <div>
+                            <div class="font-bold text-white flex items-center gap-2 flex-wrap mb-1">
+                                <span class="font-mono text-cyan-300">${h.sourceDateDisplay} ➔ ${h.targetDateDisplay}</span>
+                                ${isOutcome ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-red-600 text-white uppercase font-mono tracking-wider shadow">KỲ ĐỐI CHIẾU</span>' : `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-neutral-800 text-neutral-400 font-mono">Ăn thông</span>`}
+                            </div>
+                            <div class="text-[11px] text-neutral-400 flex items-center gap-3">
+                                <span>Chữ số ghép: <b class="text-white font-mono font-bold">${h.digits ? h.digits.join(' & ') : '--'}</b></span>
+                                <span>Báo cặp số: <b class="text-yellow-300 font-mono font-bold">[${h.predictionDisplay}]</b></span>
+                            </div>
+                        </div>
+                        <div>
+                            ${statusBadge}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function closeStreakDetailModal() {
+    const modal = document.getElementById('streak-detail-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function visualizeFromStreakModal() {
+    if (!CURRENT_MODAL_BRIDGE || !CURRENT_STREAK_RESPONSE) return;
+    const b = CURRENT_MODAL_BRIDGE;
+    const data = CURRENT_STREAK_RESPONSE;
+    closeStreakDetailModal();
+    visualizeStreakBridge(b.posA, b.posB, b.operation, data.targetType, data.queryDate, b.labelA, b.labelB, b.displayPrizeA, b.displayPrizeB, b.predictedNumbers, b.streak);
+}
+

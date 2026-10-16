@@ -44,7 +44,8 @@ def explain_digit_operation(rule: RuleSpecification, da: int, db: int, predicted
 def generate_visualization_payload(
     snapshot: DatasetSnapshot,
     backtest_res: BacktestResult,
-    num_display_draws: int = 8
+    num_display_draws: int = 8,
+    anchor_date: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Sinh payload chi tiết cho hiển thị trực quan hóa đường cầu:
@@ -64,13 +65,22 @@ def generate_visualization_payload(
 
     n_total = snapshot.total_draws
     slice_count = min(num_display_draws, n_total)
-    # Lấy N kỳ gần nhất theo thứ tự thời gian tăng dần để dựng liên kết
-    draw_slice = snapshot.draw_records[-slice_count:]
+
+    # Xác định draw_slice theo anchor_date (nếu người dùng chọn ngày soi cụ thể trong quá khứ)
+    if anchor_date and anchor_date in snapshot.dates:
+        anchor_idx = snapshot.dates.index(anchor_date)
+        end_idx = anchor_idx + 1
+        start_idx = max(0, end_idx - slice_count)
+        draw_slice = snapshot.draw_records[start_idx:end_idx]
+        has_upcoming = (anchor_idx == n_total - 1)
+    else:
+        draw_slice = snapshot.draw_records[-slice_count:]
+        has_upcoming = True
 
     # Tìm tập hợp các cặp số trúng / dự đoán theo từng ngày
     history_by_src_date = {h.source_date: h for h in backtest_res.history}
 
-    # Ngày sắp mở thưởng tiếp theo (Upcoming)
+    # Ngày sắp mở thưởng tiếp theo (Upcoming) nếu có
     latest_draw = draw_slice[-1]
     latest_dt = latest_draw.get("draw_date", "")
     latest_dt_disp = latest_draw.get("date_display", latest_dt)
@@ -314,71 +324,78 @@ def generate_visualization_payload(
                         "matchedNumber": hit_num
                     })
 
-    # Cầu cho kỳ mới nhất tới kỳ sắp mở thưởng (Upcoming Draw)
-    upcoming_target_id = f"upcoming-box-{next_dt_str}"
-    upcoming_explain = explain_digit_operation(rule, latest_da, latest_db, backtest_res.next_prediction)
+    upcoming_card = None
+    if has_upcoming:
+        # Cầu cho kỳ mới nhất tới kỳ sắp mở thưởng (Upcoming Draw)
+        upcoming_target_id = f"upcoming-box-{next_dt_str}"
+        upcoming_explain = explain_digit_operation(rule, latest_da, latest_db, backtest_res.next_prediction)
 
-    upcoming_card = {
-        "isUpcoming": True,
-        "drawDate": next_dt_str,
-        "dateDisplay": next_dt_disp,
-        "dayOfWeek": next_dow,
-        "prediction": backtest_res.next_prediction,
-        "formula": rule.formula_display,
-        "formulaExplain": upcoming_explain,
-        "sourceValues": f"{coord_a.label}={latest_da} & {coord_b.label}={latest_db}",
-        "sourceDate": latest_dt,
-        "sourceDateDisplay": latest_dt_disp,
-        "targetDomId": upcoming_target_id,
-        "status": "PENDING"
-    }
+        upcoming_card = {
+            "isUpcoming": True,
+            "drawDate": next_dt_str,
+            "dateDisplay": next_dt_disp,
+            "dayOfWeek": next_dow,
+            "prediction": backtest_res.next_prediction,
+            "formula": rule.formula_display,
+            "formulaExplain": upcoming_explain,
+            "sourceValues": f"{coord_a.label}={latest_da} & {coord_b.label}={latest_db}",
+            "sourceDate": latest_dt,
+            "sourceDateDisplay": latest_dt_disp,
+            "targetDomId": upcoming_target_id,
+            "status": "PENDING"
+        }
 
-    # Đỉnh Source trên kỳ gần nhất
-    nodes.append({
-        "id": f"cell-d-{latest_dt}-{pos_a}",
-        "drawDate": latest_dt,
-        "role": "source_a",
-        "globalIndex": pos_a,
-        "label": coord_a.label,
-        "value": latest_da
-    })
-    nodes.append({
-        "id": f"cell-d-{latest_dt}-{pos_b}",
-        "drawDate": latest_dt,
-        "role": "source_b",
-        "globalIndex": pos_b,
-        "label": coord_b.label,
-        "value": latest_db
-    })
-    edges.append({
-        "from": f"cell-d-{latest_dt}-{pos_a}",
-        "to": f"cell-d-{latest_dt}-{pos_b}",
-        "type": "source_pair",
-        "date": latest_dt,
-        "status": "PENDING_NEXT"
-    })
+        # Đỉnh Source trên kỳ gần nhất
+        nodes.append({
+            "id": f"cell-d-{latest_dt}-{pos_a}",
+            "drawDate": latest_dt,
+            "role": "source_a",
+            "globalIndex": pos_a,
+            "label": coord_a.label,
+            "value": latest_da
+        })
+        nodes.append({
+            "id": f"cell-d-{latest_dt}-{pos_b}",
+            "drawDate": latest_dt,
+            "role": "source_b",
+            "globalIndex": pos_b,
+            "label": coord_b.label,
+            "value": latest_db
+        })
+        edges.append({
+            "from": f"cell-d-{latest_dt}-{pos_a}",
+            "to": f"cell-d-{latest_dt}-{pos_b}",
+            "type": "source_pair",
+            "date": latest_dt,
+            "status": "PENDING_NEXT"
+        })
 
-    # Đỉnh đích đến của hộp dự đoán (Không khoanh tròn SVG vòng quanh hộp)
-    nodes.append({
-        "id": upcoming_target_id,
-        "drawDate": next_dt_str,
-        "role": "upcoming_box",
-        "skipCircle": True,
-        "value": " - ".join(backtest_res.next_prediction)
-    })
-    edges.append({
-        "from": f"cell-d-{latest_dt}-{pos_b}",
-        "to": upcoming_target_id,
-        "type": "bridge_upcoming",
-        "sourceDate": latest_dt,
-        "targetDate": next_dt_str,
-        "status": "UPCOMING",
-        "prediction": backtest_res.next_prediction
-    })
+        # Đỉnh đích đến của hộp dự đoán (Không khoanh tròn SVG vòng quanh hộp)
+        nodes.append({
+            "id": upcoming_target_id,
+            "drawDate": next_dt_str,
+            "role": "upcoming_box",
+            "skipCircle": True,
+            "value": " - ".join(backtest_res.next_prediction)
+        })
+        edges.append({
+            "from": f"cell-d-{latest_dt}-{pos_b}",
+            "to": upcoming_target_id,
+            "type": "bridge_upcoming",
+            "sourceDate": latest_dt,
+            "targetDate": next_dt_str,
+            "status": "UPCOMING",
+            "prediction": backtest_res.next_prediction
+        })
 
     # Chuẩn bị văn bản giải thích chi tiết (Ngày gần nhất lên trước)
     explanation_steps = []
-    for h in reversed(backtest_res.history[-6:]):
+    if anchor_date and anchor_date in snapshot.dates:
+        hist_pool = [h for h in backtest_res.history if h.source_date <= anchor_date]
+    else:
+        hist_pool = backtest_res.history
+
+    for h in reversed(hist_pool[-6:]):
         st = "TRÚNG" if h.hit else "TRƯỢT"
         matched_txt = f", về số [{', '.join(h.matched_numbers)}]" if h.hit else ""
         step_expl = explain_digit_operation(rule, h.digit_a, h.digit_b, h.predicted_numbers)

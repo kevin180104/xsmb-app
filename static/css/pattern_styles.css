@@ -327,3 +327,15 @@
     border-radius: 8px;
     border: 1px solid rgba(51, 65, 85, 0.5);
 }
+
+/* Custom styling cho icon date picker hiển thị vàng phát sáng và con trỏ pointer */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8) sepia(100%) saturate(600%) hue-rotate(5deg);
+    cursor: pointer;
+    opacity: 0.9;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    transform: scale(1.2);
+    opacity: 1;
+}

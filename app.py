@@ -23,7 +23,7 @@ import excel_exporter
 import pattern_engine
 from pattern_engine.service import (
     scan_patterns_service, get_pattern_visualization_service,
-    invalidate_pattern_cache
+    get_streak_bridges_service, invalidate_pattern_cache
 )
 
 app = Flask(__name__)
@@ -379,20 +379,58 @@ def api_patterns_scan():
     min_occ = int(args.get('min_occurrences', 10))
     min_conf = float(args.get('min_confidence', 0.40))
     min_streak = int(args.get('min_streak', 0))
+    exact_streak_arg = args.get('exact_streak', '4')
+    if exact_streak_arg in ('all', 'any', '0', 'none', ''):
+        exact_streak = None
+    else:
+        try:
+            exact_streak = int(exact_streak_arg)
+        except ValueError:
+            exact_streak = 4
+
     target_type = args.get('target_type', 'loto_2digit')
     day_offset = int(args.get('day_offset', 1))
     top_n = int(args.get('top_n', 30))
+
+    anchor_date = args.get('anchor_date')
+    if anchor_date == 'latest' or anchor_date == '':
+        anchor_date = None
 
     res = scan_patterns_service(
         days=days,
         min_occurrences=min_occ,
         min_confidence=min_conf,
         min_streak=min_streak,
+        exact_streak=exact_streak,
         target_type=target_type,
         day_offset=day_offset,
-        top_n=top_n
+        top_n=top_n,
+        anchor_date=anchor_date
     )
     return jsonify(res)
+
+@app.route('/api/patterns/streak-bridges')
+def api_pattern_streak_bridges():
+    """Tra cứu các đường cầu ăn thông N ngày tính đến một ngày cụ thể và đối chiếu kết quả kỳ tiếp theo"""
+    try:
+        date_val = request.args.get('date', 'yesterday')
+        streak_val = int(request.args.get('streak', 4))
+        exact_val = request.args.get('exact', 'true').lower() in ('true', '1', 'yes')
+        target_type = request.args.get('target_type', 'loto_2digit')
+        op = request.args.get('op', 'CONCAT_PAIR')
+        limit = int(request.args.get('limit', 300))
+
+        data = get_streak_bridges_service(
+            target_date_str=date_val,
+            streak=streak_val,
+            exact_streak=exact_val,
+            target_type_str=target_type,
+            op_str=op,
+            limit=limit
+        )
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"status": "ERROR", "message": str(e)}), 400
 
 @app.route('/api/patterns/details')
 def api_pattern_details():
@@ -404,6 +442,7 @@ def api_pattern_details():
         target_type = request.args.get('target_type', 'loto_2digit')
         day_offset = int(request.args.get('day_offset', 1))
         draws_count = int(request.args.get('draws', 8))
+        anchor_date = request.args.get('anchor_date')
 
         payload = get_pattern_visualization_service(
             pos_a=pos_a,
@@ -411,7 +450,8 @@ def api_pattern_details():
             operation_str=op,
             target_type_str=target_type,
             day_offset=day_offset,
-            num_display_draws=draws_count
+            num_display_draws=draws_count,
+            anchor_date=anchor_date
         )
         return jsonify(payload)
     except Exception as e:
