@@ -67,6 +67,41 @@ def init_db():
                 updated_at TEXT
             )
         """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS daily_top3_snapshots (
+                target_date TEXT PRIMARY KEY,
+                date_display TEXT NOT NULL,
+                source_date TEXT NOT NULL,
+                top1_pair TEXT NOT NULL,
+                top2_pair TEXT NOT NULL,
+                top3_pair TEXT NOT NULL,
+                top1_name TEXT,
+                top2_name TEXT,
+                top3_name TEXT,
+                patterns_json TEXT NOT NULL,
+                scan_summary_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_top3_target_date ON daily_top3_snapshots(target_date DESC);
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS daily_streak_bridges_snapshots (
+                query_date TEXT NOT NULL,
+                streak INTEGER NOT NULL,
+                exact_streak INTEGER NOT NULL,
+                target_type TEXT NOT NULL,
+                target_date TEXT NOT NULL,
+                data_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY(query_date, streak, exact_streak, target_type)
+            )
+        """)
         conn.commit()
 
 def upsert_result(result_dict, conn=None):
@@ -387,4 +422,174 @@ def get_all_daily_wins_history(limit=30):
             "updated_at": row["updated_at"]
         })
     return res
+ 
+def save_top3_snapshot(snapshot_dict=None, **kwargs):
+    """
+    Lưu snapshot Top 3 đề xuất cố định theo ngày.
+    Hỗ trợ truyền dạng dict hoặc truyền trực tiếp kwargs (target_date, date_display, source_date, patterns, scan_summary).
+    Đảm bảo dữ liệu của ngày mới là bản ghi mới, không ghi đè ngày cũ.
+    """
+    data = {}
+    if isinstance(snapshot_dict, dict):
+        data.update(snapshot_dict)
+    data.update(kwargs)
+
+    target_date = data.get("target_date")
+    if not target_date:
+        return False
+
+    patterns = data.get("patterns", [])
+    # Tự động trích xuất Top 1, Top 2, Top 3 nếu chưa có trong data
+    streak4_patterns = [p for p in patterns if p.get("currentStreak") == 4]
+    if not streak4_patterns:
+        streak4_patterns = patterns
+
+    top1 = streak4_patterns[0] if len(streak4_patterns) > 0 else {}
+    top2 = streak4_patterns[1] if len(streak4_patterns) > 1 else {}
+    top3 = streak4_patterns[2] if len(streak4_patterns) > 2 else {}
+
+    top1_pair = data.get("top1_pair") or " - ".join(top1.get("nextPrediction", []))
+    top2_pair = data.get("top2_pair") or " - ".join(top2.get("nextPrediction", []))
+    top3_pair = data.get("top3_pair") or " - ".join(top3.get("nextPrediction", []))
+
+    top1_name = data.get("top1_name") or top1.get("name", "")
+    top2_name = data.get("top2_name") or top2.get("name", "")
+    top3_name = data.get("top3_name") or top3.get("name", "")
+
+    now_iso = datetime.now().isoformat()
+    created_at = data.get("created_at") or now_iso
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO daily_top3_snapshots (
+                target_date, date_display, source_date,
+                top1_pair, top2_pair, top3_pair,
+                top1_name, top2_name, top3_name,
+                patterns_json, scan_summary_json,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(target_date) DO UPDATE SET
+                top1_pair=excluded.top1_pair,
+                top2_pair=excluded.top2_pair,
+                top3_pair=excluded.top3_pair,
+                top1_name=excluded.top1_name,
+                top2_name=excluded.top2_name,
+                top3_name=excluded.top3_name,
+                patterns_json=excluded.patterns_json,
+                scan_summary_json=excluded.scan_summary_json,
+                updated_at=excluded.updated_at
+        """, (
+            data["target_date"],
+            data.get("date_display", ""),
+            data.get("source_date", ""),
+            top1_pair,
+            top2_pair,
+            top3_pair,
+            top1_name,
+            top2_name,
+            top3_name,
+            json.dumps(patterns, ensure_ascii=False) if isinstance(patterns, list) else data.get("patterns_json", "[]"),
+            json.dumps(data.get("scan_summary", {}), ensure_ascii=False) if isinstance(data.get("scan_summary"), dict) else data.get("scan_summary_json", "{}"),
+            created_at,
+            now_iso
+        ))
+        conn.commit()
+    return True
+
+def get_top3_snapshot(target_date):
+    """Lấy snapshot Top 3 đã lưu cố định của một ngày cụ thể (YYYY-MM-DD)"""
+    if not target_date:
+        return None
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM daily_top3_snapshots WHERE target_date = ?", (target_date,))
+        row = cursor.fetchone()
+    if not row:
+        return None
+    return {
+        "target_date": row["target_date"],
+        "date_display": row["date_display"],
+        "source_date": row["source_date"],
+        "top1_pair": row["top1_pair"],
+        "top2_pair": row["top2_pair"],
+        "top3_pair": row["top3_pair"],
+        "top1_name": row["top1_name"],
+        "top2_name": row["top2_name"],
+        "top3_name": row["top3_name"],
+        "patterns": json.loads(row["patterns_json"]) if row["patterns_json"] else [],
+        "scan_summary": json.loads(row["scan_summary_json"]) if row["scan_summary_json"] else {},
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"]
+    }
+
+def has_top3_snapshot(target_date):
+    """Kiểm tra ngày target_date đã có snapshot hay chưa"""
+    if not target_date:
+        return False
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 FROM daily_top3_snapshots WHERE target_date = ?", (target_date,))
+        return cursor.fetchone() is not None
+
+def get_all_top3_snapshots(limit=30):
+    """Lấy danh sách các snapshot Top 3 gần nhất theo ngày"""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM daily_top3_snapshots ORDER BY target_date DESC LIMIT ?", (limit,))
+        rows = cursor.fetchall()
+    return [
+        {
+            "target_date": r["target_date"],
+            "date_display": r["date_display"],
+            "source_date": r["source_date"],
+            "top1_pair": r["top1_pair"],
+            "top2_pair": r["top2_pair"],
+            "top3_pair": r["top3_pair"],
+            "top1_name": r["top1_name"],
+            "top2_name": r["top2_name"],
+            "top3_name": r["top3_name"],
+            "patterns": json.loads(r["patterns_json"]) if r["patterns_json"] else [],
+            "scan_summary": json.loads(r["scan_summary_json"]) if r["scan_summary_json"] else {},
+            "created_at": r["created_at"],
+            "updated_at": r["updated_at"]
+        } for r in rows
+    ]
+
+def save_streak_bridges_snapshot(query_date, streak, exact_streak, target_type, target_date, data_dict):
+    """Lưu snapshot cố định cho bảng tra cứu cầu thông theo ngày"""
+    now_iso = datetime.now().isoformat()
+    exact_int = 1 if exact_streak else 0
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO daily_streak_bridges_snapshots (
+                query_date, streak, exact_streak, target_type, target_date,
+                data_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            query_date,
+            int(streak),
+            exact_int,
+            target_type,
+            target_date,
+            json.dumps(data_dict, ensure_ascii=False),
+            now_iso,
+            now_iso
+        ))
+        conn.commit()
+    return True
+
+def get_streak_bridges_snapshot(query_date, streak, exact_streak, target_type):
+    """Lấy snapshot tra cứu cầu thông đã lưu cố định của ngày query_date"""
+    exact_int = 1 if exact_streak else 0
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM daily_streak_bridges_snapshots 
+            WHERE query_date = ? AND streak = ? AND exact_streak = ? AND target_type = ?
+        """, (query_date, int(streak), exact_int, target_type))
+        row = cursor.fetchone()
+    if not row:
+        return None
+    return json.loads(row["data_json"]) if row["data_json"] else None
 

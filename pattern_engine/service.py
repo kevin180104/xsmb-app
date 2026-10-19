@@ -72,26 +72,132 @@ def scan_patterns_service(
     target_type: str = "loto_2digit",
     day_offset: int = 1,
     top_n: int = 30,
-    anchor_date: Optional[str] = None
+    anchor_date: Optional[str] = None,
+    force_refresh: bool = False
 ) -> Dict[str, Any]:
     """
-    Dịch vụ quét tự động tìm đường cầu.
-    Hỗ trợ anchor_date để liên thông tính toán cho một ngày cụ thể bất kỳ.
-    Mặc định exact_streak=4: Xếp hạng cho cầu ăn thông 4 ngày.
+    Dịch vụ quét tự động tìm đường cầu và quản lý snapshot đề xuất Top 3 theo ngày.
+    - anchor_date: Ngày mục tiêu mà hệ thống đề xuất cầu tới (target_date).
+    - force_refresh: Nếu False (mặc định), hệ thống ưu tiên đọc snapshot đã lưu cố định trong SQLite.
+      Chỉ khi force_refresh=True mới chạy lại thuật toán dò tìm và cập nhật snapshot.
+    - Cắt lát dữ liệu: Nghiêm ngặt lấy dữ liệu kỳ quay xảy ra TRƯỚC ngày mục tiêu (draw_date < target_date)
+      để đảm bảo không có Lookahead Bias và kết quả đề xuất là bất biến qua các ngày.
     """
-    limit_draws = None
+    # 1. Xác định target_date (ngày dự đoán)
+    if anchor_date and anchor_date not in ('latest', ''):
+        target_date = anchor_date
+    else:
+        # Nếu không có anchor_date, lấy ngày kế tiếp của kỳ mới nhất trong DB
+        recent_draws = database.get_recent_results(limit=1)
+        if recent_draws:
+            latest_dt = recent_draws[0]["draw_date"]
+            try:
+                dt_obj = datetime.strptime(latest_dt, "%Y-%m-%d")
+                target_date = (dt_obj + timedelta(days=1)).strftime("%Y-%m-%d")
+            except Exception:
+                target_date = latest_dt
+        else:
+            target_date = datetime.now().strftime("%Y-%m-%d")
+
+    # Xác định chuỗi ngày hiển thị chuẩn (DD/MM/YYYY)
+    target_draw_record = database.get_result_by_date(target_date)
+    if target_draw_record:
+        target_date_disp = target_draw_record.get("date_display", target_date)
+    else:
+        try:
+            target_date_disp = datetime.strptime(target_date, "%Y-%m-%d").strftime("%d/%m/%Y")
+        except Exception:
+            target_date_disp = target_date
+
+    # 2. KIỂM TRA SNAPSHOT ĐÃ LƯU TRONG DATABASE (Bảo đảm tính bất biến)
+    if not force_refresh:
+        saved_snapshot = database.get_top3_snapshot(target_date)
+        if saved_snapshot:
+            patterns = saved_snapshot.get("patterns", [])
+            scan_summary = saved_snapshot.get("scan_summary", {})
+            source_date = saved_snapshot.get("source_date")
+            actual_result = database.get_result_by_date(target_date)
+
+            # Nếu ngày target_date đã mở thưởng thực tế, cập nhật trạng thái nổ/trượt
+            if actual_result:
+                actual_lotos = set(actual_result.get("loto_2digit", []))
+                for p in patterns:
+                    preds = p.get("nextPrediction", [])
+                    matched = [n for n in preds if n in actual_lotos]
+                    is_hit = len(matched) > 0
+                    hit_locs = find_matched_locations([int(x) for x in matched], actual_result) if is_hit else []
+
+                    # Cập nhật trong recentHistory
+                    hist_list = p.get("recentHistory", [])
+                    found = False
+                    for h in hist_list:
+                        if h.get("targetDate") == target_date:
+                            h["hit"] = is_hit
+                            h["matchedNumbers"] = matched
+                            h["hitLocations"] = hit_locs
+                            h["isPending"] = False
+                            found = True
+                            break
+                    if not found:
+                        hist_list.insert(0, {
+                            "sourceDate": source_date,
+                            "sourceDateDisplay": database.get_result_by_date(source_date).get("date_display", source_date) if source_date else source_date,
+                            "targetDate": target_date,
+                            "targetDateDisplay": target_date_disp,
+                            "predictedNumbers": preds,
+                            "predictionDisplay": " - ".join(preds),
+                            "hit": is_hit,
+                            "matchedNumbers": matched,
+                            "hitLocations": hit_locs,
+                            "isPending": False
+                        })
+            else:
+                for p in patterns:
+                    hist_list = p.get("recentHistory", [])
+                    for h in hist_list:
+                        if h.get("targetDate") == target_date:
+                            h["hit"] = None
+                            h["matchedNumbers"] = []
+                            h["hitLocations"] = []
+                            h["isPending"] = True
+                            break
+
+            return {
+                "status": "SUCCESS",
+                "isSnapshot": True,
+                "isHistorical": (actual_result is not None),
+                "targetDate": target_date,
+                "anchorDate": target_date,
+                "anchorDateDisplay": target_date_disp,
+                "sourceDate": source_date,
+                "scanSummary": scan_summary,
+                "patterns": patterns
+            }
+
+    # 3. CHƯA CÓ SNAPSHOT (Hoặc người dùng bấm force_refresh=True để tính lại)
+    # Tìm kỳ quay nguồn: kỳ gần nhất có draw_date < target_date
+    prior_draws = database.get_results_before_date(target_date, limit=1000)
+    if not prior_draws:
+        prior_draws = database.get_recent_results(limit=1000)
+
+    if not prior_draws:
+        return {"status": "ERROR", "message": "Không đủ dữ liệu lịch sử để quét pattern."}
+
+    source_record = prior_draws[0]
+    source_date = source_record["draw_date"]
+    source_date_disp = source_record.get("date_display", source_date)
+
+    limit_draws = 60
     if days != "all":
         try:
             limit_draws = int(days)
         except ValueError:
             limit_draws = 60
 
-    cache_key = f"{days}_{min_occurrences}_{min_confidence}_{min_streak}_{exact_streak}_{target_type}_{day_offset}_{top_n}_{anchor_date}"
-    if cache_key in _SCAN_RESULTS_CACHE:
-        return _SCAN_RESULTS_CACHE[cache_key]
+    draws_subset = prior_draws[:limit_draws]
+    subset_snapshot = build_dataset_snapshot(draws_subset)
 
-    snapshot = get_cached_snapshot(limit_draws=limit_draws, anchor_date=anchor_date)
-    miner = PatternMiner(snapshot)
+    miner = PatternMiner(subset_snapshot)
     results = miner.auto_discover(
         min_occurrences=min_occurrences,
         min_confidence=min_confidence,
@@ -102,16 +208,54 @@ def scan_patterns_service(
         top_n=top_n
     )
 
-    if anchor_date and snapshot.total_draws > 0:
-        results["anchorDate"] = anchor_date
-        last_rec = snapshot.draw_records[-1]
-        results["anchorDateDisplay"] = snapshot.date_display_map.get(last_rec.get("draw_date", ""), anchor_date)
-    else:
-        results["anchorDate"] = None
-        results["anchorDateDisplay"] = None
+    patterns = results.get("patterns", [])
+    scan_summary = results.get("scanSummary", {})
 
-    _SCAN_RESULTS_CACHE[cache_key] = results
-    return results
+    # Đối chiếu kết quả thực tế của target_date nếu ngày đó đã mở thưởng
+    actual_result = database.get_result_by_date(target_date)
+    if actual_result:
+        actual_lotos = set(actual_result.get("loto_2digit", []))
+        for p in patterns:
+            preds = p.get("nextPrediction", [])
+            matched = [n for n in preds if n in actual_lotos]
+            is_hit = len(matched) > 0
+            hit_locs = find_matched_locations([int(x) for x in matched], actual_result) if is_hit else []
+            hist_list = p.get("recentHistory", [])
+            hist_list.insert(0, {
+                "sourceDate": source_date,
+                "sourceDateDisplay": source_date_disp,
+                "targetDate": target_date,
+                "targetDateDisplay": target_date_disp,
+                "predictedNumbers": preds,
+                "predictionDisplay": " - ".join(preds),
+                "hit": is_hit,
+                "matchedNumbers": matched,
+                "hitLocations": hit_locs,
+                "isPending": False
+            })
+
+    # 4. LƯU SNAPSHOT CỐ ĐỊNH VÀO DATABASE
+    database.save_top3_snapshot(
+        target_date=target_date,
+        date_display=target_date_disp,
+        source_date=source_date,
+        patterns=patterns,
+        scan_summary=scan_summary
+    )
+
+    return {
+        "status": "SUCCESS",
+        "isSnapshot": True,
+        "justGenerated": True,
+        "isHistorical": (actual_result is not None),
+        "targetDate": target_date,
+        "anchorDate": target_date,
+        "anchorDateDisplay": target_date_disp,
+        "sourceDate": source_date,
+        "scanSummary": scan_summary,
+        "patterns": patterns
+    }
+
 
 def get_pattern_visualization_service(
     pos_a: int,
@@ -163,12 +307,14 @@ def get_streak_bridges_service(
     exact_streak: bool = True,
     target_type_str: str = "loto_2digit",
     op_str: str = "CONCAT_PAIR",
-    limit: int = 300
+    limit: int = 300,
+    force_refresh: bool = False
 ) -> Dict[str, Any]:
     """
     Tra cứu toàn bộ các đường cầu đạt chuỗi ăn thông (ví dụ 4 ngày thông)
     tính đến một ngày cụ thể (mặc định hôm qua hoặc kỳ bất kỳ tự chọn),
     đồng thời đối chiếu kết quả mở thưởng của ngày tiếp theo (Thắng/Gãy/Chờ kết quả).
+    Hỗ trợ lưu và đọc snapshot cố định theo ngày.
     """
     snapshot = get_cached_snapshot()
     dates = snapshot.dates
@@ -238,6 +384,16 @@ def get_streak_bridges_service(
         target_type = TargetType(target_type_str)
     except Exception:
         target_type = TargetType.LOTO_2DIGIT
+
+    # Kiểm tra snapshot đã lưu cố định
+    if not force_refresh:
+        cached_data = database.get_streak_bridges_snapshot(selected_date, streak, exact_streak, target_type.value)
+        if cached_data:
+            # Nếu lúc lưu đang chờ kết quả mà nay kỳ đó đã mở thưởng, cập nhật đối chiếu
+            if cached_data.get("isTargetPending") and target_date in dates:
+                cached_data["isTargetPending"] = False
+                cached_data["availableDates"] = available_dates[:60]
+            return cached_data
 
     miner = PatternMiner(snapshot)
     if op == OperationType.BONG_PAIR:
@@ -417,7 +573,7 @@ def get_streak_bridges_service(
 
     top_numbers = sorted(num_map.values(), key=lambda x: (x["hitBridgesCount"], x["bridgesCount"]), reverse=True)
 
-    return {
+    res_payload = {
         "status": "SUCCESS",
         "queryDate": selected_date,
         "queryDateDisplay": selected_date_disp,
@@ -438,4 +594,16 @@ def get_streak_bridges_service(
         "bridges": bridges[:limit],
         "availableDates": available_dates[:60]
     }
+
+    # Lưu snapshot cố định vào database
+    database.save_streak_bridges_snapshot(
+        query_date=selected_date,
+        streak=streak,
+        exact_streak=exact_streak,
+        target_type=target_type.value,
+        target_date=target_date,
+        data_dict=res_payload
+    )
+
+    return res_payload
 

@@ -53,8 +53,9 @@
         
         <!-- Tab Navigation -->
         <div class="flex flex-wrap neon-tab-container gap-2 md:gap-3 p-2 rounded-2xl">
-            <button onclick="switchTab('days10')" id="tab-days10" class="py-2.5 px-5 rounded-xl font-bold text-sm neon-tab-active shadow transition">
-                <i class="fa-solid fa-trophy mr-2 text-yellow-300"></i>Bảng Vàng Tổng Hợp Đa Cầu
+            <button onclick="switchTab('auto_pattern')" id="tab-auto_pattern" class="py-2.5 px-5 rounded-xl font-bold text-sm neon-tab-active shadow transition flex items-center gap-1.5 border border-red-500/50 bg-neutral-900/90">
+                <i class="fa-solid fa-bezier-curve text-red-400 mr-1"></i>Vẽ Đường Cầu (Trang Chủ)
+                <span class="text-[10px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">AI VIP</span>
             </button>
             <button onclick="switchTab('weekly')" id="tab-weekly" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition flex items-center gap-1.5 border border-yellow-500/30 bg-neutral-900/90 shadow">
                 <i class="fa-solid fa-building-columns text-yellow-400 mr-1"></i>Cầu Theo Thứ &amp; Tỉnh Thành
@@ -73,22 +74,14 @@
                 <i class="fa-solid fa-calculator text-emerald-400 mr-1"></i>Cầu Tổng Ngày
                 <span class="text-[10px] bg-emerald-600 text-white font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">Mới</span>
             </button>
-            <button onclick="switchTab('auto_pattern')" id="tab-auto_pattern" class="py-2.5 px-5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition flex items-center gap-1.5 border border-red-500/50 bg-neutral-900/90 shadow">
-                <i class="fa-solid fa-bezier-curve text-red-400 mr-1"></i>Vẽ Đường Cầu
-                <span class="text-[10px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">AI</span>
-            </button>
         </div>
 
-        <!-- Section 10-Days Table & Highlight Interactive UI -->
-        <section id="sec-days10" class="space-y-6">
-            
-            <!-- BẢNG KẾT QUẢ CẦU TỔNG HỢP CÁC TAB CẦU (HÔM NAY / KỲ TỚI) -->
-            <div id="all-bridges-summary-card" class="bg-neutral-900 border-2 border-yellow-500/50 rounded-2xl p-5 md:p-6 shadow-2xl space-y-6 relative overflow-hidden">
-                <!-- Glow effect decoration -->
-                <div class="absolute -right-20 -top-20 w-60 h-60 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none"></div>
-                <div class="absolute -left-20 -bottom-20 w-60 h-60 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <!-- ========================================================================= -->
+        <!-- SECTION AUTO PATTERN DISCOVERY & TRỰC QUAN HÓA ĐƯỜNG CẦU SVG (TRANG CHỦ)   -->
+        <!-- ========================================================================= -->
+        <section id="sec-auto_pattern" class="space-y-6">
 
-                <!-- BANNER VINH DANH A DƯƠNG ĐẸP TRAI NHA -->
+            <!-- BANNER VINH DANH A DƯƠNG ĐẸP TRAI NHA -->
                 <div id="duongCelebrationBanner" class="relative z-10 p-4 rounded-2xl bg-gradient-to-r from-yellow-950/90 via-neutral-900 to-amber-950/90 border-2 border-yellow-500/60 shadow-[0_0_30px_rgba(234,179,8,0.25)] flex flex-wrap items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
                         <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-yellow-500 via-amber-300 to-yellow-100 text-black flex items-center justify-center font-black text-2xl shadow-[0_0_15px_#f59e0b] animate-bounce">
@@ -111,310 +104,577 @@
                     </div>
                 </div>
 
-                <!-- Top Header -->
-                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-neutral-800 pb-5 relative z-10">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1.5 flex-wrap">
-                            <span class="px-3 py-1 rounded-full text-xs font-black uppercase bg-gradient-to-r from-yellow-500 to-amber-600 text-neutral-950 shadow-md flex items-center gap-1.5">
-                                <i class="fa-solid fa-fire"></i> BẢNG VÀNG TỔNG HỢP ĐA CẦU
-                            </span>
-                            <span id="all-bridges-date-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-950 text-cyan-300 border border-cyan-800 flex items-center gap-1.5">
-                                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-                                Đang phân tích kỳ quay...
-                            </span>
-                            <span id="all-bridges-time-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-neutral-800 text-neutral-300 border border-neutral-700">
-                                <i class="fa-regular fa-clock mr-1 text-yellow-400"></i> Chờ mở thưởng lúc 18h30
-                            </span>
-                        </div>
-                        <h2 class="text-xl md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-200 to-yellow-500 flex items-center gap-2.5">
-                            <i class="fa-solid fa-trophy text-yellow-400"></i>
-                            <span id="all-bridges-title-text">KẾT QUẢ CẦU TỔNG HỢP CỦA CÁC TAB CẦU (HÔM NAY)</span>
-                        </h2>
-                        <p class="text-xs text-neutral-300 mt-1 max-w-4xl leading-relaxed">
-                            Bảng hợp nhất dữ liệu từ tất cả các phương pháp soi cầu: <b class="text-white">Cầu Tổng Ngày</b>, <b class="text-white">Cầu Theo Thứ/Tuần</b>, <b class="text-white">Phân Tích Ngắn Hạn (Hội Tụ Chốt)</b> & <b class="text-white">Từ Điển 23 Cầu Loto</b>. Bấm vào bất kỳ cặp số nào để phát sáng trên bảng kết quả.
-                        </p>
+            
+            <!-- Disclaimer Banner Toán Học (Section I & XXII) -->
+            <div class="bg-amber-950/40 border border-amber-500/50 rounded-2xl p-4 flex items-start gap-3 shadow-lg">
+                <i class="fa-solid fa-triangle-exclamation text-amber-400 text-xl mt-0.5 flex-shrink-0"></i>
+                <div class="text-xs text-amber-200/90 leading-relaxed">
+                    <b class="text-amber-300 uppercase tracking-wide">Lưu ý quan trọng từ Hệ thống Phân tích:</b>
+                    Các đường cầu và pattern lịch sử được trích xuất hoàn toàn tự động bằng thuật toán thống kê hồi quy (Vectorized Backtesting, Walk-Forward Validation & Wilson Score 95%). Đây là công cụ phân tích dữ liệu chuỗi số toán học khách quan, <span class="underline font-            <!-- ========================================================================= -->
+            <!-- 1. CHỌN THỜI GIAN VẼ ĐƯỜNG CẦU (ĐIỀU HƯỚNG MỐC VẼ ĐỒ THỊ SVG)             -->
+            <!-- ========================================================================= -->
+            <div id="draw-bridge-date-picker-card" class="bg-gradient-to-b from-neutral-900 via-neutral-900/95 to-neutral-950 border-2 border-amber-500/60 rounded-2xl p-5 md:p-6 shadow-[0_0_35px_rgba(245,158,11,0.2)] space-y-4 relative overflow-hidden">
+                <!-- Ambient glow -->
+                <div class="absolute -right-16 -top-16 w-56 h-56 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div>
+                    <div class="flex items-center gap-2 text-amber-400 font-black text-base md:text-lg tracking-wide uppercase mb-1">
+                        <button type="button" onclick="openDrawBridgeDatePicker()" title="Bấm vào icon lịch để mở bảng chọn ngày" class="cursor-pointer hover:scale-110 active:scale-95 transition flex items-center p-0.5 text-amber-400 hover:text-amber-300">
+                            <i class="fa-solid fa-calendar-days text-amber-400 text-lg"></i>
+                        </button>
+                        <span onclick="openDrawBridgeDatePicker()" class="cursor-pointer hover:text-amber-300 transition" title="Bấm để mở lịch chọn ngày">📅 CHỌN THỜI GIAN VẼ ĐƯỜNG CẦU</span>
+                    </div>
+                    <p class="text-neutral-300 text-xs sm:text-sm">
+                        Chọn kỳ/ngày cần xem để hệ thống hiển thị đường cầu tương ứng.
+                    </p>
+                </div>
+
+                <!-- Input date and quick buttons: [Kỳ mới nhất] [Hôm nay] [Ngày mai] -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="relative flex items-center cursor-pointer group" onclick="openDrawBridgeDatePicker()">
+                        <input type="text" 
+                               id="auto-pattern-custom-date-display" 
+                               readonly 
+                               value="-- - -- - ----"
+                               placeholder="Ngày - tháng - năm"
+                               class="bg-black border border-neutral-700/80 group-hover:border-amber-500/80 rounded-2xl pl-4 pr-10 py-2.5 text-amber-400 font-mono font-bold text-base sm:text-lg focus:outline-none shadow-inner cursor-pointer select-none tracking-normal w-[210px] sm:w-[235px] text-center"
+                               title="Bấm vào để mở bảng lịch chọn Ngày - tháng - năm">
+                        
+                        <button type="button" 
+                                onclick="openDrawBridgeDatePicker(); event.stopPropagation();" 
+                                class="absolute right-3.5 text-amber-400 hover:text-amber-300 hover:scale-110 active:scale-95 transition cursor-pointer p-1"
+                                title="Bấm để mở lịch chọn Ngày - tháng - năm">
+                            <i class="fa-solid fa-calendar-days text-lg"></i>
+                        </button>
+                        
+                        <input type="date" 
+                               id="auto-pattern-custom-date" 
+                               class="absolute inset-0 opacity-0 w-full h-full cursor-pointer pointer-events-auto"
+                               onchange="onDrawBridgeDateNativeChange(this.value)"
+                               title="Bấm để chọn Ngày - tháng - năm">
                     </div>
 
-                    <div class="flex items-center gap-2.5 self-end lg:self-auto">
-                        <button onclick="loadAllBridgesSummary(true)" class="bg-yellow-400 hover:bg-yellow-300 text-neutral-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-2 transition shadow">
-                            <i class="fa-solid fa-arrows-rotate"></i> Làm Mới Dữ Liệu
+                    <!-- Quick buttons: [Kỳ mới nhất] [Hôm nay] [Ngày mai] -->
+                    <div class="flex items-center gap-2 ml-0 sm:ml-2">
+                        <button type="button" id="btn-auto-quick-latest" onclick="quickSelectDrawBridgeDate('latest')" 
+                                class="px-4 py-2.5 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition cursor-pointer">
+                            Kỳ mới nhất
+                        </button>
+                        <button type="button" id="btn-auto-quick-today" onclick="quickSelectDrawBridgeDate('today')" 
+                                class="px-4 py-2.5 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition cursor-pointer">
+                            Hôm nay
+                        </button>
+                        <button type="button" id="btn-auto-quick-tomorrow" onclick="quickSelectDrawBridgeDate('tomorrow')" 
+                                class="px-4 py-2.5 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition cursor-pointer">
+                            Ngày mai
                         </button>
                     </div>
+
+                    <!-- Nhãn hiển thị trạng thái mốc ngày đang vẽ đường cầu -->
+                    <div class="ml-auto text-xs font-medium text-neutral-400 hidden sm:flex items-center gap-1.5 bg-black/50 border border-neutral-800 px-3 py-1.5 rounded-xl">
+                        <i class="fa-solid fa-bezier-curve text-amber-400"></i>
+                        <span>Đang vẽ đường cầu mốc: <b id="draw-bridge-active-date-text" class="text-amber-400 font-mono font-bold">--/--/----</b></span>
+                    </div>
                 </div>
 
-                <!-- THANH ĐIỀU KHIỂN BACKTEST CHỌN NGÀY -->
-                <div class="bg-gradient-to-r from-black via-neutral-900 to-black border border-yellow-500/40 rounded-xl p-3 md:p-3.5 flex flex-wrap items-center justify-between gap-3 relative z-10 shadow-lg">
-                    <div class="flex flex-wrap items-center gap-2.5">
-                        <span class="text-xs font-black uppercase text-yellow-400 flex items-center gap-1.5 tracking-wide">
-                            <i class="fa-solid fa-clock-rotate-left text-yellow-400"></i> BACKTEST NGÀY:
-                        </span>
-                        <div class="relative">
-                            <select id="all-bridges-date-select" onchange="onAllBridgesDateChange(this.value)"
-                                    class="bg-neutral-950 text-yellow-300 font-mono font-bold text-xs border border-yellow-500/70 rounded-lg px-3 py-1.5 pr-8 focus:outline-none focus:ring-2 focus:ring-yellow-400 transition cursor-pointer appearance-none">
-                                <option value="today">⏳ Hôm nay / Kỳ tới (Chờ quay)</option>
-                            </select>
-                            <i class="fa-solid fa-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 text-[10px] pointer-events-none"></i>
+                <!-- Accordion / Toggle: Tùy Chỉnh Nâng Cao Quét Pattern -->
+                <div class="border-t border-neutral-800/80 pt-3">
+                    <button type="button" onclick="togglePatternAdvancedSettings()" class="text-xs font-bold text-neutral-400 hover:text-white flex items-center gap-2 transition cursor-pointer">
+                        <i class="fa-solid fa-sliders text-red-400"></i>
+                        <span>Tùy chỉnh tham số đào tìm nâng cao (khoảng ngày, Wilson, Min Streak...)</span>
+                        <i id="icon-toggle-pattern-settings" class="fa-solid fa-chevron-down text-[10px] ml-1 transition-transform"></i>
+                    </button>
+
+                    <!-- Advanced Settings Container (Hidden by default, expandable) -->
+                    <div id="pattern-advanced-settings-wrapper" class="hidden mt-4 pt-4 border-t border-neutral-800 space-y-4">
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-neutral-400 uppercase mb-1.5">Khoảng Ngày Quét</label>
+                                <select id="pattern-range-select" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none">
+                                    <option value="30">30 Ngày gần nhất</option>
+                                    <option value="60" selected>60 Ngày gần nhất (Chuẩn)</option>
+                                    <option value="90">90 Ngày gần nhất</option>
+                                    <option value="all">Toàn bộ dữ liệu</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-neutral-400 uppercase mb-1.5">Mục Tiêu Soi Cầu</label>
+                                <select id="pattern-target-type" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none">
+                                    <option value="loto_2digit" selected>Lô tô 2 số (27 Giải)</option>
+                                    <option value="special_last2">Đặc Biệt (Bạch Thủ Đề)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-neutral-400 uppercase mb-1.5">Xuất Hiện Tối Thiểu</label>
+                                <select id="pattern-min-occ" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none">
+                                    <option value="5">Tối thiểu 5 lần</option>
+                                    <option value="10" selected>Tối thiểu 10 lần (Khuyên dùng)</option>
+                                    <option value="15">Tối thiểu 15 lần</option>
+                                    <option value="20">Tối thiểu 20 lần</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-neutral-400 uppercase mb-1.5">Độ Tin Cậy Min (Wilson)</label>
+                                <select id="pattern-min-conf" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none">
+                                    <option value="0.30">Từ 30% trở lên</option>
+                                    <option value="0.40" selected>Từ 40% trở lên (Chuẩn)</option>
+                                    <option value="0.45">Từ 45% trở lên (Cao)</option>
+                                    <option value="0.50">Từ 50% trở lên (Rất cao)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-neutral-400 uppercase mb-1.5">Chuỗi Ăn Hiện Tại</label>
+                                <select id="pattern-min-streak" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none">
+                                    <option value="0" selected>Tất cả các cầu</option>
+                                    <option value="2">Đang ăn thông >= 2 ngày</option>
+                                    <option value="3">Đang ăn thông >= 3 ngày</option>
+                                    <option value="4">Đang ăn thông >= 4 ngày</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-1">
-                            <button onclick="navigateAllBridgesDate(-1)" title="Xem kỳ quay trước đó"
-                                    class="bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white px-2.5 py-1.5 rounded-lg border border-neutral-700 text-xs font-bold transition flex items-center gap-1 shadow-sm">
-                                <i class="fa-solid fa-chevron-left text-[10px]"></i> Trước
+
+                        <div class="flex justify-end pt-2">
+                            <button id="btn-run-auto-discovery" onclick="triggerAutoDiscovery(null, true)" 
+                                    class="px-5 py-2.5 rounded-xl font-black text-xs text-white bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-500 hover:to-amber-500 shadow-[0_0_20px_rgba(239,68,68,0.4)] transition hover:scale-105 flex items-center gap-2 border border-red-400/50 cursor-pointer">
+                                <i class="fa-solid fa-wand-magic-sparkles text-yellow-300"></i>
+                                <span>TỰ TÌM ĐƯỜNG CẦU (QUÉT LẠI)</span>
                             </button>
-                            <button onclick="navigateAllBridgesDate(1)" title="Xem kỳ quay sau đó"
-                                    class="bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white px-2.5 py-1.5 rounded-lg border border-neutral-700 text-xs font-bold transition flex items-center gap-1 shadow-sm">
-                                Sau <i class="fa-solid fa-chevron-right text-[10px]"></i>
-                            </button>
-                            <button onclick="resetAllBridgesToToday()" title="Trở về kỳ mở thưởng mới nhất"
-                                    class="bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 px-3 py-1.5 rounded-lg border border-cyan-700 text-xs font-bold transition flex items-center gap-1 shadow-sm">
-                                <i class="fa-solid fa-rotate-left text-[10px]"></i> Hôm Nay
-                            </button>
                         </div>
-                    </div>
 
-                    <div class="flex items-center gap-2">
-                        <span id="all-bridges-backtest-status-pill" class="hidden sm:inline-block px-2.5 py-1 rounded-full font-bold bg-neutral-800 text-neutral-300 border border-neutral-700 text-xs">
-                            Chế độ: Đang xem kỳ mở thưởng
-                        </span>
-                        <button onclick="openXsmbModal()" title="Mở bảng kết quả xổ số miền Bắc dạng Popup tra cứu"
-                                class="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-500/50 font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow">
-                            <i class="fa-solid fa-table-list text-yellow-400"></i> Tra Cứu KQXS
-                        </button>
-                        <button onclick="openExportExcelModal()" title="Xuất dữ liệu thống kê ra file Excel (.xlsx)"
-                                class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shadow">
-                            <i class="fa-solid fa-file-excel"></i> Xuất Excel
-                        </button>
-                    </div>
-                </div>
-
-                <!-- BẢNG ĐỐI CHIẾU KẾT QUẢ MỞ THƯỞNG & THỐNG KÊ TRÚNG TRƯỢT (BACKTEST BANNER) -->
-                <div id="all-bridges-backtest-card" class="hidden bg-gradient-to-b from-neutral-950 via-neutral-900 to-black border-2 border-emerald-500/50 rounded-2xl p-4 md:p-5 shadow-2xl space-y-4 relative z-10 overflow-hidden">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-neutral-800 pb-3">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="px-3 py-1 rounded-full text-xs font-black uppercase bg-emerald-500 text-black flex items-center gap-1.5 shadow">
-                                <i class="fa-solid fa-circle-check"></i> ĐỐI CHIẾU KẾT QUẢ MỞ THƯỞNG
-                            </span>
-                            <span id="all-bridges-backtest-title" class="text-sm font-bold text-white">
-                                --
-                            </span>
-                        </div>
-                        <div class="flex items-center gap-3 text-xs bg-black/80 px-3.5 py-1.5 rounded-xl border border-neutral-700">
-                            <span class="text-neutral-400 font-semibold">Giải Đặc Biệt:</span>
-                            <span id="all-bridges-backtest-sp" class="font-mono font-black text-base text-yellow-400 tracking-wider">--</span>
-                            <span class="text-neutral-500">|</span>
-                            <span class="text-neutral-400 font-semibold">Đề 2 Số:</span>
-                            <span id="all-bridges-backtest-de" class="font-mono font-black text-base text-red-500 bg-red-950/60 px-2 py-0.5 rounded border border-red-700">--</span>
-                        </div>
-                    </div>
-
-                    <!-- 4 KPI Thống kê Trúng / Trượt -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <!-- KPI 1: Tỷ lệ trúng -->
-                        <div class="bg-black/70 border border-emerald-500/40 rounded-xl p-3 text-center space-y-1">
-                            <div class="text-[11px] font-bold text-neutral-400 uppercase">Tỷ Lệ Cầu Trúng</div>
-                            <div class="text-2xl font-black font-mono text-emerald-400" id="all-bridges-kpi-winrate">0%</div>
-                            <div class="text-[11px] text-neutral-400" id="all-bridges-kpi-winrate-sub">0/0 Cầu ăn</div>
-                        </div>
-                        <!-- KPI 2: Tổng nháy ăn -->
-                        <div class="bg-black/70 border border-yellow-500/40 rounded-xl p-3 text-center space-y-1">
-                            <div class="text-[11px] font-bold text-neutral-400 uppercase">Tổng Nháy Nổ</div>
-                            <div class="text-2xl font-black font-mono text-yellow-400" id="all-bridges-kpi-hits">0 nháy</div>
-                            <div class="text-[11px] text-neutral-400">Trên toàn bộ các cầu</div>
-                        </div>
-                        <!-- KPI 3: Trúng Đề -->
-                        <div class="bg-black/70 border border-neutral-700 rounded-xl p-3 text-center space-y-1" id="all-bridges-kpi-de-box">
-                            <div class="text-[11px] font-bold text-neutral-400 uppercase">Dự Đoán Đề</div>
-                            <div class="text-base font-black font-mono text-neutral-200" id="all-bridges-kpi-de-status">--</div>
-                            <div class="text-[11px] text-neutral-400" id="all-bridges-kpi-de-sub">2 số cuối GĐB</div>
-                        </div>
-                        <!-- KPI 4: Hiệu quả Hero Chốt -->
-                        <div class="bg-black/70 border border-purple-500/40 rounded-xl p-3 text-center space-y-1">
-                            <div class="text-[11px] font-bold text-neutral-400 uppercase">Bộ Số Chốt Hội Tụ</div>
-                            <div class="text-sm font-black font-mono text-purple-300" id="all-bridges-kpi-hero-status">--</div>
-                            <div class="text-[11px] text-neutral-400" id="all-bridges-kpi-hero-sub">Song thủ & Bạch thủ</div>
-                        </div>
-                    </div>
-
-                    <!-- Dải 27 Lô tô mở thưởng ngày đó -->
-                    <div class="bg-black/50 border border-neutral-800 rounded-xl p-3 space-y-2">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-neutral-300 uppercase flex items-center gap-1.5">
-                                <i class="fa-solid fa-list-ol text-cyan-400"></i> 27 CẶP LÔ TÔ ĐÃ VỀ KỲ NÀY:
-                            </span>
-                            <span class="text-[11px] text-neutral-400">Các số màu vàng/xanh là số được cầu dự đoán đúng</span>
-                        </div>
-                        <div id="all-bridges-backtest-loto-strip" class="flex flex-wrap gap-1.5">
-                            <!-- Populated dynamically -->
+                        <!-- Thanh Tóm Tắt Quá Trình Đào Dữ Liệu -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 pt-2">
+                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
+                                <div class="text-[10px] text-neutral-400 uppercase font-bold">Đã kiểm tra</div>
+                                <div id="sum-candidates-checked" class="text-base font-black text-white font-mono mt-0.5">--</div>
+                            </div>
+                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
+                                <div class="text-[10px] text-neutral-400 uppercase font-bold">Đã loại (Yếu)</div>
+                                <div id="sum-rejected-count" class="text-base font-black text-neutral-400 font-mono mt-0.5">--</div>
+                            </div>
+                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
+                                <div class="text-[10px] text-neutral-400 uppercase font-bold">Đạt tiêu chuẩn</div>
+                                <div id="sum-passed-count" class="text-base font-black text-cyan-400 font-mono mt-0.5">--</div>
+                            </div>
+                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
+                                <div class="text-[10px] text-emerald-400 uppercase font-bold">Mạnh (Strong)</div>
+                                <div id="sum-strong-count" class="text-base font-black text-emerald-400 font-mono mt-0.5">--</div>
+                            </div>
+                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
+                                <div class="text-[10px] text-cyan-400 uppercase font-bold">Khá (Medium)</div>
+                                <div id="sum-medium-count" class="text-base font-black text-cyan-300 font-mono mt-0.5">--</div>
+                            </div>
+                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
+                                <div class="text-[10px] text-yellow-500 uppercase font-bold">Yếu (Weak)</div>
+                                <div id="sum-weak-count" class="text-base font-black text-yellow-400 font-mono mt-0.5">--</div>
+                            </div>
+                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
+                                <div class="text-[10px] text-red-400 uppercase font-bold">Bị Overfit</div>
+                                <div id="sum-overfit-count" class="text-base font-black text-red-400 font-mono mt-0.5">--</div>
+                            </div>
+                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
+                                <div class="text-[10px] text-neutral-400 uppercase font-bold">Thời gian quét</div>
+                                <div id="sum-elapsed-time" class="text-base font-black text-emerald-300 font-mono mt-0.5">--</div>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- 3 Hero Spotlight Cards: Song Thủ, Bạch Thủ, Top 5 Hội Tụ -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
-                    <!-- Hộp Song Thủ Hội Tụ -->
-                    <div class="bg-gradient-to-b from-black/90 to-neutral-900 border-2 border-yellow-500/60 rounded-2xl p-4 text-center shadow-xl space-y-2 relative overflow-hidden hover:border-yellow-400 transition">
-                        <div class="text-[11px] font-black uppercase text-yellow-400 tracking-wider flex items-center justify-center gap-1.5">
-                            <i class="fa-solid fa-crosshairs text-yellow-400 animate-spin-slow"></i> SONG THỦ HỘI TỤ ĐA CẦU
-                        </div>
-                        <div class="py-2 flex items-center justify-center gap-3">
-                            <span id="hero-st-1" onclick="toggleHighlight(this.innerText.trim())" 
-                                  class="text-3xl md:text-4xl font-black font-mono text-yellow-400 bg-neutral-950 px-4 py-1.5 rounded-xl border-2 border-yellow-500/80 shadow-[0_0_20px_rgba(234,179,8,0.4)] cursor-pointer hover:scale-110 transition" title="Bấm để xem Highlight trên bảng KQXS">
-                                --
-                            </span>
-                            <span class="text-neutral-500 font-bold text-xl">-</span>
-                            <span id="hero-st-2" onclick="toggleHighlight(this.innerText.trim())" 
-                                  class="text-3xl md:text-4xl font-black font-mono text-yellow-400 bg-neutral-950 px-4 py-1.5 rounded-xl border-2 border-yellow-500/80 shadow-[0_0_20px_rgba(234,179,8,0.4)] cursor-pointer hover:scale-110 transition" title="Bấm để xem Highlight trên bảng KQXS">
-                                --
-                            </span>
-                        </div>
-                        <div id="hero-st-result-badge"></div>
-                        <p class="text-[11px] text-neutral-400" id="hero-st-desc">Đồng thuận cao nhất qua nhiều thuật toán</p>
-                    </div>
+            <!-- Loading Spinner Khi Đang Scan -->
+            <div id="pattern-scan-loading" class="hidden p-8 text-center bg-neutral-900/80 border border-neutral-800 rounded-2xl space-y-3">
+                <i class="fa-solid fa-gear fa-spin text-4xl text-red-500"></i>
+                <div class="text-sm font-bold text-white">Đang thực thi ma trận sàng lọc 17,013 Candidate Rules...</div>
+                <p class="text-xs text-neutral-400">Kiểm tra tính lặp lại, tính chỉ số Wilson, loại bỏ Overfit và tính chuỗi ăn...</p>
+            </div>
 
-                    <!-- Hộp Bạch Thủ Điểm Rơi -->
-                    <div class="bg-gradient-to-b from-black/90 to-neutral-900 border-2 border-red-500/60 rounded-2xl p-4 text-center shadow-xl space-y-2 relative overflow-hidden hover:border-red-400 transition">
-                        <div class="text-[11px] font-black uppercase text-red-400 tracking-wider flex items-center justify-center gap-1.5">
-                            <i class="fa-solid fa-trophy text-red-400"></i> BẠCH THỦ ĐIỂM RƠI CAO NHẤT
-                        </div>
-                        <div class="py-2 flex items-center justify-center">
-                            <span id="hero-bt" onclick="toggleHighlight(this.innerText.trim())" 
-                                  class="text-3xl md:text-4xl font-black font-mono text-red-400 bg-neutral-950 px-6 py-1.5 rounded-xl border-2 border-red-500/80 shadow-[0_0_20px_rgba(239,68,68,0.4)] cursor-pointer hover:scale-110 transition" title="Bấm để xem Highlight trên bảng KQXS">
-                                --
-                            </span>
-                        </div>
-                        <div id="hero-bt-result-badge"></div>
-                        <p class="text-[11px] text-neutral-400" id="hero-bt-desc">Con số đạt điểm rơi xung lực lớn nhất</p>
-                    </div>
+            <!-- Container Kết Quả Sau Khi Quét -->
+            <div id="pattern-scan-results" class="space-y-6">
 
-                    <!-- Hộp Top 5 Dàn Lô Đẹp -->
-                    <div class="bg-gradient-to-b from-black/90 to-neutral-900 border-2 border-emerald-500/60 rounded-2xl p-4 text-center shadow-xl space-y-2 relative overflow-hidden hover:border-emerald-400 transition">
-                        <div class="text-[11px] font-black uppercase text-emerald-400 tracking-wider flex items-center justify-center gap-1.5">
-                            <i class="fa-solid fa-layer-group text-emerald-400"></i> DÀN TOP 5 ĐỒNG THUẬN CAO
-                        </div>
-                        <div class="py-2 flex flex-wrap items-center justify-center gap-1.5" id="hero-top5-chips">
-                            <!-- Populated dynamically -->
-                            <span class="text-neutral-500 italic text-xs">Đang tính toán...</span>
-                        </div>
-                        <div id="hero-top5-result-badge"></div>
-                        <p class="text-[11px] text-neutral-400">Tối ưu bao lô & ghép xiên 2, xiên 3</p>
-                    </div>
-                </div>
-
-                <!-- Xếp Hạng Đồng Thuận Đa Cầu (Consensus Rank Strip) -->
-                <div class="bg-black/60 border border-neutral-800 rounded-xl p-3.5 space-y-2 relative z-10">
+                <!-- ========================================================================= -->
+                <!-- 2. TOP ĐƯỜNG CẦU HIỆU QUẢ CAO NHẤT (TOP 1, TOP 2, TOP 3)                 -->
+                <!-- ========================================================================= -->
+                <div id="pattern-top-section" class="space-y-3">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                        <span class="text-xs font-bold text-yellow-400 uppercase flex items-center gap-1.5">
-                            <i class="fa-solid fa-arrow-trend-up text-emerald-400"></i> TẦN SỐ ĐỒNG THUẬN (CÁC SỐ ĐƯỢC NHIỀU CẦU BÁO NHẤT HÔM NAY):
+                        <h3 class="text-base font-black text-white uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-crown text-yellow-400"></i> TOP ĐƯỜNG CẦU ĂN THÔNG 4 NGÀY HIỆU QUẢ CAO NHẤT
+                        </h3>
+                        <span id="pattern-top-date-indicator" class="text-xs text-neutral-400 font-mono bg-neutral-900 px-3 py-1 rounded-lg border border-neutral-800">
+                            Tính đến: <b class="text-yellow-400 font-bold">Kỳ mới nhất</b>
                         </span>
-                        <span class="text-[11px] text-neutral-400">Xếp hạng theo số lượng thuật toán cùng chỉ điểm</span>
                     </div>
-                    <div id="all-bridges-consensus-strip" class="flex flex-wrap gap-2 pt-1">
-                        <!-- Populated dynamically -->
+                    <div id="pattern-top-cards-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Populated by JS -->
                     </div>
                 </div>
 
-                <!-- Bảng Tổng Hợp Chi Tiết Từng Tab Cầu - Xếp Hạng Uy Tín -->
-                <div class="space-y-3 relative z-10">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <h3 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-                                <i class="fa-solid fa-ranking-star text-yellow-400"></i>
-                                BẢNG XẾP HẠNG CÁC CẦU UY TÍN NHẤT (THEO THỨ TỰ TỶ LỆ TRÚNG & HIỆU SUẤT)
-                            </h3>
-                            <span class="text-xs text-neutral-400" id="all-bridges-count-text">Đang tải các phương pháp...</span>
+                <!-- KHU VỰC TRỰC QUAN HÓA BẢNG VẼ ĐƯỜNG CẦU SVG (Section IX & X) -->
+                <div id="pattern-visualization-section" class="bg-neutral-900 border-2 border-red-500/60 rounded-2xl p-5 md:p-6 shadow-2xl space-y-5">
+                    
+                    <!-- Header của Khu Vực Visualization -->
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-neutral-800 pb-4">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2.5 py-0.5 rounded text-xs font-black bg-red-600 text-white uppercase">BẢN ĐỒ ĐƯỜNG CẦU SVG</span>
+                                <span id="vis-pattern-streak" class="text-xs font-bold text-yellow-400 bg-yellow-500/10 px-2.5 py-0.5 rounded border border-yellow-500/30">Chuỗi ăn: --</span>
+                            </div>
+                            <h3 id="vis-pattern-title" class="text-lg md:text-xl font-black text-white">Đang nạp đường cầu...</h3>
+                            <p id="vis-pattern-formula" class="text-xs text-neutral-400 font-mono">Công thức: --</p>
                         </div>
 
-                        <!-- Bộ lọc kết quả bảng cầu & Nút Xuất Excel -->
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <div class="flex items-center gap-1 bg-black/80 border border-neutral-800 p-1 rounded-xl text-xs">
-                                <button id="all-bridges-filter-all" onclick="filterAllBridgesSummary('all')"
-                                        class="px-2.5 py-1 rounded-lg font-bold bg-neutral-800 text-white transition">
-                                    Tất Cả
+                        <!-- Cụm Điều Khiển Layer, Zoom & Số kỳ hiển thị -->
+                        <div class="flex flex-wrap items-center gap-2.5">
+                            <!-- Bộ chọn số kỳ hiển thị (3, 5, 8, 12 kỳ) -->
+                            <div class="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-xl border border-neutral-800 text-xs shadow-inner">
+                                <span class="text-neutral-400 font-bold flex items-center gap-1">
+                                    <i class="fa-solid fa-calendar-days text-yellow-400"></i> Số kỳ:
+                                </span>
+                                <select id="pattern-display-draws" onchange="changeDisplayDraws(this.value)" class="bg-transparent text-white font-black font-mono focus:outline-none cursor-pointer">
+                                    <option value="3" class="bg-neutral-900 text-white">3 Kỳ (Xem nhanh)</option>
+                                    <option value="5" class="bg-neutral-900 text-white">5 Kỳ (Gọn gàng)</option>
+                                    <option value="8" selected class="bg-neutral-900 text-white">8 Kỳ (Chuẩn)</option>
+                                    <option value="12" class="bg-neutral-900 text-white">12 Kỳ (Mở rộng)</option>
+                                </select>
+                            </div>
+
+                            <!-- Cụm Phóng to / Thu nhỏ (Zoom) -->
+                            <div class="flex items-center gap-1 bg-black/60 px-2.5 py-1.5 rounded-xl border border-neutral-800 text-xs shadow-inner">
+                                <span class="text-neutral-400 font-bold mr-1 hidden sm:inline flex items-center gap-1">
+                                    <i class="fa-solid fa-magnifying-glass text-cyan-400"></i> Zoom:
+                                </span>
+                                <button onclick="zoomPatternMap(-0.1)" class="w-6 h-6 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-black flex items-center justify-center transition hover:scale-105 active:scale-95" title="Thu nhỏ (-)">
+                                    <i class="fa-solid fa-minus text-[10px]"></i>
                                 </button>
-                                <button id="all-bridges-filter-win" onclick="filterAllBridgesSummary('win')"
-                                        class="px-2.5 py-1 rounded-lg font-semibold text-neutral-400 hover:text-emerald-400 transition">
-                                    ✅ Cầu Trúng
+                                <span id="pattern-zoom-indicator" class="font-mono font-bold text-cyan-300 px-1 min-w-[42px] text-center text-xs">100%</span>
+                                <button onclick="zoomPatternMap(0.1)" class="w-6 h-6 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-black flex items-center justify-center transition hover:scale-105 active:scale-95" title="Phóng to (+)">
+                                    <i class="fa-solid fa-plus text-[10px]"></i>
                                 </button>
-                                <button id="all-bridges-filter-de" onclick="filterAllBridgesSummary('de')"
-                                        class="px-2.5 py-1 rounded-lg font-semibold text-neutral-400 hover:text-yellow-400 transition">
-                                    🏆 Trúng Đề
-                                </button>
-                                <button id="all-bridges-filter-lose" onclick="filterAllBridgesSummary('lose')"
-                                        class="px-2.5 py-1 rounded-lg font-semibold text-neutral-400 hover:text-red-400 transition">
-                                    ❌ Cầu Trượt
+                                <button onclick="resetPatternZoom()" class="px-1.5 py-0.5 rounded-md bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white text-[10px] font-bold transition ml-0.5" title="Khôi phục kích thước chuẩn (100%)">
+                                    1:1
                                 </button>
                             </div>
 
-                            <button onclick="openExportExcelModal()" title="Xuất bảng thống kê ra Excel"
-                                    class="bg-emerald-800/80 hover:bg-emerald-700 text-emerald-200 hover:text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm border border-emerald-600/50">
-                                <i class="fa-solid fa-file-excel"></i> Xuất Excel
+                            <!-- Nhóm Tùy Chọn Layer & Dòng điện -->
+                            <div class="flex items-center gap-2.5 bg-black/60 px-3 py-1.5 rounded-xl border border-neutral-800 text-xs">
+                                <label class="flex items-center gap-1.5 cursor-pointer text-yellow-300 hover:text-yellow-200" title="Bật/Tắt hiệu ứng dòng điện Neon chạy sống động">
+                                    <input type="checkbox" id="chk-layer-electric" checked onchange="redrawCurrentSvg()" class="rounded text-yellow-500 focus:ring-0">
+                                    <span class="font-bold"><i class="fa-solid fa-bolt text-[11px] text-yellow-400 animate-pulse"></i> Dòng điện</span>
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer text-neutral-300 hover:text-white">
+                                    <input type="checkbox" id="chk-layer-bridges" checked onchange="redrawCurrentSvg()" class="rounded text-red-500 focus:ring-0">
+                                    <span>Đường nối</span>
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer text-neutral-300 hover:text-white">
+                                    <input type="checkbox" id="chk-layer-highlight" checked onchange="redrawCurrentSvg()" class="rounded text-red-500 focus:ring-0">
+                                    <span>Khoanh tròn</span>
+                                </label>
+                            </div>
+
+                            <!-- Nút Toàn Màn Hình -->
+                            <button onclick="togglePatternFullscreen()" class="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow" title="Xem toàn màn hình tràn viền">
+                                <i class="fa-solid fa-expand text-cyan-400"></i> <span class="hidden sm:inline">Toàn màn hình</span>
+                            </button>
+
+                            <button onclick="redrawCurrentSvg()" class="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold rounded-xl transition" title="Vẽ lại theo kích thước mới">
+                                <i class="fa-solid fa-arrows-rotate"></i>
+                            </button>
+
+                            <!-- Nút Xuất Ảnh (Section XIX) -->
+                            <button id="btn-export-pattern-img" onclick="exportPatternInfographicImage()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-black rounded-xl transition shadow flex items-center gap-2">
+                                <i class="fa-solid fa-image"></i> Xuất Ảnh (PNG)
                             </button>
                         </div>
                     </div>
 
-                    <div class="overflow-x-auto rounded-xl border border-neutral-800 shadow-xl">
+                    <!-- Wrapper xuất ảnh bao gồm Watermark Header và Stack các Card (Section XIX) -->
+                    <div id="pattern-export-wrapper" class="bg-[#030712] p-4 sm:p-6 rounded-2xl border border-neutral-800 relative space-y-4">
+                        
+                        <!-- Watermark Header cho ảnh Infographic -->
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-neutral-800 pb-3 gap-2">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center font-black text-white text-sm shadow">XSMB</div>
+                                <div>
+                                    <h4 class="text-sm font-black text-white uppercase tracking-wider">BẢN ĐỒ ĐƯỜNG CẦU LÔ TÔ MIỀN BẮC</h4>
+                                    <p class="text-[10px] text-neutral-400 font-mono">Trích xuất tự động qua AI Pattern Engine • Lịch sử đối chiếu</p>
+                                </div>
+                            </div>
+                            <div class="p-2 bg-red-950/50 border border-red-500/50 rounded-xl flex items-center gap-3">
+                                <span class="text-xs font-bold text-red-300 uppercase">DỰ ĐOÁN KỲ TIẾP THEO:</span>
+                                <span id="vis-pattern-pred" class="text-base font-black font-mono text-yellow-300 bg-black px-3 py-0.5 rounded border border-yellow-500/50">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Vùng Chứa Các Thẻ Kỳ Quay và Lớp SVG Overlay kèm hỗ trợ Zoom mượt mà -->
+                        <div id="pattern-zoom-viewport" class="w-full overflow-x-auto">
+                            <div id="pattern-draws-container" class="relative min-h-[400px]">
+                                <!-- SVG and Draw cards will be rendered here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BẢNG THỐNG KÊ TOÀN BỘ PATTERN (Section XI - Đã tắt theo yêu cầu người dùng) -->
+                <div id="pattern-detailed-ranking-section" class="hidden bg-neutral-900 border border-neutral-800 rounded-2xl p-5 md:p-6 shadow-xl space-y-4">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-neutral-800 pb-4">
+                        <div>
+                            <h3 class="text-base font-black text-white flex items-center gap-2 uppercase">
+                                <i class="fa-solid fa-list-check text-yellow-400"></i> BẢNG XẾP HẠNG & THỐNG KÊ CHI TIẾT PATTERN
+                            </h3>
+                            <p class="text-xs text-neutral-400 mt-0.5">Xếp hạng theo điểm tin cậy Wilson hiệu chỉnh kết hợp Lift và Chuỗi ăn liên tiếp</p>
+                        </div>
+
+                        <!-- Thanh tìm kiếm & lọc nhanh -->
+                        <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                            <input type="text" id="pattern-search-input" onkeyup="filterPatternsTable()" placeholder="Tìm công thức / giải..." 
+                                   class="bg-black border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:border-red-500 focus:outline-none w-full sm:w-48">
+
+                            <select id="pattern-filter-strength" onchange="filterPatternsTable()" class="bg-black border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:border-red-500 focus:outline-none">
+                                <option value="ALL">Tất cả độ mạnh</option>
+                                <option value="STRONG">STRONG (Mạnh)</option>
+                                <option value="MEDIUM">MEDIUM (Khá)</option>
+                                <option value="WEAK">WEAK (Yếu)</option>
+                            </select>
+
+                            <select id="pattern-sort-select" onchange="filterPatternsTable()" class="bg-black border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:border-red-500 focus:outline-none">
+                                <option value="hitRate" selected>Xếp theo: Tỷ lệ trúng % (Độ ổn định cao nhất)</option>
+                                <option value="streak">Xếp theo: Chuỗi ăn hiện tại</option>
+                                <option value="confidence">Xếp theo: Độ tin cậy (Wilson)</option>
+                                <option value="lift">Xếp theo: Lift (Hiệu quả)</option>
+                                <option value="occurrences">Xếp theo: Số lần xuất hiện</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Bảng Dữ Liệu -->
+                    <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs text-neutral-300">
-                            <thead class="bg-black/95 text-neutral-400 uppercase font-semibold border-b border-neutral-800 text-[11px] tracking-wider">
+                            <thead class="bg-black/90 text-neutral-400 uppercase font-semibold border-b border-neutral-800">
                                 <tr>
-                                    <th class="p-3 text-center whitespace-nowrap">Thứ Hạng</th>
-                                    <th class="p-3 whitespace-nowrap">Cầu / Phương Pháp Soi</th>
-                                    <th class="p-3 text-center whitespace-nowrap">Bộ Số Hôm Nay</th>
-                                    <th class="p-3 text-center whitespace-nowrap">Tỷ Lệ Thắng</th>
-                                    <th class="p-3 text-center whitespace-nowrap">Hiệu Suất Nổ</th>
-                                    <th class="p-3 text-center whitespace-nowrap">Tổng Nháy</th>
-                                    <th class="p-3 text-center whitespace-nowrap">Max Thông</th>
-                                    <th class="p-3 text-center whitespace-nowrap">Kết Quả Kỳ Này</th>
-                                    <th class="p-3 text-right whitespace-nowrap">Bảng Thống Kê & Tab</th>
+                                    <th class="p-3 text-center">Hạng</th>
+                                    <th class="p-3">Tên Pattern / Công thức</th>
+                                    <th class="p-3 text-center">Xuất Hiện</th>
+                                    <th class="p-3 text-center">Trúng (Hit)</th>
+                                    <th class="p-3 text-center">Trượt</th>
+                                    <th class="p-3 text-center">Tỷ Lệ %</th>
+                                    <th class="p-3 text-center">Tin Cậy (Wilson)</th>
+                                    <th class="p-3 text-center">Lift</th>
+                                    <th class="p-3 text-center">Chuỗi Ăn</th>
+                                    <th class="p-3 text-center">Độ Mạnh</th>
+                                    <th class="p-3 text-center">Dự Đoán Tới</th>
+                                    <th class="p-3 text-center">Thao Tác</th>
                                 </tr>
                             </thead>
-                            <tbody id="allBridgesSummaryTbody" class="divide-y divide-neutral-800 font-mono">
-                                <!-- Populated dynamically via JS -->
+                            <tbody id="patterns-table-body" class="divide-y divide-neutral-800">
+                                <!-- Populated by JS -->
                             </tbody>
                         </table>
                     </div>
                 </div>
-
-                <!-- Khối Cảnh Báo Loại Trừ (Blacklist Box) -->
-                <div id="all-bridges-blacklist-card" class="hidden bg-gradient-to-r from-red-950/70 via-black to-neutral-900 border border-red-700/60 rounded-xl p-4 space-y-2 relative z-10">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold text-red-400 uppercase flex items-center gap-1.5">
-                            <i class="fa-solid fa-triangle-exclamation text-red-500"></i> BỘ LỌC CẮT SỐ (CẢNH BÁO LOẠI TRỪ):
-                        </span>
-                        <span class="text-[11px] text-neutral-400">Số gan lì lợm hoặc bão hòa nhịp cần tránh</span>
-                    </div>
-                    <div id="all-bridges-blacklist-list" class="flex flex-wrap gap-2">
-                        <!-- Populated dynamically -->
-                    </div>
-                </div>
             </div>
 
-            <!-- Khối Giới Thiệu Popup Tra Cứu KQXS Nhanh -->
-            <div class="bg-gradient-to-r from-neutral-950 via-neutral-900 to-black border-2 border-yellow-500/50 rounded-2xl p-5 md:p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-5 relative overflow-hidden">
-                <div class="absolute -right-16 -top-16 w-48 h-48 bg-yellow-500/10 rounded-full blur-2xl pointer-events-none"></div>
-                <div class="flex items-center gap-4 relative z-10">
-                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-yellow-500 via-amber-400 to-yellow-200 text-black flex items-center justify-center font-black text-2xl shadow-[0_0_20px_rgba(234,179,8,0.5)]">
-                        <i class="fa-solid fa-table-list"></i>
-                    </div>
+            <!-- ========================================================================= -->
+            <!-- 5. BẢNG TRA CỨU CẦU ĂN THÔNG THEO NGÀY & ĐỐI CHIẾU KẾT QUẢ KỲ KẾ TIẾP     -->
+            <!-- ========================================================================= -->
+            <div id="streak-explorer-section" class="bg-gradient-to-b from-neutral-900 via-neutral-900/95 to-black border-2 border-red-500/70 rounded-2xl p-5 md:p-6 shadow-[0_0_40px_rgba(239,68,68,0.25)] space-y-6 relative overflow-hidden">
+                <!-- Background ambient glow -->
+                <div class="absolute -right-20 -top-20 w-72 h-72 bg-red-600/15 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute -left-20 -bottom-20 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <!-- Header Panel -->
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-neutral-800 pb-5 relative z-10">
                     <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-yellow-500 text-black shadow">
-                                Tiện Ích Mới
+                        <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <span class="px-3 py-0.5 rounded-full text-xs font-black bg-gradient-to-r from-red-600 to-rose-600 text-white tracking-wider uppercase shadow-sm">
+                                <i class="fa-solid fa-fire mr-1 text-yellow-300 animate-pulse"></i> CẦU ĂN THÔNG THEO NGÀY
                             </span>
-                            <span class="text-xs text-neutral-400 font-medium">Tra cứu mọi lúc mọi nơi</span>
+                            <span class="text-xs text-yellow-400 font-bold bg-yellow-500/10 border border-yellow-500/30 px-2.5 py-0.5 rounded-full font-mono">
+                                ĐỐI CHIẾU KẾT QUẢ NỔ / GÃY
+                            </span>
                         </div>
-                        <h3 class="text-lg font-black text-white flex items-center gap-2">
-                            BẢNG KẾT QUẢ XỔ SỐ MIỀN BẮC (POPUP)
-                        </h3>
-                        <p class="text-xs text-neutral-300 mt-1 max-w-xl leading-relaxed">
-                            Bảng kết quả xổ số đã được nâng cấp thành cửa sổ Popup tiện dụng. Dù bạn đang ở bất kỳ tab soi cầu nào, chỉ cần bấm nút để mở bảng tra cứu kết quả mà không cần rời khỏi màn hình phân tích.
+                        <h2 class="text-xl md:text-2xl font-black text-white flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-check text-red-500"></i> TRA CỨU CẦU 4 NGÀY THÔNG &amp; KẾT QUẢ
+                        </h2>
+                        <p class="text-xs text-neutral-400 mt-1">
+                            Xem ngày hôm qua (hoặc bất kỳ ngày nào tùy chọn) có bao nhiêu đường cầu đang ăn thông liên tiếp 4 ngày, cặp số dự đoán báo ra và kết quả thực tế ngày hôm sau nổ hay gãy.
                         </p>
                     </div>
-                </div>
-                <div class="flex items-center gap-3 relative z-10 w-full md:w-auto justify-end">
-                    <button onclick="openXsmbModal()" class="w-full md:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 hover:from-yellow-300 hover:to-amber-300 text-black font-black text-sm shadow-[0_0_25px_rgba(245,158,11,0.5)] flex items-center justify-center gap-2.5 transition transform hover:scale-105 active:scale-95 border border-yellow-200">
-                        <i class="fa-solid fa-window-restore text-base"></i> Mở Bảng Kết Quả KQXS
+
+                    <!-- Nút Tra Cứu Nổi Bật -->
+                    <button id="btn-fetch-streak-bridges" onclick="triggerStreakSearch()" 
+                            class="px-6 py-3 rounded-xl font-black text-sm text-white bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-500 hover:to-amber-500 shadow-[0_0_25px_rgba(239,68,68,0.45)] transition hover:scale-105 active:scale-95 flex items-center gap-2 border border-red-400/50 flex-shrink-0 cursor-pointer">
+                        <i class="fa-solid fa-magnifying-glass-chart text-yellow-300"></i>
+                        <span>TRA CỨU CẦU THÔNG</span>
                     </button>
                 </div>
+
+                <!-- Băng Điều Khiển Tham Số Tra Cứu -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 relative z-10">
+                    <!-- Chọn Ngày Soi Cầu (Hôm qua / Mới nhất / Ngày tùy chọn) -->
+                    <div class="lg:col-span-2 space-y-1.5">
+                        <div class="flex justify-between items-center">
+                            <label class="block text-[11px] font-bold text-neutral-300 uppercase tracking-wide">
+                                <i class="fa-solid fa-calendar-day text-red-400 mr-1"></i> Ngày Soi Cầu
+                            </label>
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" onclick="quickSelectStreakDate('yesterday')" id="btn-quick-yesterday" 
+                                        class="px-2 py-0.5 rounded-md text-[10px] font-black bg-red-600 text-white transition hover:bg-red-500 cursor-pointer shadow-sm">
+                                    Hôm qua
+                                </button>
+                                <button type="button" onclick="quickSelectStreakDate('latest')" id="btn-quick-latest" 
+                                        class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-neutral-800 text-neutral-300 transition hover:bg-neutral-700 hover:text-white cursor-pointer">
+                                    Kỳ mới nhất
+                                </button>
+                            </div>
+                        </div>
+                        <select id="streak-date-select" onchange="onStreakDateSelectChange()" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-red-500 focus:outline-none cursor-pointer">
+                            <option value="yesterday">Đang nạp danh sách ngày...</option>
+                        </select>
+                    </div>
+
+                    <!-- Chọn Chuỗi Ngày Thông (Mặc định: 4 ngày) -->
+                    <div class="space-y-1.5">
+                        <label class="block text-[11px] font-bold text-neutral-300 uppercase tracking-wide">
+                            <i class="fa-solid fa-link text-yellow-400 mr-1"></i> Chuỗi Ăn Thông
+                        </label>
+                        <select id="streak-length-select" onchange="triggerStreakSearch()" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-bold text-yellow-300 focus:border-red-500 focus:outline-none cursor-pointer">
+                            <option value="2">2 Ngày Thông</option>
+                            <option value="3">3 Ngày Thông</option>
+                            <option value="4" selected>4 Ngày Thông (Chuẩn VIP)</option>
+                            <option value="5">5 Ngày Thông</option>
+                            <option value="6">6 Ngày Thông</option>
+                            <option value="7">7 Ngày Thông Trở Lên</option>
+                        </select>
+                    </div>
+
+                    <!-- Chế độ so khớp Chuỗi: Đúng 4 ngày vs >= 4 ngày -->
+                    <div class="space-y-1.5">
+                        <label class="block text-[11px] font-bold text-neutral-300 uppercase tracking-wide">
+                            <i class="fa-solid fa-filter text-cyan-400 mr-1"></i> Chế Độ Lọc Chuỗi
+                        </label>
+                        <select id="streak-exact-select" onchange="triggerStreakSearch()" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none cursor-pointer">
+                            <option value="true" selected>Đúng N ngày thông (Chuẩn)</option>
+                            <option value="false">Từ N ngày thông trở lên</option>
+                        </select>
+                    </div>
+
+                    <!-- Mục Tiêu Soi Cầu (Lô tô vs Đề) -->
+                    <div class="space-y-1.5">
+                        <label class="block text-[11px] font-bold text-neutral-300 uppercase tracking-wide">
+                            <i class="fa-solid fa-crosshairs text-emerald-400 mr-1"></i> Mục Tiêu
+                        </label>
+                        <select id="streak-target-type" onchange="triggerStreakSearch()" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none cursor-pointer">
+                            <option value="loto_2digit" selected>Lô tô 2 số (27 giải)</option>
+                            <option value="special_last2">Đặc biệt (Bạch thủ đề)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Loading State khi đang load cầu thông -->
+                <div id="streak-loading-indicator" class="hidden p-8 text-center bg-black/60 border border-neutral-800 rounded-2xl space-y-3">
+                    <i class="fa-solid fa-spinner fa-spin text-3xl text-red-500"></i>
+                    <div class="text-sm font-bold text-white">Đang quét nhanh 5,671 vị trí và đối chiếu kết quả...</div>
+                </div>
+
+                <!-- Vùng Hiển Thị Kết Quả Tra Cứu Cầu Thông -->
+                <div id="streak-results-wrapper" class="space-y-5">
+                    
+                    <!-- KPI Cards Tóm Tắt Kết Quả Đối Chiếu -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                        <!-- Card 1: Số lượng cầu 4 ngày thông -->
+                        <div class="p-4 bg-black/70 border border-neutral-800 rounded-2xl relative overflow-hidden flex items-center gap-3.5">
+                            <div class="w-12 h-12 rounded-xl bg-red-600/20 border border-red-500/50 flex items-center justify-center text-red-400 text-xl font-black flex-shrink-0">
+                                <i class="fa-solid fa-bezier-curve"></i>
+                            </div>
+                            <div>
+                                <div class="text-[11px] text-neutral-400 uppercase font-bold">Số Cầu Đạt Chuỗi</div>
+                                <div class="flex items-baseline gap-2">
+                                    <span id="streak-total-count" class="text-2xl font-black text-white font-mono">--</span>
+                                    <span id="streak-count-desc" class="text-xs font-bold text-neutral-400">cầu</span>
+                                </div>
+                                <div id="streak-selected-badge" class="text-[11px] text-yellow-300 font-mono mt-0.5">Ngày --</div>
+                            </div>
+                        </div>
+
+                        <!-- Card 2: Kết quả đối chiếu ngày kế tiếp -->
+                        <div class="p-4 bg-black/70 border border-neutral-800 rounded-2xl relative overflow-hidden flex items-center gap-3.5">
+                            <div id="streak-outcome-icon" class="w-12 h-12 rounded-xl bg-emerald-600/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-xl font-black flex-shrink-0">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-[11px] text-neutral-400 uppercase font-bold">Kết Quả Ngày Tiếp Theo</div>
+                                <div class="flex items-baseline gap-2">
+                                    <span id="streak-win-rate" class="text-2xl font-black text-emerald-400 font-mono">--%</span>
+                                    <span id="streak-win-detail" class="text-xs font-bold text-neutral-300">-- thắng / -- gãy</span>
+                                </div>
+                                <div id="streak-target-badge" class="text-[11px] text-neutral-400 font-mono mt-0.5">Mở thưởng: --</div>
+                            </div>
+                        </div>
+
+                        <!-- Card 3: Top các cặp số được báo nhiều nhất -->
+                        <div class="p-4 bg-black/70 border border-neutral-800 rounded-2xl relative overflow-hidden flex flex-col justify-between">
+                            <div class="text-[11px] text-neutral-400 uppercase font-bold mb-1.5 flex items-center justify-between">
+                                <span><i class="fa-solid fa-star text-yellow-400 mr-1"></i> Số Nổ Nhiều Nhất</span>
+                                <span class="text-[10px] text-neutral-500 font-mono">Top nổ</span>
+                            </div>
+                            <div id="streak-top-numbers" class="flex flex-wrap items-center gap-1.5 min-h-[32px]">
+                                <span class="text-xs text-neutral-500 italic">Chưa có dữ liệu</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Thanh Công Cụ Lọc Nhanh Bảng Cầu Thông -->
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-neutral-900/80 p-3 rounded-xl border border-neutral-800">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <span class="text-xs font-bold text-neutral-400 mr-1">Lọc kết quả:</span>
+                            <button type="button" onclick="setStreakStatusFilter('all')" id="btn-streak-filter-all" 
+                                    class="px-3 py-1 rounded-lg text-xs font-black bg-neutral-800 text-white border border-neutral-700 transition cursor-pointer">
+                                Tất cả (<span id="count-filter-all">0</span>)
+                            </button>
+                            <button type="button" onclick="setStreakStatusFilter('win')" id="btn-streak-filter-win" 
+                                    class="px-3 py-1 rounded-lg text-xs font-bold text-emerald-400 hover:bg-emerald-950/40 border border-transparent transition cursor-pointer">
+                                <i class="fa-solid fa-check mr-1"></i>Ăn tiếp (<span id="count-filter-win">0</span>)
+                            </button>
+                            <button type="button" onclick="setStreakStatusFilter('lose')" id="btn-streak-filter-lose" 
+                                    class="px-3 py-1 rounded-lg text-xs font-bold text-red-400 hover:bg-red-950/40 border border-transparent transition cursor-pointer">
+                                <i class="fa-solid fa-xmark mr-1"></i>Gãy cầu (<span id="count-filter-lose">0</span>)
+                            </button>
+                        </div>
+
+                        <!-- Ô tìm kiếm số / vị trí -->
+                        <div class="w-full sm:w-64">
+                            <div class="relative">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-xs"></i>
+                                <input type="text" id="streak-search-input" onkeyup="filterStreakTableRows()" placeholder="Tìm số báo (vd: 14) hoặc giải..." 
+                                       class="w-full bg-black border border-neutral-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:border-red-500 focus:outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bảng Danh Sách Các Cầu Thông -->
+                    <div class="overflow-x-auto rounded-xl border border-neutral-800 shadow-inner">
+                        <table class="w-full text-left text-xs text-neutral-300">
+                            <thead class="bg-black/95 text-neutral-400 uppercase font-bold border-b border-neutral-800">
+                                <tr>
+                                    <th class="p-3 text-center w-12">STT</th>
+                                    <th class="p-3">Vị Trí Ghép Cầu</th>
+                                    <th class="p-3 text-center">Chữ Số Ghép</th>
+                                    <th class="p-3 text-center">Cặp Số Báo</th>
+                                    <th class="p-3 text-center">Chuỗi Đã Ăn</th>
+                                    <th class="p-3 text-center">Kết Quả Kỳ Kế Tiếp</th>
+                                    <th class="p-3 text-center w-48">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="streak-table-body" class="divide-y divide-neutral-800/80 bg-neutral-900/40 font-mono">
+                                <!-- Populated dynamically by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
+        
         </section>
 
         <!-- ========================================================================= -->
@@ -1839,625 +2099,7 @@
             </div>
         </section>
 
-        <!-- ========================================================================= -->
-        <!-- SECTION AUTO PATTERN DISCOVERY & TRỰC QUAN HÓA ĐƯỜNG CẦU SVG             -->
-        <!-- ========================================================================= -->
-        <section id="sec-auto_pattern" class="space-y-6 hidden">
-            
-            <!-- Disclaimer Banner Toán Học (Section I & XXII) -->
-            <div class="bg-amber-950/40 border border-amber-500/50 rounded-2xl p-4 flex items-start gap-3 shadow-lg">
-                <i class="fa-solid fa-triangle-exclamation text-amber-400 text-xl mt-0.5 flex-shrink-0"></i>
-                <div class="text-xs text-amber-200/90 leading-relaxed">
-                    <b class="text-amber-300 uppercase tracking-wide">Lưu ý quan trọng từ Hệ thống Phân tích:</b>
-                    Các đường cầu và pattern lịch sử được trích xuất hoàn toàn tự động bằng thuật toán thống kê hồi quy (Vectorized Backtesting, Walk-Forward Validation & Wilson Score 95%). Đây là công cụ phân tích dữ liệu chuỗi số toán học khách quan, <span class="underline font-bold text-white">không được coi là bảo đảm dự đoán chính xác kết quả tương lai</span>.
-                </div>
-            </div>
-
-            <!-- ========================================================================= -->
-            <!-- 1. KIỂM TRA CÔNG THỨC CHO NGÀY BẤT KỲ (TRÍCH XUẤT CẶP SONG THỦ)          -->
-            <!-- ========================================================================= -->
-            <div id="auto-pattern-formula-checker" class="bg-gradient-to-b from-neutral-900 via-neutral-900/95 to-neutral-950 border-2 border-amber-500/60 rounded-2xl p-5 md:p-6 shadow-[0_0_35px_rgba(245,158,11,0.2)] space-y-5 relative overflow-hidden">
-                <!-- Ambient glow -->
-                <div class="absolute -right-16 -top-16 w-56 h-56 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-                <div>
-                    <div class="flex items-center gap-2 text-amber-400 font-black text-base md:text-lg tracking-wide uppercase mb-1">
-                        <button type="button" onclick="openAutoPatternDatePicker()" title="Bấm vào icon lịch để mở bảng chọn ngày" class="cursor-pointer hover:scale-110 active:scale-95 transition flex items-center p-0.5 text-amber-400 hover:text-amber-300">
-                            <i class="fa-solid fa-calendar-days text-amber-400 text-lg"></i>
-                        </button>
-                        <span onclick="openAutoPatternDatePicker()" class="cursor-pointer hover:text-amber-300 transition" title="Bấm để mở bảng lịch chọn ngày">KIỂM TRA CÔNG THỨC CHO NGÀY BẤT KỲ:</span>
-                    </div>
-                    <p class="text-neutral-300 text-xs sm:text-sm">
-                        Chọn ngày để hệ thống tự chuyển đến ngày tương ứng:
-                    </p>
-                </div>
-
-                <!-- Input date and [Tính] button group matching screenshot -->
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="relative flex items-center cursor-pointer group" onclick="openAutoPatternDatePicker()">
-                        <input type="text" 
-                               id="auto-pattern-custom-date-display" 
-                               readonly 
-                               value="-- - -- - ----"
-                               placeholder="Ngày - tháng - năm"
-                               class="bg-black border border-neutral-700/80 group-hover:border-amber-500/80 rounded-2xl pl-4 pr-10 py-2.5 text-amber-400 font-mono font-bold text-base sm:text-lg focus:outline-none shadow-inner cursor-pointer select-none tracking-normal w-[210px] sm:w-[235px] text-center"
-                               title="Bấm vào để mở bảng lịch chọn Ngày - tháng - năm">
-                        
-                        <button type="button" 
-                                onclick="openAutoPatternDatePicker(); event.stopPropagation();" 
-                                class="absolute right-3.5 text-amber-400 hover:text-amber-300 hover:scale-110 active:scale-95 transition cursor-pointer p-1"
-                                title="Bấm để mở lịch chọn Ngày - tháng - năm">
-                            <i class="fa-solid fa-calendar-days text-lg"></i>
-                        </button>
-                        
-                        <input type="date" 
-                               id="auto-pattern-custom-date" 
-                               class="absolute inset-0 opacity-0 w-full h-full cursor-pointer pointer-events-auto"
-                               onchange="onAutoPatternDateNativeChange(this.value)"
-                               title="Bấm để chọn Ngày - tháng - năm">
-                    </div>
-
-                    <!-- Green [Tính] button with play icon -->
-                    <button id="btn-calc-auto-pattern-date" type="button" onclick="calculateAutoPatternDate()" 
-                            class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-2xl transition hover:scale-105 active:scale-95 flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.35)] border border-emerald-400/40 cursor-pointer">
-                        <i class="fa-solid fa-play text-xs text-white"></i>
-                        <span class="text-sm font-black">Tính</span>
-                    </button>
-
-                    <!-- Quick buttons -->
-                    <div class="flex items-center gap-1.5 ml-0 sm:ml-2">
-                        <button type="button" id="btn-auto-quick-latest" onclick="quickSelectAutoPatternDate('latest')" 
-                                class="px-3 py-2 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition cursor-pointer">
-                            Kỳ mới nhất
-                        </button>
-                        <button type="button" id="btn-auto-quick-yesterday" onclick="quickSelectAutoPatternDate('yesterday')" 
-                                class="px-3 py-2 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition cursor-pointer">
-                            Hôm qua
-                        </button>
-                        <button type="button" id="btn-auto-quick-today" onclick="quickSelectAutoPatternDate('today')" 
-                                class="px-3 py-2 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition cursor-pointer">
-                            Hôm nay
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Kết Quả Tính Toán & Đối Chiếu Thống Kê Cặp Song Thủ -->
-                <div id="auto-pattern-date-result-card" class="bg-black/70 border border-amber-500/40 rounded-xl p-4 space-y-3">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-3">
-                        <div class="flex items-center gap-2.5">
-                            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
-                                <i class="fa-solid fa-calculator mr-1"></i> Công thức tổng
-                            </span>
-                            <span id="auto-pattern-date-formula" class="font-mono text-sm md:text-base font-bold text-white">
-                                -- + -- + ---- = ----
-                            </span>
-                        </div>
-
-                        <!-- Cặp Song Thủ Nổi Bật -->
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-bold text-neutral-400 uppercase">Cặp Song Thủ:</span>
-                            <div class="flex items-center gap-1.5">
-                                <span id="auto-pattern-song-thu-1" class="text-base md:text-lg font-black font-mono text-yellow-300 bg-amber-950/80 border-2 border-yellow-500/80 px-3 py-0.5 rounded-xl shadow-[0_0_15px_rgba(234,179,8,0.35)]">--</span>
-                                <span class="text-neutral-500 font-bold">-</span>
-                                <span id="auto-pattern-song-thu-2" class="text-base md:text-lg font-black font-mono text-yellow-300 bg-amber-950/80 border-2 border-yellow-500/80 px-3 py-0.5 rounded-xl shadow-[0_0_15px_rgba(234,179,8,0.35)]">--</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Trạng thái đối chiếu & Liên thông hệ thống -->
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                        <div id="auto-pattern-outcome-badge" class="flex items-center gap-2 text-neutral-300">
-                            <i class="fa-solid fa-spinner fa-spin text-amber-400"></i>
-                            <span>Đang kiểm tra kết quả mở thưởng...</span>
-                        </div>
-
-                        <div class="text-[11px] text-cyan-400/90 font-medium flex items-center gap-1.5">
-                            <i class="fa-solid fa-circle-nodes text-cyan-400 animate-pulse"></i>
-                            <span id="auto-pattern-sync-status">Đang liên thông Top 3 Cầu 4 Ngày Thông &amp; Bảng vẽ SVG</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Accordion / Toggle: Tùy Chỉnh Nâng Cao Quét Pattern -->
-                <div class="border-t border-neutral-800/80 pt-3">
-                    <button type="button" onclick="togglePatternAdvancedSettings()" class="text-xs font-bold text-neutral-400 hover:text-white flex items-center gap-2 transition cursor-pointer">
-                        <i class="fa-solid fa-sliders text-red-400"></i>
-                        <span>Tùy chỉnh tham số đào tìm nâng cao (khoảng ngày, Wilson, Min Streak...)</span>
-                        <i id="icon-toggle-pattern-settings" class="fa-solid fa-chevron-down text-[10px] ml-1 transition-transform"></i>
-                    </button>
-
-                    <!-- Advanced Settings Container (Hidden by default, expandable) -->
-                    <div id="pattern-advanced-settings-wrapper" class="hidden mt-4 pt-4 border-t border-neutral-800 space-y-4">
-                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                            <div>
-                                <label class="block text-[11px] font-bold text-neutral-400 uppercase mb-1.5">Khoảng Ngày Quét</label>
-                                <select id="pattern-range-select" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none">
-                                    <option value="30">30 Ngày gần nhất</option>
-                                    <option value="60" selected>60 Ngày gần nhất (Chuẩn)</option>
-                                    <option value="90">90 Ngày gần nhất</option>
-                                    <option value="all">Toàn bộ dữ liệu</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-[11px] font-bold text-neutral-400 uppercase mb-1.5">Mục Tiêu Soi Cầu</label>
-                                <select id="pattern-target-type" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none">
-                                    <option value="loto_2digit" selected>Lô tô 2 số (27 Giải)</option>
-                                    <option value="special_last2">Đặc Biệt (Bạch Thủ Đề)</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-[11px] font-bold text-neutral-400 uppercase mb-1.5">Xuất Hiện Tối Thiểu</label>
-                                <select id="pattern-min-occ" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none">
-                                    <option value="5">Tối thiểu 5 lần</option>
-                                    <option value="10" selected>Tối thiểu 10 lần (Khuyên dùng)</option>
-                                    <option value="15">Tối thiểu 15 lần</option>
-                                    <option value="20">Tối thiểu 20 lần</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-[11px] font-bold text-neutral-400 uppercase mb-1.5">Độ Tin Cậy Min (Wilson)</label>
-                                <select id="pattern-min-conf" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none">
-                                    <option value="0.30">Từ 30% trở lên</option>
-                                    <option value="0.40" selected>Từ 40% trở lên (Chuẩn)</option>
-                                    <option value="0.45">Từ 45% trở lên (Cao)</option>
-                                    <option value="0.50">Từ 50% trở lên (Rất cao)</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-[11px] font-bold text-neutral-400 uppercase mb-1.5">Chuỗi Ăn Hiện Tại</label>
-                                <select id="pattern-min-streak" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none">
-                                    <option value="0" selected>Tất cả các cầu</option>
-                                    <option value="2">Đang ăn thông >= 2 ngày</option>
-                                    <option value="3">Đang ăn thông >= 3 ngày</option>
-                                    <option value="4">Đang ăn thông >= 4 ngày</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="flex justify-end pt-2">
-                            <button id="btn-run-auto-discovery" onclick="triggerAutoDiscovery()" 
-                                    class="px-5 py-2.5 rounded-xl font-black text-xs text-white bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-500 hover:to-amber-500 shadow-[0_0_20px_rgba(239,68,68,0.4)] transition hover:scale-105 flex items-center gap-2 border border-red-400/50 cursor-pointer">
-                                <i class="fa-solid fa-wand-magic-sparkles text-yellow-300"></i>
-                                <span>TỰ TÌM ĐƯỜNG CẦU (QUÉT LẠI)</span>
-                            </button>
-                        </div>
-
-                        <!-- Thanh Tóm Tắt Quá Trình Đào Dữ Liệu -->
-                        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 pt-2">
-                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
-                                <div class="text-[10px] text-neutral-400 uppercase font-bold">Đã kiểm tra</div>
-                                <div id="sum-candidates-checked" class="text-base font-black text-white font-mono mt-0.5">--</div>
-                            </div>
-                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
-                                <div class="text-[10px] text-neutral-400 uppercase font-bold">Đã loại (Yếu)</div>
-                                <div id="sum-rejected-count" class="text-base font-black text-neutral-400 font-mono mt-0.5">--</div>
-                            </div>
-                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
-                                <div class="text-[10px] text-neutral-400 uppercase font-bold">Đạt tiêu chuẩn</div>
-                                <div id="sum-passed-count" class="text-base font-black text-cyan-400 font-mono mt-0.5">--</div>
-                            </div>
-                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
-                                <div class="text-[10px] text-emerald-400 uppercase font-bold">Mạnh (Strong)</div>
-                                <div id="sum-strong-count" class="text-base font-black text-emerald-400 font-mono mt-0.5">--</div>
-                            </div>
-                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
-                                <div class="text-[10px] text-cyan-400 uppercase font-bold">Khá (Medium)</div>
-                                <div id="sum-medium-count" class="text-base font-black text-cyan-300 font-mono mt-0.5">--</div>
-                            </div>
-                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
-                                <div class="text-[10px] text-yellow-500 uppercase font-bold">Yếu (Weak)</div>
-                                <div id="sum-weak-count" class="text-base font-black text-yellow-400 font-mono mt-0.5">--</div>
-                            </div>
-                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
-                                <div class="text-[10px] text-red-400 uppercase font-bold">Bị Overfit</div>
-                                <div id="sum-overfit-count" class="text-base font-black text-red-400 font-mono mt-0.5">--</div>
-                            </div>
-                            <div class="p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-center">
-                                <div class="text-[10px] text-neutral-400 uppercase font-bold">Thời gian quét</div>
-                                <div id="sum-elapsed-time" class="text-base font-black text-emerald-300 font-mono mt-0.5">--</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Loading Spinner Khi Đang Scan -->
-            <div id="pattern-scan-loading" class="hidden p-8 text-center bg-neutral-900/80 border border-neutral-800 rounded-2xl space-y-3">
-                <i class="fa-solid fa-gear fa-spin text-4xl text-red-500"></i>
-                <div class="text-sm font-bold text-white">Đang thực thi ma trận sàng lọc 17,013 Candidate Rules...</div>
-                <p class="text-xs text-neutral-400">Kiểm tra tính lặp lại, tính chỉ số Wilson, loại bỏ Overfit và tính chuỗi ăn...</p>
-            </div>
-
-            <!-- Container Kết Quả Sau Khi Quét -->
-            <div id="pattern-scan-results" class="space-y-6">
-
-                <!-- ========================================================================= -->
-                <!-- 2. TOP ĐƯỜNG CẦU HIỆU QUẢ CAO NHẤT (TOP 1, TOP 2, TOP 3)                 -->
-                <!-- ========================================================================= -->
-                <div id="pattern-top-section" class="space-y-3">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                        <h3 class="text-base font-black text-white uppercase tracking-wider flex items-center gap-2">
-                            <i class="fa-solid fa-crown text-yellow-400"></i> TOP ĐƯỜNG CẦU ĂN THÔNG 4 NGÀY HIỆU QUẢ CAO NHẤT
-                        </h3>
-                        <span id="pattern-top-date-indicator" class="text-xs text-neutral-400 font-mono bg-neutral-900 px-3 py-1 rounded-lg border border-neutral-800">
-                            Tính đến: <b class="text-yellow-400 font-bold">Kỳ mới nhất</b>
-                        </span>
-                    </div>
-                    <div id="pattern-top-cards-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-
-                <!-- KHU VỰC TRỰC QUAN HÓA BẢNG VẼ ĐƯỜNG CẦU SVG (Section IX & X) -->
-                <div id="pattern-visualization-section" class="bg-neutral-900 border-2 border-red-500/60 rounded-2xl p-5 md:p-6 shadow-2xl space-y-5">
-                    
-                    <!-- Header của Khu Vực Visualization -->
-                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-neutral-800 pb-4">
-                        <div class="space-y-1">
-                            <div class="flex items-center gap-2">
-                                <span class="px-2.5 py-0.5 rounded text-xs font-black bg-red-600 text-white uppercase">BẢN ĐỒ ĐƯỜNG CẦU SVG</span>
-                                <span id="vis-pattern-streak" class="text-xs font-bold text-yellow-400 bg-yellow-500/10 px-2.5 py-0.5 rounded border border-yellow-500/30">Chuỗi ăn: --</span>
-                            </div>
-                            <h3 id="vis-pattern-title" class="text-lg md:text-xl font-black text-white">Đang nạp đường cầu...</h3>
-                            <p id="vis-pattern-formula" class="text-xs text-neutral-400 font-mono">Công thức: --</p>
-                        </div>
-
-                        <!-- Cụm Điều Khiển Layer, Zoom & Số kỳ hiển thị -->
-                        <div class="flex flex-wrap items-center gap-2.5">
-                            <!-- Bộ chọn số kỳ hiển thị (3, 5, 8, 12 kỳ) -->
-                            <div class="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-xl border border-neutral-800 text-xs shadow-inner">
-                                <span class="text-neutral-400 font-bold flex items-center gap-1">
-                                    <i class="fa-solid fa-calendar-days text-yellow-400"></i> Số kỳ:
-                                </span>
-                                <select id="pattern-display-draws" onchange="changeDisplayDraws(this.value)" class="bg-transparent text-white font-black font-mono focus:outline-none cursor-pointer">
-                                    <option value="3" class="bg-neutral-900 text-white">3 Kỳ (Xem nhanh)</option>
-                                    <option value="5" class="bg-neutral-900 text-white">5 Kỳ (Gọn gàng)</option>
-                                    <option value="8" selected class="bg-neutral-900 text-white">8 Kỳ (Chuẩn)</option>
-                                    <option value="12" class="bg-neutral-900 text-white">12 Kỳ (Mở rộng)</option>
-                                </select>
-                            </div>
-
-                            <!-- Cụm Phóng to / Thu nhỏ (Zoom) -->
-                            <div class="flex items-center gap-1 bg-black/60 px-2.5 py-1.5 rounded-xl border border-neutral-800 text-xs shadow-inner">
-                                <span class="text-neutral-400 font-bold mr-1 hidden sm:inline flex items-center gap-1">
-                                    <i class="fa-solid fa-magnifying-glass text-cyan-400"></i> Zoom:
-                                </span>
-                                <button onclick="zoomPatternMap(-0.1)" class="w-6 h-6 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-black flex items-center justify-center transition hover:scale-105 active:scale-95" title="Thu nhỏ (-)">
-                                    <i class="fa-solid fa-minus text-[10px]"></i>
-                                </button>
-                                <span id="pattern-zoom-indicator" class="font-mono font-bold text-cyan-300 px-1 min-w-[42px] text-center text-xs">100%</span>
-                                <button onclick="zoomPatternMap(0.1)" class="w-6 h-6 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-black flex items-center justify-center transition hover:scale-105 active:scale-95" title="Phóng to (+)">
-                                    <i class="fa-solid fa-plus text-[10px]"></i>
-                                </button>
-                                <button onclick="resetPatternZoom()" class="px-1.5 py-0.5 rounded-md bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white text-[10px] font-bold transition ml-0.5" title="Khôi phục kích thước chuẩn (100%)">
-                                    1:1
-                                </button>
-                            </div>
-
-                            <!-- Nhóm Tùy Chọn Layer & Dòng điện -->
-                            <div class="flex items-center gap-2.5 bg-black/60 px-3 py-1.5 rounded-xl border border-neutral-800 text-xs">
-                                <label class="flex items-center gap-1.5 cursor-pointer text-yellow-300 hover:text-yellow-200" title="Bật/Tắt hiệu ứng dòng điện Neon chạy sống động">
-                                    <input type="checkbox" id="chk-layer-electric" checked onchange="redrawCurrentSvg()" class="rounded text-yellow-500 focus:ring-0">
-                                    <span class="font-bold"><i class="fa-solid fa-bolt text-[11px] text-yellow-400 animate-pulse"></i> Dòng điện</span>
-                                </label>
-                                <label class="flex items-center gap-1.5 cursor-pointer text-neutral-300 hover:text-white">
-                                    <input type="checkbox" id="chk-layer-bridges" checked onchange="redrawCurrentSvg()" class="rounded text-red-500 focus:ring-0">
-                                    <span>Đường nối</span>
-                                </label>
-                                <label class="flex items-center gap-1.5 cursor-pointer text-neutral-300 hover:text-white">
-                                    <input type="checkbox" id="chk-layer-highlight" checked onchange="redrawCurrentSvg()" class="rounded text-red-500 focus:ring-0">
-                                    <span>Khoanh tròn</span>
-                                </label>
-                            </div>
-
-                            <!-- Nút Toàn Màn Hình -->
-                            <button onclick="togglePatternFullscreen()" class="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow" title="Xem toàn màn hình tràn viền">
-                                <i class="fa-solid fa-expand text-cyan-400"></i> <span class="hidden sm:inline">Toàn màn hình</span>
-                            </button>
-
-                            <button onclick="redrawCurrentSvg()" class="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold rounded-xl transition" title="Vẽ lại theo kích thước mới">
-                                <i class="fa-solid fa-arrows-rotate"></i>
-                            </button>
-
-                            <!-- Nút Xuất Ảnh (Section XIX) -->
-                            <button id="btn-export-pattern-img" onclick="exportPatternInfographicImage()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-black rounded-xl transition shadow flex items-center gap-2">
-                                <i class="fa-solid fa-image"></i> Xuất Ảnh (PNG)
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Wrapper xuất ảnh bao gồm Watermark Header và Stack các Card (Section XIX) -->
-                    <div id="pattern-export-wrapper" class="bg-[#030712] p-4 sm:p-6 rounded-2xl border border-neutral-800 relative space-y-4">
-                        
-                        <!-- Watermark Header cho ảnh Infographic -->
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-neutral-800 pb-3 gap-2">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center font-black text-white text-sm shadow">XSMB</div>
-                                <div>
-                                    <h4 class="text-sm font-black text-white uppercase tracking-wider">BẢN ĐỒ ĐƯỜNG CẦU LÔ TÔ MIỀN BẮC</h4>
-                                    <p class="text-[10px] text-neutral-400 font-mono">Trích xuất tự động qua AI Pattern Engine • Lịch sử đối chiếu</p>
-                                </div>
-                            </div>
-                            <div class="p-2 bg-red-950/50 border border-red-500/50 rounded-xl flex items-center gap-3">
-                                <span class="text-xs font-bold text-red-300 uppercase">DỰ ĐOÁN KỲ TIẾP THEO:</span>
-                                <span id="vis-pattern-pred" class="text-base font-black font-mono text-yellow-300 bg-black px-3 py-0.5 rounded border border-yellow-500/50">--</span>
-                            </div>
-                        </div>
-
-                        <!-- Vùng Chứa Các Thẻ Kỳ Quay và Lớp SVG Overlay kèm hỗ trợ Zoom mượt mà -->
-                        <div id="pattern-zoom-viewport" class="w-full overflow-x-auto">
-                            <div id="pattern-draws-container" class="relative min-h-[400px]">
-                                <!-- SVG and Draw cards will be rendered here -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- BẢNG THỐNG KÊ TOÀN BỘ PATTERN (Section XI - Đã tắt theo yêu cầu người dùng) -->
-                <div id="pattern-detailed-ranking-section" class="hidden bg-neutral-900 border border-neutral-800 rounded-2xl p-5 md:p-6 shadow-xl space-y-4">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-neutral-800 pb-4">
-                        <div>
-                            <h3 class="text-base font-black text-white flex items-center gap-2 uppercase">
-                                <i class="fa-solid fa-list-check text-yellow-400"></i> BẢNG XẾP HẠNG & THỐNG KÊ CHI TIẾT PATTERN
-                            </h3>
-                            <p class="text-xs text-neutral-400 mt-0.5">Xếp hạng theo điểm tin cậy Wilson hiệu chỉnh kết hợp Lift và Chuỗi ăn liên tiếp</p>
-                        </div>
-
-                        <!-- Thanh tìm kiếm & lọc nhanh -->
-                        <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                            <input type="text" id="pattern-search-input" onkeyup="filterPatternsTable()" placeholder="Tìm công thức / giải..." 
-                                   class="bg-black border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:border-red-500 focus:outline-none w-full sm:w-48">
-
-                            <select id="pattern-filter-strength" onchange="filterPatternsTable()" class="bg-black border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:border-red-500 focus:outline-none">
-                                <option value="ALL">Tất cả độ mạnh</option>
-                                <option value="STRONG">STRONG (Mạnh)</option>
-                                <option value="MEDIUM">MEDIUM (Khá)</option>
-                                <option value="WEAK">WEAK (Yếu)</option>
-                            </select>
-
-                            <select id="pattern-sort-select" onchange="filterPatternsTable()" class="bg-black border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:border-red-500 focus:outline-none">
-                                <option value="hitRate" selected>Xếp theo: Tỷ lệ trúng % (Độ ổn định cao nhất)</option>
-                                <option value="streak">Xếp theo: Chuỗi ăn hiện tại</option>
-                                <option value="confidence">Xếp theo: Độ tin cậy (Wilson)</option>
-                                <option value="lift">Xếp theo: Lift (Hiệu quả)</option>
-                                <option value="occurrences">Xếp theo: Số lần xuất hiện</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Bảng Dữ Liệu -->
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs text-neutral-300">
-                            <thead class="bg-black/90 text-neutral-400 uppercase font-semibold border-b border-neutral-800">
-                                <tr>
-                                    <th class="p-3 text-center">Hạng</th>
-                                    <th class="p-3">Tên Pattern / Công thức</th>
-                                    <th class="p-3 text-center">Xuất Hiện</th>
-                                    <th class="p-3 text-center">Trúng (Hit)</th>
-                                    <th class="p-3 text-center">Trượt</th>
-                                    <th class="p-3 text-center">Tỷ Lệ %</th>
-                                    <th class="p-3 text-center">Tin Cậy (Wilson)</th>
-                                    <th class="p-3 text-center">Lift</th>
-                                    <th class="p-3 text-center">Chuỗi Ăn</th>
-                                    <th class="p-3 text-center">Độ Mạnh</th>
-                                    <th class="p-3 text-center">Dự Đoán Tới</th>
-                                    <th class="p-3 text-center">Thao Tác</th>
-                                </tr>
-                            </thead>
-                            <tbody id="patterns-table-body" class="divide-y divide-neutral-800">
-                                <!-- Populated by JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ========================================================================= -->
-            <!-- 5. BẢNG TRA CỨU CẦU ĂN THÔNG THEO NGÀY & ĐỐI CHIẾU KẾT QUẢ KỲ KẾ TIẾP     -->
-            <!-- ========================================================================= -->
-            <div id="streak-explorer-section" class="bg-gradient-to-b from-neutral-900 via-neutral-900/95 to-black border-2 border-red-500/70 rounded-2xl p-5 md:p-6 shadow-[0_0_40px_rgba(239,68,68,0.25)] space-y-6 relative overflow-hidden">
-                <!-- Background ambient glow -->
-                <div class="absolute -right-20 -top-20 w-72 h-72 bg-red-600/15 rounded-full blur-3xl pointer-events-none"></div>
-                <div class="absolute -left-20 -bottom-20 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-                <!-- Header Panel -->
-                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-neutral-800 pb-5 relative z-10">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1.5 flex-wrap">
-                            <span class="px-3 py-0.5 rounded-full text-xs font-black bg-gradient-to-r from-red-600 to-rose-600 text-white tracking-wider uppercase shadow-sm">
-                                <i class="fa-solid fa-fire mr-1 text-yellow-300 animate-pulse"></i> CẦU ĂN THÔNG THEO NGÀY
-                            </span>
-                            <span class="text-xs text-yellow-400 font-bold bg-yellow-500/10 border border-yellow-500/30 px-2.5 py-0.5 rounded-full font-mono">
-                                ĐỐI CHIẾU KẾT QUẢ NỔ / GÃY
-                            </span>
-                        </div>
-                        <h2 class="text-xl md:text-2xl font-black text-white flex items-center gap-2">
-                            <i class="fa-solid fa-calendar-check text-red-500"></i> TRA CỨU CẦU 4 NGÀY THÔNG &amp; KẾT QUẢ
-                        </h2>
-                        <p class="text-xs text-neutral-400 mt-1">
-                            Xem ngày hôm qua (hoặc bất kỳ ngày nào tùy chọn) có bao nhiêu đường cầu đang ăn thông liên tiếp 4 ngày, cặp số dự đoán báo ra và kết quả thực tế ngày hôm sau nổ hay gãy.
-                        </p>
-                    </div>
-
-                    <!-- Nút Tra Cứu Nổi Bật -->
-                    <button id="btn-fetch-streak-bridges" onclick="triggerStreakSearch()" 
-                            class="px-6 py-3 rounded-xl font-black text-sm text-white bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-500 hover:to-amber-500 shadow-[0_0_25px_rgba(239,68,68,0.45)] transition hover:scale-105 active:scale-95 flex items-center gap-2 border border-red-400/50 flex-shrink-0 cursor-pointer">
-                        <i class="fa-solid fa-magnifying-glass-chart text-yellow-300"></i>
-                        <span>TRA CỨU CẦU THÔNG</span>
-                    </button>
-                </div>
-
-                <!-- Băng Điều Khiển Tham Số Tra Cứu -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 relative z-10">
-                    <!-- Chọn Ngày Soi Cầu (Hôm qua / Mới nhất / Ngày tùy chọn) -->
-                    <div class="lg:col-span-2 space-y-1.5">
-                        <div class="flex justify-between items-center">
-                            <label class="block text-[11px] font-bold text-neutral-300 uppercase tracking-wide">
-                                <i class="fa-solid fa-calendar-day text-red-400 mr-1"></i> Ngày Soi Cầu
-                            </label>
-                            <div class="flex items-center gap-1.5">
-                                <button type="button" onclick="quickSelectStreakDate('yesterday')" id="btn-quick-yesterday" 
-                                        class="px-2 py-0.5 rounded-md text-[10px] font-black bg-red-600 text-white transition hover:bg-red-500 cursor-pointer shadow-sm">
-                                    Hôm qua
-                                </button>
-                                <button type="button" onclick="quickSelectStreakDate('latest')" id="btn-quick-latest" 
-                                        class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-neutral-800 text-neutral-300 transition hover:bg-neutral-700 hover:text-white cursor-pointer">
-                                    Kỳ mới nhất
-                                </button>
-                            </div>
-                        </div>
-                        <select id="streak-date-select" onchange="onStreakDateSelectChange()" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-red-500 focus:outline-none cursor-pointer">
-                            <option value="yesterday">Đang nạp danh sách ngày...</option>
-                        </select>
-                    </div>
-
-                    <!-- Chọn Chuỗi Ngày Thông (Mặc định: 4 ngày) -->
-                    <div class="space-y-1.5">
-                        <label class="block text-[11px] font-bold text-neutral-300 uppercase tracking-wide">
-                            <i class="fa-solid fa-link text-yellow-400 mr-1"></i> Chuỗi Ăn Thông
-                        </label>
-                        <select id="streak-length-select" onchange="triggerStreakSearch()" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-bold text-yellow-300 focus:border-red-500 focus:outline-none cursor-pointer">
-                            <option value="2">2 Ngày Thông</option>
-                            <option value="3">3 Ngày Thông</option>
-                            <option value="4" selected>4 Ngày Thông (Chuẩn VIP)</option>
-                            <option value="5">5 Ngày Thông</option>
-                            <option value="6">6 Ngày Thông</option>
-                            <option value="7">7 Ngày Thông Trở Lên</option>
-                        </select>
-                    </div>
-
-                    <!-- Chế độ so khớp Chuỗi: Đúng 4 ngày vs >= 4 ngày -->
-                    <div class="space-y-1.5">
-                        <label class="block text-[11px] font-bold text-neutral-300 uppercase tracking-wide">
-                            <i class="fa-solid fa-filter text-cyan-400 mr-1"></i> Chế Độ Lọc Chuỗi
-                        </label>
-                        <select id="streak-exact-select" onchange="triggerStreakSearch()" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none cursor-pointer">
-                            <option value="true" selected>Đúng N ngày thông (Chuẩn)</option>
-                            <option value="false">Từ N ngày thông trở lên</option>
-                        </select>
-                    </div>
-
-                    <!-- Mục Tiêu Soi Cầu (Lô tô vs Đề) -->
-                    <div class="space-y-1.5">
-                        <label class="block text-[11px] font-bold text-neutral-300 uppercase tracking-wide">
-                            <i class="fa-solid fa-crosshairs text-emerald-400 mr-1"></i> Mục Tiêu
-                        </label>
-                        <select id="streak-target-type" onchange="triggerStreakSearch()" class="w-full bg-black border border-neutral-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-red-500 focus:outline-none cursor-pointer">
-                            <option value="loto_2digit" selected>Lô tô 2 số (27 giải)</option>
-                            <option value="special_last2">Đặc biệt (Bạch thủ đề)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Loading State khi đang load cầu thông -->
-                <div id="streak-loading-indicator" class="hidden p-8 text-center bg-black/60 border border-neutral-800 rounded-2xl space-y-3">
-                    <i class="fa-solid fa-spinner fa-spin text-3xl text-red-500"></i>
-                    <div class="text-sm font-bold text-white">Đang quét nhanh 5,671 vị trí và đối chiếu kết quả...</div>
-                </div>
-
-                <!-- Vùng Hiển Thị Kết Quả Tra Cứu Cầu Thông -->
-                <div id="streak-results-wrapper" class="space-y-5">
-                    
-                    <!-- KPI Cards Tóm Tắt Kết Quả Đối Chiếu -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                        <!-- Card 1: Số lượng cầu 4 ngày thông -->
-                        <div class="p-4 bg-black/70 border border-neutral-800 rounded-2xl relative overflow-hidden flex items-center gap-3.5">
-                            <div class="w-12 h-12 rounded-xl bg-red-600/20 border border-red-500/50 flex items-center justify-center text-red-400 text-xl font-black flex-shrink-0">
-                                <i class="fa-solid fa-bezier-curve"></i>
-                            </div>
-                            <div>
-                                <div class="text-[11px] text-neutral-400 uppercase font-bold">Số Cầu Đạt Chuỗi</div>
-                                <div class="flex items-baseline gap-2">
-                                    <span id="streak-total-count" class="text-2xl font-black text-white font-mono">--</span>
-                                    <span id="streak-count-desc" class="text-xs font-bold text-neutral-400">cầu</span>
-                                </div>
-                                <div id="streak-selected-badge" class="text-[11px] text-yellow-300 font-mono mt-0.5">Ngày --</div>
-                            </div>
-                        </div>
-
-                        <!-- Card 2: Kết quả đối chiếu ngày kế tiếp -->
-                        <div class="p-4 bg-black/70 border border-neutral-800 rounded-2xl relative overflow-hidden flex items-center gap-3.5">
-                            <div id="streak-outcome-icon" class="w-12 h-12 rounded-xl bg-emerald-600/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-xl font-black flex-shrink-0">
-                                <i class="fa-solid fa-circle-check"></i>
-                            </div>
-                            <div class="flex-1">
-                                <div class="text-[11px] text-neutral-400 uppercase font-bold">Kết Quả Ngày Tiếp Theo</div>
-                                <div class="flex items-baseline gap-2">
-                                    <span id="streak-win-rate" class="text-2xl font-black text-emerald-400 font-mono">--%</span>
-                                    <span id="streak-win-detail" class="text-xs font-bold text-neutral-300">-- thắng / -- gãy</span>
-                                </div>
-                                <div id="streak-target-badge" class="text-[11px] text-neutral-400 font-mono mt-0.5">Mở thưởng: --</div>
-                            </div>
-                        </div>
-
-                        <!-- Card 3: Top các cặp số được báo nhiều nhất -->
-                        <div class="p-4 bg-black/70 border border-neutral-800 rounded-2xl relative overflow-hidden flex flex-col justify-between">
-                            <div class="text-[11px] text-neutral-400 uppercase font-bold mb-1.5 flex items-center justify-between">
-                                <span><i class="fa-solid fa-star text-yellow-400 mr-1"></i> Số Nổ Nhiều Nhất</span>
-                                <span class="text-[10px] text-neutral-500 font-mono">Top nổ</span>
-                            </div>
-                            <div id="streak-top-numbers" class="flex flex-wrap items-center gap-1.5 min-h-[32px]">
-                                <span class="text-xs text-neutral-500 italic">Chưa có dữ liệu</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Thanh Công Cụ Lọc Nhanh Bảng Cầu Thông -->
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-neutral-900/80 p-3 rounded-xl border border-neutral-800">
-                        <div class="flex flex-wrap items-center gap-1.5">
-                            <span class="text-xs font-bold text-neutral-400 mr-1">Lọc kết quả:</span>
-                            <button type="button" onclick="setStreakStatusFilter('all')" id="btn-streak-filter-all" 
-                                    class="px-3 py-1 rounded-lg text-xs font-black bg-neutral-800 text-white border border-neutral-700 transition cursor-pointer">
-                                Tất cả (<span id="count-filter-all">0</span>)
-                            </button>
-                            <button type="button" onclick="setStreakStatusFilter('win')" id="btn-streak-filter-win" 
-                                    class="px-3 py-1 rounded-lg text-xs font-bold text-emerald-400 hover:bg-emerald-950/40 border border-transparent transition cursor-pointer">
-                                <i class="fa-solid fa-check mr-1"></i>Ăn tiếp (<span id="count-filter-win">0</span>)
-                            </button>
-                            <button type="button" onclick="setStreakStatusFilter('lose')" id="btn-streak-filter-lose" 
-                                    class="px-3 py-1 rounded-lg text-xs font-bold text-red-400 hover:bg-red-950/40 border border-transparent transition cursor-pointer">
-                                <i class="fa-solid fa-xmark mr-1"></i>Gãy cầu (<span id="count-filter-lose">0</span>)
-                            </button>
-                        </div>
-
-                        <!-- Ô tìm kiếm số / vị trí -->
-                        <div class="w-full sm:w-64">
-                            <div class="relative">
-                                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-xs"></i>
-                                <input type="text" id="streak-search-input" onkeyup="filterStreakTableRows()" placeholder="Tìm số báo (vd: 14) hoặc giải..." 
-                                       class="w-full bg-black border border-neutral-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:border-red-500 focus:outline-none">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Bảng Danh Sách Các Cầu Thông -->
-                    <div class="overflow-x-auto rounded-xl border border-neutral-800 shadow-inner">
-                        <table class="w-full text-left text-xs text-neutral-300">
-                            <thead class="bg-black/95 text-neutral-400 uppercase font-bold border-b border-neutral-800">
-                                <tr>
-                                    <th class="p-3 text-center w-12">STT</th>
-                                    <th class="p-3">Vị Trí Ghép Cầu</th>
-                                    <th class="p-3 text-center">Chữ Số Ghép</th>
-                                    <th class="p-3 text-center">Cặp Số Báo</th>
-                                    <th class="p-3 text-center">Chuỗi Đã Ăn</th>
-                                    <th class="p-3 text-center">Kết Quả Kỳ Kế Tiếp</th>
-                                    <th class="p-3 text-center w-48">Thao Tác</th>
-                                </tr>
-                            </thead>
-                            <tbody id="streak-table-body" class="divide-y divide-neutral-800/80 bg-neutral-900/40 font-mono">
-                                <!-- Populated dynamically by JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- FOOTER QUICK NAV BAR (Thanh điều hướng chân trang) -->
+                <!-- FOOTER QUICK NAV BAR (Thanh điều hướng chân trang) -->
         <footer class="mt-14 pt-8 pb-12 border-t border-neutral-800/80 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-neutral-400">
             <div class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -2470,14 +2112,14 @@
                 <button onclick="scrollToPageTop()" class="px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-cyan-500/50 text-neutral-300 hover:text-cyan-300 font-bold transition flex items-center gap-1.5 shadow">
                     <i class="fa-solid fa-arrow-up text-cyan-400"></i> Về đầu trang
                 </button>
-                <button onclick="navigateToSection('days10', 'all-bridges-summary-card')" class="px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-yellow-500/50 text-neutral-300 hover:text-yellow-300 font-bold transition flex items-center gap-1.5 shadow">
-                    <i class="fa-solid fa-trophy text-yellow-400"></i> Bảng Vàng
+                <button onclick="navigateToSection('auto_pattern', 'sec-auto_pattern')" class="px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-red-500/50 text-neutral-300 hover:text-red-300 font-bold transition flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-bezier-curve text-red-400"></i> Vẽ Cầu (Trang Chủ)
+                </button>
+                <button onclick="navigateToSection('auto_pattern', 'pattern-visualization-section')" class="px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-red-500/50 text-neutral-300 hover:text-red-300 font-bold transition flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-diagram-project text-cyan-400"></i> Bản Đồ SVG
                 </button>
                 <button onclick="navigateToSection('analyzer', 'sec-analyzer')" class="px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-purple-500/50 text-neutral-300 hover:text-purple-300 font-bold transition flex items-center gap-1.5 shadow">
                     <i class="fa-solid fa-brain text-purple-400"></i> Phân Tích Cầu
-                </button>
-                <button onclick="navigateToSection('auto_pattern', 'pattern-visualization-section')" class="px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-red-500/50 text-neutral-300 hover:text-red-300 font-bold transition flex items-center gap-1.5 shadow">
-                    <i class="fa-solid fa-bezier-curve text-red-400"></i> Vẽ Cầu SVG
                 </button>
                 <button onclick="scrollToPageBottom()" class="px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-cyan-500/50 text-neutral-300 hover:text-cyan-300 font-bold transition flex items-center gap-1.5 shadow">
                     <i class="fa-solid fa-arrow-down text-cyan-400"></i> Xuống cuối trang
@@ -2884,16 +2526,7 @@
                 </span>
             </button>
 
-            <!-- Nút 4: ĐẾN BẢNG VÀNG TỔNG HỢP -->
-            <button onclick="navigateToSection('days10', 'all-bridges-summary-card')" class="nav-dock-btn group relative" title="Đến Bảng Vàng Tổng Hợp">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-b from-yellow-950/80 to-neutral-900 border border-yellow-500/50 hover:border-yellow-400 text-yellow-300 hover:text-white flex items-center justify-center transition shadow-md hover:scale-105 active:scale-95">
-                    <i class="fa-solid fa-trophy text-sm transition-transform group-hover:scale-110"></i>
-                </div>
-                <!-- Tooltip Left -->
-                <span class="nav-dock-tooltip">
-                    <i class="fa-solid fa-trophy mr-1 text-yellow-400"></i>Bảng vàng tổng hợp
-                </span>
-            </button>
+
 
             <!-- Nút 4: ĐẾN PHÂN TÍCH CẦU 23 MODULES -->
             <button onclick="navigateToSection('analyzer', 'sec-analyzer')" class="nav-dock-btn group relative" title="Đến Phân Tích Cầu">

@@ -729,13 +729,14 @@
         document.addEventListener("DOMContentLoaded", async () => {
             await fetchAllDraws();
             renderDraws(10);
-            loadAllBridgesSummary();
             checkAndInitLatestWinStats();
 
             // Check URL hash to switch to the right tab directly on load
             const hash = window.location.hash ? window.location.hash.substring(1) : '';
-            if (hash && ['days10', 'weekly', 'analyzer', 'backtest', 'bridges23', 'date_sum', 'auto_pattern'].includes(hash)) {
+            if (hash && ['auto_pattern', 'weekly', 'analyzer', 'backtest', 'bridges23', 'date_sum'].includes(hash)) {
                 switchTab(hash);
+            } else {
+                switchTab('auto_pattern');
             }
         });
 
@@ -1741,7 +1742,8 @@
         }
 
         function switchTab(tab) {
-            ['days10', 'weekly', 'analyzer', 'backtest', 'bridges23', 'date_sum', 'auto_pattern'].forEach(t => {
+            if (tab === 'days10') tab = 'auto_pattern';
+            ['auto_pattern', 'weekly', 'analyzer', 'backtest', 'bridges23', 'date_sum'].forEach(t => {
                 const sec = document.getElementById('sec-' + t);
                 if (sec) sec.classList.add('hidden');
                 const btn = document.getElementById('tab-' + t);
@@ -1758,8 +1760,10 @@
                 activeBtn.classList.add('neon-tab-active');
             }
 
-            if (tab === 'days10') {
-                loadAllBridgesSummary();
+            if (tab === 'auto_pattern') {
+                if (typeof initAutoPatternTab === 'function') {
+                    initAutoPatternTab();
+                }
             } else if (tab === 'analyzer') {
                 loadAnalyzerData();
             } else if (tab === 'weekly') {
@@ -1770,10 +1774,6 @@
                 loadBridgesCatalog();
             } else if (tab === 'date_sum') {
                 loadDateSumData();
-            } else if (tab === 'auto_pattern') {
-                if (typeof initAutoPatternTab === 'function') {
-                    initAutoPatternTab();
-                }
             }
         }
 

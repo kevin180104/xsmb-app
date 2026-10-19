@@ -17,6 +17,8 @@ let CURRENT_STREAK_RESPONSE = null;
 let CURRENT_STREAK_FILTER = 'all';
 window.CURRENT_AUTO_PATTERN_DATE = null;
 let CACHED_DRAW_RESULTS = null;
+// State dành riêng cho Tab Vẽ đường cầu (Tuyệt đối không dùng chung với Top 3 hay ngày dự đoán)
+window.SELECTED_DRAW_DATE = null;
 
 // Helper cập nhật text an toàn không bao giờ throw lỗi nếu ID không tồn tại
 function setElText(id, val) {
@@ -34,68 +36,41 @@ function formatToDayMonthYear(isoDateStr) {
     return `${parts[2]} - ${parts[1]} - ${parts[0]}`;
 }
 
-// Đồng bộ ô input text hiển thị Ngày - tháng - năm
-function syncAutoPatternDateDisplay(isoDateStr) {
-    const dispEl = document.getElementById('auto-pattern-custom-date-display');
-    if (dispEl && isoDateStr) {
-        dispEl.value = formatToDayMonthYear(isoDateStr);
+// -------------------------------------------------------------------------
+// CÁC HÀM XỬ LÝ THỜI GIAN CHUẨN MÚI GIỜ VIỆT NAM (Asia/Ho_Chi_Minh)
+// -------------------------------------------------------------------------
+
+// Lấy ngày hôm nay theo múi giờ Việt Nam Asia/Ho_Chi_Minh (YYYY-MM-DD)
+function getVietnamTodayDate() {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+    return formatter.format(now);
+}
+
+// Lấy ngày mai (hôm nay + 1 ngày) xử lý an toàn chuyển tháng / chuyển năm
+function getVietnamTomorrowDate() {
+    const todayStr = getVietnamTodayDate();
+    const parts = todayStr.split('-').map(Number);
+    // Dùng giờ giữa trưa (12:00:00) để không bị xê dịch múi giờ khi add day
+    const dt = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+    dt.setDate(dt.getDate() + 1);
+    const yyyy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+// Lấy kỳ quay gần nhất ĐÃ CÓ KẾT QUẢ THỰC TẾ trong dữ liệu
+function getLatestAvailableDrawDate(draws) {
+    if (draws && draws.length > 0 && draws[0].draw_date) {
+        return draws[0].draw_date;
     }
-}
-
-// Bắt sự kiện khi người dùng chọn ngày từ bảng lịch native
-function onAutoPatternDateNativeChange(val) {
-    if (!val) return;
-    syncAutoPatternDateDisplay(val);
-    calculateAutoPatternDate();
-}
-
-// Mở bảng lịch chọn ngày native khi nhấn vào icon lịch vàng hoặc ô nhập
-function openAutoPatternDatePicker() {
-    const input = document.getElementById('auto-pattern-custom-date');
-    if (input) {
-        if (typeof input.showPicker === 'function') {
-            try {
-                input.showPicker();
-            } catch (err) {
-                input.focus();
-            }
-        } else {
-            input.focus();
-        }
-    }
-}
-
-// Cập nhật trạng thái active cho các nút chọn nhanh
-function updateAutoPatternQuickDateButtons(currentDateVal, draws) {
-    const btnLatest = document.getElementById('btn-auto-quick-latest');
-    const btnYest = document.getElementById('btn-auto-quick-yesterday');
-    const btnToday = document.getElementById('btn-auto-quick-today');
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    const latestStr = (draws && draws.length > 0) ? draws[0].draw_date : '';
-    const yestStr = (draws && draws.length > 1) ? draws[1].draw_date : '';
-
-    const activeCls = 'px-3 py-2 rounded-xl text-xs font-black bg-amber-500/25 text-amber-300 border border-amber-500/70 shadow-[0_0_12px_rgba(245,158,11,0.3)] transition cursor-pointer';
-    const inactiveCls = 'px-3 py-2 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition cursor-pointer';
-
-    if (btnLatest) btnLatest.className = (currentDateVal === latestStr) ? activeCls : inactiveCls;
-    if (btnYest) btnYest.className = (currentDateVal === yestStr) ? activeCls : inactiveCls;
-    if (btnToday) btnToday.className = (currentDateVal === todayStr) ? activeCls : inactiveCls;
-}
-
-// Bật/tắt dải tham số đào tìm nâng cao
-function togglePatternAdvancedSettings() {
-    const wrapper = document.getElementById('pattern-advanced-settings-wrapper');
-    const icon = document.getElementById('icon-toggle-pattern-settings');
-    if (!wrapper) return;
-    const isHidden = wrapper.classList.contains('hidden');
-    if (isHidden) {
-        wrapper.classList.remove('hidden');
-        if (icon) icon.style.transform = 'rotate(180deg)';
-    } else {
-        wrapper.classList.add('hidden');
-        if (icon) icon.style.transform = 'rotate(0deg)';
-    }
+    return getVietnamTodayDate();
 }
 
 // Lấy danh sách kết quả mở thưởng có cache
@@ -114,165 +89,181 @@ async function getCachedDrawResults() {
     }
 }
 
-// Chọn nhanh ngày: latest, yesterday, today
-async function quickSelectAutoPatternDate(type) {
-    const input = document.getElementById('auto-pattern-custom-date');
-    if (!input) return;
+// Đồng bộ ô input text hiển thị Ngày - tháng - năm
+function syncDrawBridgeDateDisplay(isoDateStr) {
+    const dispEl = document.getElementById('auto-pattern-custom-date-display');
+    if (dispEl && isoDateStr) {
+        dispEl.value = formatToDayMonthYear(isoDateStr);
+    }
+}
 
+// Mở bảng lịch chọn ngày native khi nhấn vào icon lịch vàng hoặc ô nhập
+function openDrawBridgeDatePicker() {
+    const input = document.getElementById('auto-pattern-custom-date');
+    if (input) {
+        if (typeof input.showPicker === 'function') {
+            try {
+                input.showPicker();
+            } catch (err) {
+                input.focus();
+            }
+        } else {
+            input.focus();
+        }
+    }
+}
+
+// Cập nhật trạng thái active cho 3 nút chọn nhanh [Kỳ mới nhất] [Hôm nay] [Ngày mai]
+function updateDrawBridgeQuickDateButtons(currentDateVal, draws) {
+    const btnLatest = document.getElementById('btn-auto-quick-latest');
+    const btnToday = document.getElementById('btn-auto-quick-today');
+    const btnTomorrow = document.getElementById('btn-auto-quick-tomorrow');
+
+    const latestStr = getLatestAvailableDrawDate(draws);
+    const todayStr = getVietnamTodayDate();
+    const tomorrowStr = getVietnamTomorrowDate();
+
+    const activeCls = 'px-4 py-2.5 rounded-xl text-xs font-black bg-amber-500/25 text-amber-300 border border-amber-500/70 shadow-[0_0_12px_rgba(245,158,11,0.3)] transition cursor-pointer';
+    const inactiveCls = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition cursor-pointer';
+
+    if (btnLatest) btnLatest.className = (currentDateVal === latestStr) ? activeCls : inactiveCls;
+    if (btnToday) btnToday.className = (currentDateVal === todayStr) ? activeCls : inactiveCls;
+    if (btnTomorrow) btnTomorrow.className = (currentDateVal === tomorrowStr) ? activeCls : inactiveCls;
+}
+
+// -------------------------------------------------------------------------
+// ĐIỀU HƯỚNG MỐC THỜI GIAN CHO TAB "VẼ ĐƯỜNG CẦU"
+// Chỉ tác động đến tab Vẽ đường cầu, KHÔNG tính lại công thức, KHÔNG tạo lại Top 3
+// -------------------------------------------------------------------------
+async function updateDrawBridgeDate(dateVal) {
+    if (!dateVal) return;
+    window.SELECTED_DRAW_DATE = dateVal;
+
+    // Cập nhật giá trị input native và display
+    const dateInput = document.getElementById('auto-pattern-custom-date');
+    if (dateInput && dateInput.value !== dateVal) {
+        dateInput.value = dateVal;
+    }
+    syncDrawBridgeDateDisplay(dateVal);
+
+    // Cập nhật text nhãn mốc ngày đang vẽ
+    const activeDateText = document.getElementById('draw-bridge-active-date-text');
+    if (activeDateText) {
+        const parts = dateVal.split('-');
+        if (parts.length === 3) {
+            activeDateText.innerText = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        } else {
+            activeDateText.innerText = dateVal;
+        }
+    }
+
+    // Cập nhật trạng thái active của 3 nút
+    const draws = await getCachedDrawResults();
+    updateDrawBridgeQuickDateButtons(dateVal, draws);
+
+    // CHỈ CẬP NHẬT TAB VẼ ĐƯỜNG CẦU
+    if (CURRENT_ACTIVE_PATTERN) {
+        selectPatternForVisualization(CURRENT_ACTIVE_PATTERN, false, dateVal);
+    } else {
+        const patterns = CURRENT_SCAN_DATA?.patterns || Object.values(window.ALL_LOADED_PATTERNS || {});
+        if (patterns.length > 0) {
+            selectPatternForVisualization(patterns[0], false, dateVal);
+        }
+    }
+}
+
+// Bắt sự kiện khi người dùng chọn ngày từ Date Picker native
+function onDrawBridgeDateNativeChange(val) {
+    if (!val) return;
+    updateDrawBridgeDate(val);
+}
+
+// Chọn nhanh mốc thời gian vẽ đường cầu: latest, today, tomorrow
+async function quickSelectDrawBridgeDate(type) {
     const draws = await getCachedDrawResults();
     let targetDateStr = '';
 
     if (type === 'latest') {
-        if (draws && draws.length > 0) {
-            targetDateStr = draws[0].draw_date;
-        } else {
-            targetDateStr = new Date().toISOString().split('T')[0];
-        }
-    } else if (type === 'yesterday') {
-        if (draws && draws.length > 1) {
-            targetDateStr = draws[1].draw_date;
-        } else {
-            const d = new Date();
-            d.setDate(d.getDate() - 1);
-            targetDateStr = d.toISOString().split('T')[0];
-        }
+        // Kỳ quay gần nhất ĐÃ CÓ KẾT QUẢ THỰC TẾ trong dữ liệu
+        targetDateStr = getLatestAvailableDrawDate(draws);
     } else if (type === 'today') {
-        targetDateStr = new Date().toISOString().split('T')[0];
+        // Hôm nay theo múi giờ Việt Nam
+        targetDateStr = getVietnamTodayDate();
+    } else if (type === 'tomorrow') {
+        // Ngày mai (Hôm nay + 1 ngày, chuẩn chuyển tháng/năm)
+        targetDateStr = getVietnamTomorrowDate();
     }
 
     if (targetDateStr) {
-        input.value = targetDateStr;
-        syncAutoPatternDateDisplay(targetDateStr);
-        await calculateAutoPatternDate();
+        await updateDrawBridgeDate(targetDateStr);
     }
 }
 
-// 1. KIỂM TRA CÔNG THỨC CHO NGÀY BẤT KỲ & LIÊN THÔNG VỚI TOÀN BỘ TAB
-async function calculateAutoPatternDate() {
-    const input = document.getElementById('auto-pattern-custom-date');
-    if (!input || !input.value) return;
-
-    const dateVal = input.value; // YYYY-MM-DD
-    syncAutoPatternDateDisplay(dateVal);
-    const parts = dateVal.split('-');
-    if (parts.length !== 3) return;
-
-    const yyyy = parseInt(parts[0], 10);
-    const mm = parseInt(parts[1], 10);
-    const dd = parseInt(parts[2], 10);
-
-    const total = dd + mm + yyyy;
-    const p1 = String(total % 100).padStart(2, '0');
-    const p2 = p1[1] + p1[0];
-    const displayDate = `${String(dd).padStart(2, '0')}/${String(mm).padStart(2, '0')}/${yyyy}`;
-    const displayDateHyphen = `${String(dd).padStart(2, '0')} - ${String(mm).padStart(2, '0')} - ${yyyy}`;
-
-    // Cập nhật công thức và cặp Song Thủ
-    const formulaEl = document.getElementById('auto-pattern-date-formula');
-    if (formulaEl) {
-        formulaEl.innerHTML = `${String(dd).padStart(2, '0')} + ${String(mm).padStart(2, '0')} + ${yyyy} = <b class="text-amber-400 font-bold">${total}</b>`;
-    }
-    setElText('auto-pattern-song-thu-1', p1);
-    setElText('auto-pattern-song-thu-2', p2);
-
-    // Lưu biến toàn cục liên thông
-    window.CURRENT_AUTO_PATTERN_DATE = dateVal;
-
-    // Cập nhật nhãn ngày trên Top 3
-    const topDateInd = document.getElementById('pattern-top-date-indicator');
-    if (topDateInd) {
-        topDateInd.innerHTML = `Dự đoán tới ngày: <b class="text-amber-400 font-bold">${displayDateHyphen}</b>`;
-    }
-
-    // Đối chiếu kết quả mở thưởng thực tế
-    const outcomeBadge = document.getElementById('auto-pattern-outcome-badge');
-    const syncStatus = document.getElementById('auto-pattern-sync-status');
-    if (syncStatus) {
-        syncStatus.innerHTML = `Đang liên thông Top 3, Bảng vẽ SVG &amp; Bảng xếp hạng (${displayDate})...`;
-    }
-
-    try {
-        const draws = await getCachedDrawResults();
-        updateAutoPatternQuickDateButtons(dateVal, draws);
-        const drawOnDate = draws.find(d => d.draw_date === dateVal);
-        if (drawOnDate) {
-            const lotoList = drawOnDate.loto_2digit || [];
-            let countP1 = 0;
-            let countP2 = 0;
-            lotoList.forEach(num => {
-                if (num === p1) countP1++;
-                if (num === p2 && p1 !== p2) countP2++;
-            });
-            const totalHits = countP1 + countP2;
-            if (outcomeBadge) {
-                if (totalHits > 0) {
-                    let hitDetails = [];
-                    if (countP1 > 0) hitDetails.push(`${p1} (${countP1} nháy)`);
-                    if (countP2 > 0) hitDetails.push(`${p2} (${countP2} nháy)`);
-                    outcomeBadge.innerHTML = `
-                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                            <i class="fa-solid fa-circle-check text-emerald-400"></i>
-                            <span>NỔ ${totalHits} NHÁY ngày ${drawOnDate.date_display || displayDate}: ${hitDetails.join(', ')}</span>
-                        </span>
-                    `;
-                } else {
-                    outcomeBadge.innerHTML = `
-                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-800 text-neutral-400 border border-neutral-700 flex items-center gap-1.5">
-                            <i class="fa-solid fa-circle-xmark text-red-400"></i>
-                            <span>Chưa nổ ngày ${drawOnDate.date_display || displayDate} (Chờ nuôi khung)</span>
-                        </span>
-                    `;
-                }
-            }
-        } else {
-            if (outcomeBadge) {
-                outcomeBadge.innerHTML = `
-                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5">
-                        <i class="fa-solid fa-clock text-amber-400"></i>
-                        <span>Kỳ quay ${displayDate}: Đang chờ kết quả mở thưởng (Khung 2 ngày)</span>
-                    </span>
-                `;
-            }
-        }
-    } catch (err) {
-        console.error('Lỗi kiểm tra kết quả ngày:', err);
-    }
-
-    // Kích hoạt quét tự động liên thông cho ngày được chọn
-    await triggerAutoDiscovery(dateVal);
-
-    if (syncStatus) {
-        syncStatus.innerHTML = `Đã kết nối liên thông Top 3, Bảng vẽ SVG &amp; Bảng xếp hạng (${displayDate})`;
+// Bật/tắt dải tham số đào tìm nâng cao
+function togglePatternAdvancedSettings() {
+    const wrapper = document.getElementById('pattern-advanced-settings-wrapper');
+    const icon = document.getElementById('icon-toggle-pattern-settings');
+    if (!wrapper) return;
+    const isHidden = wrapper.classList.contains('hidden');
+    if (isHidden) {
+        wrapper.classList.remove('hidden');
+        if (icon) icon.style.transform = 'rotate(180deg)';
+    } else {
+        wrapper.classList.add('hidden');
+        if (icon) icon.style.transform = 'rotate(0deg)';
     }
 }
 
-// Khởi tạo tab Auto Pattern
+// Khởi tạo tab Auto Pattern & Vẽ đường cầu
 async function initAutoPatternTab() {
     console.log('[Pattern Visualizer] initAutoPatternTab triggered');
-    // Tự động tải bảng cầu 4 ngày thông hôm qua
+    // Tự động tải bảng cầu 4 ngày thông hôm qua nếu chưa có
     if (!CURRENT_STREAK_RESPONSE) {
         loadStreakBridges('yesterday', 4, true);
     }
 
+    const draws = await getCachedDrawResults();
+    const latestRealDate = getLatestAvailableDrawDate(draws);
+
+    // 1. Khởi tạo mốc thời gian cho tab Vẽ đường cầu: mặc định chọn Kỳ mới nhất có kết quả thực tế
     const dateInput = document.getElementById('auto-pattern-custom-date');
-    if (dateInput && !dateInput.value) {
-        const draws = await getCachedDrawResults();
-        if (draws && draws.length > 0) {
-            dateInput.value = draws[0].draw_date;
-        } else {
-            dateInput.value = new Date().toISOString().split('T')[0];
+    const initDate = (dateInput && dateInput.value) ? dateInput.value : latestRealDate;
+    if (dateInput) {
+        dateInput.value = initDate;
+    }
+    window.SELECTED_DRAW_DATE = initDate;
+    syncDrawBridgeDateDisplay(initDate);
+    
+    const activeDateText = document.getElementById('draw-bridge-active-date-text');
+    if (activeDateText) {
+        const parts = initDate.split('-');
+        if (parts.length === 3) {
+            activeDateText.innerText = `${parts[2]}/${parts[1]}/${parts[0]}`;
         }
-        syncAutoPatternDateDisplay(dateInput.value);
-        await calculateAutoPatternDate();
-    } else if (!CURRENT_SCAN_DATA) {
-        triggerAutoDiscovery();
+    }
+    updateDrawBridgeQuickDateButtons(initDate, draws);
+
+    // 2. Tải Top 3 đề xuất theo snapshot cố định của ngày hiện tại (nếu chưa tải)
+    if (!CURRENT_SCAN_DATA) {
+        await triggerAutoDiscovery(null, false);
     } else {
         setTimeout(redrawCurrentSvg, 150);
     }
 }
 
+// Aliases tương thích ngược an toàn
+window.openAutoPatternDatePicker = openDrawBridgeDatePicker;
+window.onAutoPatternDateNativeChange = onDrawBridgeDateNativeChange;
+window.quickSelectAutoPatternDate = quickSelectDrawBridgeDate;
+window.calculateAutoPatternDate = () => {
+    const input = document.getElementById('auto-pattern-custom-date');
+    if (input && input.value) updateDrawBridgeDate(input.value);
+};
+
 // Kích hoạt quét tự động [TỰ TÌM ĐƯỜNG CẦU]
-async function triggerAutoDiscovery(anchorDateOverride = null) {
+// forceRefresh: false (mặc định) => Ưu tiên đọc snapshot cố định theo ngày đã lưu trong DB
+// forceRefresh: true => Chủ động quét lại và ghi đè/cập nhật snapshot
+async function triggerAutoDiscovery(anchorDateOverride = null, forceRefresh = false) {
     const rangeDays = document.getElementById('pattern-range-select')?.value || '60';
     const minOcc = document.getElementById('pattern-min-occ')?.value || '10';
     const minConf = document.getElementById('pattern-min-conf')?.value || '0.40';
@@ -287,7 +278,7 @@ async function triggerAutoDiscovery(anchorDateOverride = null) {
 
     if (scanBtn) {
         scanBtn.disabled = true;
-        scanBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang Đào Tìm Pattern...`;
+        scanBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> ${forceRefresh ? 'Đang Tính Lại Pattern...' : 'Đang Tải Snapshot Đề Xuất...'}`;
     }
     if (loadingEl) loadingEl.classList.remove('hidden');
     if (resultsContainer) resultsContainer.classList.add('opacity-40');
@@ -297,10 +288,13 @@ async function triggerAutoDiscovery(anchorDateOverride = null) {
         if (anchorDate) {
             url += `&anchor_date=${encodeURIComponent(anchorDate)}`;
         }
+        if (forceRefresh) {
+            url += `&force_refresh=true`;
+        }
         console.log('[Pattern Visualizer] Fetching:', url);
         const res = await fetch(url);
         const data = await res.json();
-        console.log('[Pattern Visualizer] Response received:', data.status, 'patterns count:', data.patterns?.length);
+        console.log('[Pattern Visualizer] Response received:', data.status, 'patterns count:', data.patterns?.length, 'isSnapshot:', data.isSnapshot);
 
         if (data.status === 'SUCCESS') {
             CURRENT_SCAN_DATA = data;
@@ -365,7 +359,11 @@ function renderTopHighlightCards(patterns) {
     // Cập nhật nhãn dự đoán tới ngày trên tiêu đề
     const topDateInd = document.getElementById('pattern-top-date-indicator');
     if (topDateInd) {
-        topDateInd.innerHTML = `Dự đoán tới ngày: <b class="text-amber-400 font-bold">${activeDateFormatted}</b>`;
+        let lockBadge = '';
+        if (CURRENT_SCAN_DATA?.isSnapshot) {
+            lockBadge = `<span class="ml-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-black text-amber-300 bg-amber-950/80 border border-amber-500/60 rounded-full shadow-[0_0_12px_rgba(245,158,11,0.3)]"><i class="fa-solid fa-lock text-amber-400"></i> Snapshot Cố Định</span>`;
+        }
+        topDateInd.innerHTML = `Dự đoán tới ngày: <b class="text-amber-400 font-bold">${activeDateFormatted}</b>${lockBadge}`;
     }
 
     // Lọc xếp hạng CHỈ CHO CẦU ĂN THÔNG 4 NGÀY theo đúng yêu cầu người dùng
@@ -608,7 +606,7 @@ function filterPatternsTable() {
 function selectPatternById(patternId, shouldScroll = false) {
     const pattern = window.ALL_LOADED_PATTERNS[patternId];
     if (pattern) {
-        const anchorDate = window.CURRENT_AUTO_PATTERN_DATE || null;
+        const anchorDate = window.SELECTED_DRAW_DATE || window.CURRENT_AUTO_PATTERN_DATE || null;
         selectPatternForVisualization(pattern, shouldScroll, anchorDate);
     }
 }
@@ -624,18 +622,18 @@ function openPatternDetailDrawerById(patternId) {
 async function selectPatternForVisualization(pattern, shouldScroll = false, anchorDate = null) {
     if (!pattern) return;
     CURRENT_ACTIVE_PATTERN = pattern;
-    if (anchorDate) {
-        CURRENT_ACTIVE_PATTERN.anchorDate = anchorDate;
-    } else if (CURRENT_ACTIVE_PATTERN && !anchorDate && CURRENT_ACTIVE_PATTERN.anchorDate) {
-        // Keep existing anchorDate if re-selecting same active pattern
-        anchorDate = CURRENT_ACTIVE_PATTERN.anchorDate;
+    
+    // Ưu tiên mốc thời gian vẽ đường cầu độc lập SELECTED_DRAW_DATE
+    const targetAnchorDate = anchorDate || window.SELECTED_DRAW_DATE || CURRENT_ACTIVE_PATTERN.anchorDate || null;
+    if (targetAnchorDate) {
+        CURRENT_ACTIVE_PATTERN.anchorDate = targetAnchorDate;
     }
 
     // Cập nhật tiêu đề và công thức trong khu vực Visualization
     setElText('vis-pattern-title', pattern.name);
     setElText('vis-pattern-formula', pattern.formula);
 
-    const activeDate = anchorDate || window.CURRENT_AUTO_PATTERN_DATE || null;
+    const activeDate = targetAnchorDate;
     let visPredStr = pattern.nextPrediction?.join(' - ') || '--';
     if (activeDate && pattern.recentHistory) {
         const hist = pattern.recentHistory.find(h => h.targetDate === activeDate);
@@ -670,8 +668,8 @@ async function selectPatternForVisualization(pattern, shouldScroll = false, anch
 
     try {
         let url = `/api/patterns/details?pos_a=${pa}&pos_b=${pb}&op=${op}&target_type=${targetType}&day_offset=${dayOffset}&draws=${CURRENT_DISPLAY_DRAWS}`;
-        if (anchorDate) {
-            url += `&anchor_date=${encodeURIComponent(anchorDate)}`;
+        if (targetAnchorDate) {
+            url += `&anchor_date=${encodeURIComponent(targetAnchorDate)}`;
         }
         console.log('[Pattern Visualizer] Loading details:', url);
         const res = await fetch(url);

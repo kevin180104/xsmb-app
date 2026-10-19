@@ -396,6 +396,8 @@ def api_patterns_scan():
     if anchor_date == 'latest' or anchor_date == '':
         anchor_date = None
 
+    force_refresh = str(args.get('force_refresh', 'false')).lower() in ('true', '1', 'yes')
+
     res = scan_patterns_service(
         days=days,
         min_occurrences=min_occ,
@@ -405,7 +407,8 @@ def api_patterns_scan():
         target_type=target_type,
         day_offset=day_offset,
         top_n=top_n,
-        anchor_date=anchor_date
+        anchor_date=anchor_date,
+        force_refresh=force_refresh
     )
     return jsonify(res)
 
@@ -419,6 +422,7 @@ def api_pattern_streak_bridges():
         target_type = request.args.get('target_type', 'loto_2digit')
         op = request.args.get('op', 'CONCAT_PAIR')
         limit = int(request.args.get('limit', 300))
+        force_refresh = request.args.get('force_refresh', 'false').lower() in ('true', '1', 'yes')
 
         data = get_streak_bridges_service(
             target_date_str=date_val,
@@ -426,7 +430,8 @@ def api_pattern_streak_bridges():
             exact_streak=exact_val,
             target_type_str=target_type,
             op_str=op,
-            limit=limit
+            limit=limit,
+            force_refresh=force_refresh
         )
         return jsonify(data)
     except Exception as e:
