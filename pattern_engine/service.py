@@ -73,7 +73,8 @@ def scan_patterns_service(
     day_offset: int = 1,
     top_n: int = 30,
     anchor_date: Optional[str] = None,
-    force_refresh: bool = False
+    force_refresh: bool = False,
+    saved_only: bool = False
 ) -> Dict[str, Any]:
     """
     Dịch vụ quét tự động tìm đường cầu và quản lý snapshot đề xuất Top 3 theo ngày.
@@ -110,7 +111,7 @@ def scan_patterns_service(
             target_date_disp = target_date
 
     # 2. KIỂM TRA SNAPSHOT ĐÃ LƯU TRONG DATABASE (Bảo đảm tính bất biến)
-    if not force_refresh:
+    if saved_only or not force_refresh:
         saved_snapshot = database.get_top3_snapshot(target_date)
         if saved_snapshot:
             patterns = saved_snapshot.get("patterns", [])
@@ -173,6 +174,9 @@ def scan_patterns_service(
                 "scanSummary": scan_summary,
                 "patterns": patterns
             }
+
+    if saved_only:
+        return {"status": "NOT_FOUND", "message": "Chưa có dự đoán được lưu cho ngày này."}
 
     # 3. CHƯA CÓ SNAPSHOT (Hoặc người dùng bấm force_refresh=True để tính lại)
     # Tìm kỳ quay nguồn: kỳ gần nhất có draw_date < target_date

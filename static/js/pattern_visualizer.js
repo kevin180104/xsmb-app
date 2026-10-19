@@ -243,6 +243,8 @@ async function initAutoPatternTab() {
     }
     updateDrawBridgeQuickDateButtons(initDate, draws);
 
+    await loadPredictionHistory(true);
+
     // 2. Tải Top 3 đề xuất theo snapshot cố định của ngày hiện tại (nếu chưa tải)
     if (!CURRENT_SCAN_DATA) {
         await triggerAutoDiscovery(null, false);
@@ -263,7 +265,7 @@ window.calculateAutoPatternDate = () => {
 // Kích hoạt quét tự động [TỰ TÌM ĐƯỜNG CẦU]
 // forceRefresh: false (mặc định) => Ưu tiên đọc snapshot cố định theo ngày đã lưu trong DB
 // forceRefresh: true => Chủ động quét lại và ghi đè/cập nhật snapshot
-async function triggerAutoDiscovery(anchorDateOverride = null, forceRefresh = false) {
+async function triggerAutoDiscovery(anchorDateOverride = null, forceRefresh = false, savedOnly = false) {
     const rangeDays = document.getElementById('pattern-range-select')?.value || '60';
     const minOcc = document.getElementById('pattern-min-occ')?.value || '10';
     const minConf = document.getElementById('pattern-min-conf')?.value || '0.40';
@@ -288,6 +290,7 @@ async function triggerAutoDiscovery(anchorDateOverride = null, forceRefresh = fa
         if (anchorDate) {
             url += `&anchor_date=${encodeURIComponent(anchorDate)}`;
         }
+        if (savedOnly) url += '&saved_only=true';
         if (forceRefresh) {
             url += `&force_refresh=true`;
         }
@@ -298,6 +301,7 @@ async function triggerAutoDiscovery(anchorDateOverride = null, forceRefresh = fa
 
         if (data.status === 'SUCCESS') {
             CURRENT_SCAN_DATA = data;
+            window.CURRENT_AUTO_PATTERN_DATE = data.targetDate;
             
             // Lưu vào map toàn cục để tránh lỗi JSON stringify trong HTML onclick
             window.ALL_LOADED_PATTERNS = {};
@@ -1711,3 +1715,53 @@ function visualizeFromStreakModal() {
     visualizeStreakBridge(b.posA, b.posB, b.operation, data.targetType, data.queryDate, b.labelA, b.labelB, b.displayPrizeA, b.displayPrizeB, b.predictedNumbers, b.streak);
 }
 
+
+
+let predictionHistoryCursor = null;
+let predictionHistoryLoading = false;
+let predictionHistoryFilters = {};
+async function loadPredictionHistory(reset = true) {
+    if (predictionHistoryLoading) return;
+    const select = document.getElementById('prediction-history-date');
+    const message = document.getElementById('prediction-history-message');
+    const more = document.getElementById('prediction-history-more');
+    if (!select) return;
+    predictionHistoryLoading = true;
+    more.disabled = true;
+    message.textContent = 'Đang tải lịch sử…';
+    try {
+        const filters = reset ? {
+            start: document.getElementById('prediction-history-start').value,
+            end: document.getElementById('prediction-history-end').value
+        } : predictionHistoryFilters;
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+        if (!reset && predictionHistoryCursor) params.set('before', predictionHistoryCursor);
+        const response = await fetch('/api/patterns/history?' + params);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Không tải được lịch sử.');
+        if (reset) {
+            select.replaceChildren(new Option('Chọn ngày đã lưu', ''));
+            predictionHistoryFilters = filters;
+        }
+        for (const row of data.dates) select.add(new Option(formatToDayMonthYear(row.target_date), row.target_date));
+        predictionHistoryCursor = data.next_before;
+        more.hidden = !predictionHistoryCursor;
+        message.textContent = select.options.length > 1 ? `Đã tải ${select.options.length - 1} ngày dự đoán đã lưu.` : 'Chưa có dự đoán được lưu trong khoảng ngày này.';
+    } catch (error) {
+        message.textContent = error.message || 'Không tải được lịch sử. Vui lòng thử lại.';
+    } finally {
+        predictionHistoryLoading = false;
+        more.disabled = false;
+    }
+}
+async function openPredictionHistory() {
+    const select = document.getElementById('prediction-history-date');
+    if (!select.value) return;
+    select.disabled = true;
+    try {
+        await triggerAutoDiscovery(select.value, false, true);
+    } finally {
+        select.disabled = false;
+    }
+}

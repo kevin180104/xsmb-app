@@ -310,6 +310,14 @@
                             Tính đến: <b class="text-yellow-400 font-bold">Kỳ mới nhất</b>
                         </span>
                     </div>
+                    <div class="flex flex-wrap items-center gap-2 text-sm">
+                        <label>Từ ngày <input id="prediction-history-start" type="date" class="bg-neutral-800 rounded p-2"></label>
+                        <label>Đến ngày <input id="prediction-history-end" type="date" class="bg-neutral-800 rounded p-2"></label>
+                        <button onclick="loadPredictionHistory(true)" class="bg-neutral-800 rounded p-2">Tìm lịch sử</button>
+                        <label>Ngày đã lưu <select id="prediction-history-date" onchange="openPredictionHistory()" class="bg-neutral-800 rounded p-2"><option value="">Chọn ngày</option></select></label>
+                        <button id="prediction-history-more" onclick="loadPredictionHistory(false)" class="bg-neutral-800 rounded p-2" hidden>Xem thêm</button>
+                        <span id="prediction-history-message" role="status" aria-live="polite"></span>
+                    </div>
                     <div id="pattern-top-cards-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <!-- Populated by JS -->
                     </div>

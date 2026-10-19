@@ -593,3 +593,20 @@ def get_streak_bridges_snapshot(query_date, streak, exact_streak, target_type):
         return None
     return json.loads(row["data_json"]) if row["data_json"] else None
 
+
+
+def list_top3_history(before=None, start=None, end=None, limit=30):
+    """Read saved prediction dates without loading pattern payloads or creating snapshots."""
+    clauses, params = [], []
+    for value, expression in ((before, "target_date < ?"), (start, "target_date >= ?"), (end, "target_date <= ?")):
+        if value:
+            clauses.append(expression)
+            params.append(value)
+    where = " WHERE " + " AND ".join(clauses) if clauses else ""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT target_date, date_display FROM daily_top3_snapshots" + where +
+            " ORDER BY target_date DESC LIMIT ?", params + [limit + 1]
+        ).fetchall()
+    return {"dates": [dict(row) for row in rows[:limit]],
+            "next_before": rows[limit - 1]["target_date"] if len(rows) > limit else None}

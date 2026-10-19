@@ -371,6 +371,23 @@ def api_pattern_coords():
     coords = [c.to_dict() for c in pattern_engine.ALL_COORDS]
     return jsonify({"coords": coords, "total": len(coords)})
 
+@app.route('/api/patterns/history')
+def api_patterns_history():
+    from datetime import date
+    filters = {}
+    try:
+        for key in ('before', 'start', 'end'):
+            value = request.args.get(key)
+            if value:
+                if date.fromisoformat(value).isoformat() != value:
+                    raise ValueError()
+                filters[key] = value
+        if filters.get('start', '') > filters.get('end', '9999-12-31'):
+            raise ValueError()
+    except ValueError:
+        return jsonify({"status": "ERROR", "message": "Vui lòng chọn khoảng ngày hợp lệ."}), 400
+    return jsonify(database.list_top3_history(**filters))
+
 @app.route('/api/patterns/scan', methods=['GET', 'POST'])
 def api_patterns_scan():
     """Tự động đào tìm và xếp hạng các đường cầu lặp lại tiềm năng nhất (Pattern Mining)"""
@@ -408,7 +425,8 @@ def api_patterns_scan():
         day_offset=day_offset,
         top_n=top_n,
         anchor_date=anchor_date,
-        force_refresh=force_refresh
+        force_refresh=force_refresh,
+        saved_only=str(args.get('saved_only', 'false')).lower() == 'true'
     )
     return jsonify(res)
 
