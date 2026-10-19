@@ -10,7 +10,7 @@ from pattern_engine.service import scan_patterns_service
 
 class PredictionHistoryTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
+        self.temp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(self.temp.cleanup)
         self.binding = patch.object(config, 'DB_PATH', str(Path(self.temp.name) / 'history.db'))
         self.binding.start()
