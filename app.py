@@ -23,7 +23,8 @@ import excel_exporter
 import pattern_engine
 from pattern_engine.service import (
     scan_patterns_service, get_pattern_visualization_service,
-    get_streak_bridges_service, invalidate_pattern_cache
+    get_streak_bridges_service, invalidate_pattern_cache,
+    get_top3_history_service
 )
 
 app = Flask(__name__)
@@ -411,6 +412,16 @@ def api_patterns_scan():
         force_refresh=force_refresh
     )
     return jsonify(res)
+
+@app.route('/api/patterns/top3-history')
+def api_pattern_top3_history():
+    """Lấy danh sách lịch sử các snapshot Top 3 theo từng ngày và kết quả nổ/gãy đối chiếu"""
+    try:
+        limit = int(request.args.get('limit', 30))
+        data = get_top3_history_service(limit=limit)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"status": "ERROR", "message": str(e)}), 400
 
 @app.route('/api/patterns/streak-bridges')
 def api_pattern_streak_bridges():

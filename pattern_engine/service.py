@@ -607,3 +607,77 @@ def get_streak_bridges_service(
 
     return res_payload
 
+
+def get_top3_history_service(limit: int = 30) -> Dict[str, Any]:
+    """
+    Lấy danh sách các snapshot Top 3 theo từng ngày,
+    kèm theo đối chiếu kết quả thực tế (Hit/Miss, số nháy nổ) cho mỗi ngày.
+    """
+    raw_snapshots = database.get_all_top3_snapshots(limit=limit)
+    history = []
+
+    for snap in raw_snapshots:
+        target_date = snap["target_date"]
+        target_disp = snap.get("date_display", target_date)
+        source_date = snap.get("source_date", "")
+
+        actual_result = database.get_result_by_date(target_date)
+
+        def evaluate_pair(pair_str, lotos_list):
+            if not pair_str or not lotos_list:
+                return {"hit": False, "matched": [], "hits_count": 0}
+            nums = [n.strip() for n in pair_str.split("-") if n.strip()]
+            matched = [n for n in nums if n in lotos_list]
+            hits_count = sum(lotos_list.count(n) for n in matched)
+            return {
+                "hit": len(matched) > 0,
+                "matched": matched,
+                "hits_count": hits_count
+            }
+
+        actual_lotos = actual_result.get("loto_2digit", []) if actual_result else []
+        is_pending = (actual_result is None)
+
+        top1_eval = evaluate_pair(snap.get("top1_pair", ""), actual_lotos) if not is_pending else {"hit": None, "matched": [], "hits_count": 0}
+        top2_eval = evaluate_pair(snap.get("top2_pair", ""), actual_lotos) if not is_pending else {"hit": None, "matched": [], "hits_count": 0}
+        top3_eval = evaluate_pair(snap.get("top3_pair", ""), actual_lotos) if not is_pending else {"hit": None, "matched": [], "hits_count": 0}
+
+        total_hit_pairs = sum(1 for ev in (top1_eval, top2_eval, top3_eval) if ev.get("hit"))
+        total_hits_count = sum(ev.get("hits_count", 0) for ev in (top1_eval, top2_eval, top3_eval))
+
+        history.append({
+            "targetDate": target_date,
+            "targetDateDisplay": target_disp,
+            "sourceDate": source_date,
+            "isPending": is_pending,
+            "top1": {
+                "pair": snap.get("top1_pair", ""),
+                "name": snap.get("top1_name", ""),
+                "eval": top1_eval
+            },
+            "top2": {
+                "pair": snap.get("top2_pair", ""),
+                "name": snap.get("top2_name", ""),
+                "eval": top2_eval
+            },
+            "top3": {
+                "pair": snap.get("top3_pair", ""),
+                "name": snap.get("top3_name", ""),
+                "eval": top3_eval
+            },
+            "summary": {
+                "hitPairs": total_hit_pairs,
+                "totalPairs": 3,
+                "totalHits": total_hits_count,
+                "isWin": (total_hit_pairs > 0) if not is_pending else None
+            },
+            "createdAt": snap.get("created_at", "")
+        })
+
+    return {
+        "status": "SUCCESS",
+        "total": len(history),
+        "history": history
+    }
+
+

@@ -243,13 +243,280 @@ async function initAutoPatternTab() {
     }
     updateDrawBridgeQuickDateButtons(initDate, draws);
 
-    // 2. Tải Top 3 đề xuất theo snapshot cố định của ngày hiện tại (nếu chưa tải)
+    // 2. Khởi tạo bộ chọn ngày cho Top 3
+    initTop3DateSelector();
+
+    // 3. Tải Top 3 đề xuất theo snapshot cố định của ngày hiện tại (nếu chưa tải)
     if (!CURRENT_SCAN_DATA) {
         await triggerAutoDiscovery(null, false);
     } else {
         setTimeout(redrawCurrentSvg, 150);
     }
 }
+
+// =========================================================================
+// QUẢN LÝ MỐC NGÀY XEM TOP 3 ĐỀ XUẤT & LỊCH SỬ KẾT QUẢ ĐỐI CHIẾU
+// =========================================================================
+
+// Khởi tạo danh sách ngày vào dropdown Top 3
+async function initTop3DateSelector() {
+    const selectEl = document.getElementById('top3-date-select');
+    if (!selectEl) return;
+
+    try {
+        const res = await fetch('/api/patterns/top3-history?limit=30');
+        const data = await res.json();
+        
+        const draws = await getCachedDrawResults();
+        const latestRealDate = getLatestAvailableDrawDate(draws);
+        const tomorrowStr = getVietnamTomorrowDate();
+
+        let optionsHtml = '';
+        
+        // 1. Mặc định: Kỳ mới nhất (Dự đoán ngày tiếp theo)
+        optionsHtml += `<option value="latest" selected>🌟 Kỳ mới nhất (Dự đoán ${formatToDayMonthYear(tomorrowStr)})</option>`;
+        
+        // 2. Hôm qua (Kỳ đã mở thưởng gần nhất)
+        if (latestRealDate) {
+            optionsHtml += `<option value="${latestRealDate}">📅 Hôm qua (${formatToDayMonthYear(latestRealDate)})</option>`;
+        }
+
+        // 3. Danh sách các ngày trong lịch sử từ snapshots
+        if (data && data.history && data.history.length > 0) {
+            data.history.forEach(item => {
+                if (item.targetDate === latestRealDate) return;
+                
+                let statusLabel = '';
+                if (item.isPending) {
+                    statusLabel = '⏳ Chờ KQ';
+                } else if (item.summary?.isWin) {
+                    statusLabel = `🎯 Nổ ${item.summary.hitPairs}/3 cặp (${item.summary.totalHits} nháy)`;
+                } else {
+                    statusLabel = '❌ Chưa về';
+                }
+
+                optionsHtml += `<option value="${item.targetDate}">${formatToDayMonthYear(item.targetDate)} - ${statusLabel}</option>`;
+            });
+        }
+
+        selectEl.innerHTML = optionsHtml;
+    } catch (e) {
+        console.error('Lỗi khi nạp danh sách ngày Top 3:', e);
+    }
+}
+
+// Cập nhật trạng thái nút bấm nhanh Top 3
+function updateTop3QuickButtons(currentVal, latestDate, yesterdayDate) {
+    const btnLatest = document.getElementById('btn-top3-quick-latest');
+    const btnYesterday = document.getElementById('btn-top3-quick-yesterday');
+
+    const activeCls = 'px-3 py-1.5 rounded-xl text-xs font-black bg-amber-500/25 text-amber-300 border border-amber-500/70 shadow-[0_0_12px_rgba(245,158,11,0.3)] transition cursor-pointer';
+    const inactiveCls = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition cursor-pointer';
+
+    if (btnLatest) {
+        btnLatest.className = (currentVal === 'latest') ? activeCls : inactiveCls;
+    }
+    if (btnYesterday) {
+        btnYesterday.className = (currentVal === 'yesterday' || currentVal === yesterdayDate) ? activeCls : inactiveCls;
+    }
+}
+
+// Chuyển mốc thời gian xem Top 3
+async function selectTop3Date(dateVal) {
+    if (!dateVal) return;
+
+    const draws = await getCachedDrawResults();
+    const latestRealDate = getLatestAvailableDrawDate(draws);
+
+    let targetDate = null;
+    let valForDropdown = dateVal;
+
+    if (dateVal === 'latest') {
+        targetDate = null;
+        window.CURRENT_AUTO_PATTERN_DATE = null;
+    } else if (dateVal === 'yesterday') {
+        targetDate = latestRealDate;
+        window.CURRENT_AUTO_PATTERN_DATE = latestRealDate;
+        valForDropdown = latestRealDate;
+    } else {
+        targetDate = dateVal;
+        window.CURRENT_AUTO_PATTERN_DATE = dateVal;
+    }
+
+    updateTop3QuickButtons(dateVal, 'latest', latestRealDate);
+    const selectEl = document.getElementById('top3-date-select');
+    if (selectEl) {
+        selectEl.value = valForDropdown;
+    }
+
+    await triggerAutoDiscovery(targetDate, false);
+}
+
+// Mở Modal Lịch Sử Top 3
+async function openTop3HistoryModal() {
+    const modal = document.getElementById('top3-history-modal');
+    if (!modal) return;
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    const loadingEl = document.getElementById('top3-history-modal-loading');
+    const listEl = document.getElementById('top3-history-modal-list');
+
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    if (listEl) listEl.innerHTML = '';
+
+    try {
+        const res = await fetch('/api/patterns/top3-history?limit=30');
+        const data = await res.json();
+
+        if (loadingEl) loadingEl.classList.add('hidden');
+
+        if (data.status === 'SUCCESS' && data.history) {
+            renderTop3HistoryModal(data);
+        } else {
+            if (listEl) {
+                listEl.innerHTML = '<div class="p-6 text-center text-neutral-400">Chưa có dữ liệu lịch sử Top 3.</div>';
+            }
+        }
+    } catch (e) {
+        console.error('Lỗi khi tải lịch sử Top 3:', e);
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (listEl) {
+            listEl.innerHTML = '<div class="p-6 text-center text-red-400">Lỗi khi tải dữ liệu từ máy chủ.</div>';
+        }
+    }
+}
+
+// Đóng Modal Lịch Sử Top 3
+function closeTop3HistoryModal() {
+    const modal = document.getElementById('top3-history-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+// Render dữ liệu Modal Lịch Sử Top 3
+function renderTop3HistoryModal(data) {
+    const history = data.history || [];
+    
+    // Tính KPI
+    const totalDays = history.length;
+    const completedDays = history.filter(h => !h.isPending);
+    const winDays = completedDays.filter(h => h.summary?.isWin).length;
+    const totalHits = completedDays.reduce((acc, h) => acc + (h.summary?.totalHits || 0), 0);
+    const winRate = completedDays.length > 0 ? ((winDays / completedDays.length) * 100).toFixed(1) : '0.0';
+
+    setElText('modal-top3-stat-total', `${totalDays} kỳ`);
+    setElText('modal-top3-stat-wins', `${winDays}/${completedDays.length} kỳ`);
+    setElText('modal-top3-stat-rate', `${winRate}%`);
+    setElText('modal-top3-stat-hits', `${totalHits} nháy`);
+
+    const listEl = document.getElementById('top3-history-modal-list');
+    if (!listEl) return;
+
+    if (history.length === 0) {
+        listEl.innerHTML = '<div class="p-6 text-center text-neutral-400">Không có bản ghi nào.</div>';
+        return;
+    }
+
+    listEl.innerHTML = history.map(item => {
+        const formattedDate = formatToDayMonthYear(item.targetDate);
+        const sourceFormatted = formatToDayMonthYear(item.sourceDate);
+
+        let statusBadge = '';
+        if (item.isPending) {
+            statusBadge = `
+                <span class="px-3 py-1 rounded-full text-xs font-bold text-amber-300 bg-amber-950/80 border border-amber-500/50 flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.25)]">
+                    <i class="fa-solid fa-clock text-amber-400"></i> Đang chờ mở thưởng 18h15
+                </span>
+            `;
+        } else if (item.summary?.isWin) {
+            statusBadge = `
+                <span class="px-3 py-1 rounded-full text-xs font-black text-emerald-300 bg-emerald-950/80 border border-emerald-500/50 flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.3)]">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> NỔ ${item.summary.hitPairs}/3 CẶP (${item.summary.totalHits} NHÁY)
+                </span>
+            `;
+        } else {
+            statusBadge = `
+                <span class="px-3 py-1 rounded-full text-xs font-semibold text-neutral-400 bg-neutral-900 border border-neutral-700 flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-xmark text-red-400"></i> Chưa về kỳ này
+                </span>
+            `;
+        }
+
+        const renderPairBadge = (topObj, label, colorCls, borderCls) => {
+            const pair = topObj?.pair || '--';
+            const isHit = topObj?.eval?.hit;
+            const hitsCount = topObj?.eval?.hits_count || 0;
+            const matchedStr = topObj?.eval?.matched?.join(', ') || '';
+
+            let hitIndicator = '';
+            if (isHit) {
+                hitIndicator = `<span class="ml-1 text-[10px] font-black text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-500/50">Nổ ${matchedStr} (${hitsCount}n)</span>`;
+            }
+
+            return `
+                <div class="p-2.5 rounded-xl bg-black/60 border ${borderCls} flex flex-col justify-between">
+                    <div class="text-[10px] uppercase font-bold text-neutral-400">${label}</div>
+                    <div class="flex items-center justify-between mt-1">
+                        <span class="text-sm font-black font-mono ${colorCls}">${pair}</span>
+                        ${hitIndicator}
+                    </div>
+                </div>
+            `;
+        };
+
+        return `
+            <div class="p-4 sm:p-5 rounded-2xl bg-neutral-900/90 border border-neutral-800 hover:border-amber-500/40 transition space-y-3 shadow-md">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-neutral-800/80 pb-3">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm sm:text-base font-black text-white font-mono flex items-center gap-1.5">
+                                <i class="fa-solid fa-calendar-day text-amber-400"></i> Kỳ dự đoán: ${formattedDate}
+                            </span>
+                            <span class="text-[11px] text-neutral-400 font-mono hidden sm:inline">(Soi từ kỳ: ${sourceFormatted})</span>
+                        </div>
+                    </div>
+                    <div>
+                        ${statusBadge}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    ${renderPairBadge(item.top1, '🏆 TOP #1', 'text-yellow-300', 'border-yellow-500/40')}
+                    ${renderPairBadge(item.top2, 'TOP #2', 'text-cyan-400', 'border-cyan-500/40')}
+                    ${renderPairBadge(item.top3, 'TOP #3', 'text-emerald-400', 'border-emerald-500/40')}
+                </div>
+
+                <div class="flex justify-end pt-1">
+                    <button type="button" onclick="applyHistoryDateToTop3('${item.targetDate}')" 
+                            class="px-4 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white shadow transition hover:scale-105 active:scale-95 flex items-center gap-1.5 cursor-pointer">
+                        <i class="fa-solid fa-eye text-yellow-300"></i>
+                        <span>Xem Lại Kỳ Này Trên Trang Chủ</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Nạp một ngày từ lịch sử vào trang chủ và cuộn đến khu vực Top 3
+async function applyHistoryDateToTop3(targetDate) {
+    closeTop3HistoryModal();
+    await selectTop3Date(targetDate);
+    const topSection = document.getElementById('pattern-top-section');
+    if (topSection) {
+        topSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// Aliases toàn cục an toàn
+window.initTop3DateSelector = initTop3DateSelector;
+window.selectTop3Date = selectTop3Date;
+window.openTop3HistoryModal = openTop3HistoryModal;
+window.closeTop3HistoryModal = closeTop3HistoryModal;
+window.applyHistoryDateToTop3 = applyHistoryDateToTop3;
 
 // Aliases tương thích ngược an toàn
 window.openAutoPatternDatePicker = openDrawBridgeDatePicker;
@@ -263,6 +530,7 @@ window.calculateAutoPatternDate = () => {
 // Kích hoạt quét tự động [TỰ TÌM ĐƯỜNG CẦU]
 // forceRefresh: false (mặc định) => Ưu tiên đọc snapshot cố định theo ngày đã lưu trong DB
 // forceRefresh: true => Chủ động quét lại và ghi đè/cập nhật snapshot
+
 async function triggerAutoDiscovery(anchorDateOverride = null, forceRefresh = false) {
     const rangeDays = document.getElementById('pattern-range-select')?.value || '60';
     const minOcc = document.getElementById('pattern-min-occ')?.value || '10';
