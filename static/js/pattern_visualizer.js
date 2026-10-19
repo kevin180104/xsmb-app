@@ -249,7 +249,10 @@ async function initAutoPatternTab() {
     // 2. Khởi tạo bộ chọn ngày cho Top 3
     initTop3DateSelector();
 
-    // 3. Tải Top 3 đề xuất theo snapshot cố định của ngày hiện tại (nếu chưa tải)
+    // 3. Tải bảng lịch sử dự đoán Top 3 các kỳ trước
+    loadTop3HistoryTable();
+
+    // 4. Tải Top 3 đề xuất theo snapshot cố định của ngày hiện tại (nếu chưa tải)
     if (!CURRENT_SCAN_DATA) {
         await triggerAutoDiscovery(null, false);
     } else {
@@ -514,12 +517,270 @@ async function applyHistoryDateToTop3(targetDate) {
     }
 }
 
+// =========================================================================
+// QUẢN LÝ BẢNG LỊCH SỬ DỰ ĐOÁN TOP 3 TRÊN TRANG CHỦ (IN-PAGE TABLE)
+// =========================================================================
+
+let CURRENT_TOP3_HISTORY_DATA = [];
+let CURRENT_TOP3_HISTORY_FILTER = 'all';
+
+// Hàm tải dữ liệu bảng lịch sử Top 3
+async function loadTop3HistoryTable(forceReload = false) {
+    const tableBody = document.getElementById('top3-history-table-body');
+    if (!tableBody) return;
+
+    if (forceReload || !CURRENT_TOP3_HISTORY_DATA || CURRENT_TOP3_HISTORY_DATA.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="p-8 text-center text-neutral-400">
+                    <i class="fa-solid fa-spinner fa-spin text-xl text-amber-400 mb-2"></i>
+                    <p class="font-bold text-xs text-neutral-300">Đang tải dữ liệu lịch sử các kỳ...</p>
+                </td>
+            </tr>
+        `;
+        try {
+            const res = await fetch('/api/patterns/top3-history?limit=100');
+            const data = await res.json();
+            if (data.status === 'SUCCESS' && data.history) {
+                CURRENT_TOP3_HISTORY_DATA = data.history;
+            } else {
+                CURRENT_TOP3_HISTORY_DATA = [];
+            }
+        } catch (err) {
+            console.error('Lỗi tải lịch sử Top 3:', err);
+            CURRENT_TOP3_HISTORY_DATA = [];
+        }
+    }
+
+    renderTop3HistoryTableContent();
+}
+
+// Cập nhật thống kê và render nội dung bảng
+function renderTop3HistoryTableContent() {
+    const history = CURRENT_TOP3_HISTORY_DATA || [];
+    const tableBody = document.getElementById('top3-history-table-body');
+    const summaryEl = document.getElementById('top3-history-table-summary');
+    if (!tableBody) return;
+
+    // Tính KPI tổng
+    const totalDays = history.length;
+    const completedDays = history.filter(h => !h.isPending);
+    const winDays = completedDays.filter(h => h.summary?.isWin).length;
+    const totalHits = completedDays.reduce((acc, h) => acc + (h.summary?.totalHits || 0), 0);
+    const winRate = completedDays.length > 0 ? ((winDays / completedDays.length) * 100).toFixed(1) : '0.0';
+
+    setElText('table-top3-stat-total', `${totalDays} kỳ`);
+    setElText('table-top3-stat-wins', `${winDays}/${completedDays.length} kỳ`);
+    setElText('table-top3-stat-rate', `${winRate}%`);
+    setElText('table-top3-stat-hits', `${totalHits} nháy`);
+
+    // Cập nhật số đếm trên các nút filter
+    const countAll = totalDays;
+    const countWin = winDays;
+    const countLose = completedDays.filter(h => !h.summary?.isWin).length;
+    const countPending = history.filter(h => h.isPending).length;
+
+    setElText('cnt-flt-all', countAll);
+    setElText('cnt-flt-win', countWin);
+    setElText('cnt-flt-lose', countLose);
+    setElText('cnt-flt-pending', countPending);
+
+    // Lọc theo search keyword
+    const searchVal = document.getElementById('top3-history-search-input')?.value?.trim().toLowerCase() || '';
+
+    // Lọc theo status filter
+    let filtered = history.filter(item => {
+        if (CURRENT_TOP3_HISTORY_FILTER === 'win') return !item.isPending && item.summary?.isWin;
+        if (CURRENT_TOP3_HISTORY_FILTER === 'lose') return !item.isPending && !item.summary?.isWin;
+        if (CURRENT_TOP3_HISTORY_FILTER === 'pending') return item.isPending;
+        return true;
+    });
+
+    if (searchVal) {
+        filtered = filtered.filter(item => {
+            const dateStr = item.targetDate || '';
+            const p1 = item.top1?.pair || '';
+            const p2 = item.top2?.pair || '';
+            const p3 = item.top3?.pair || '';
+            return dateStr.includes(searchVal) || p1.includes(searchVal) || p2.includes(searchVal) || p3.includes(searchVal);
+        });
+    }
+
+    if (summaryEl) {
+        summaryEl.innerHTML = `Hiển thị <b>${filtered.length}</b> / <b>${totalDays}</b> kỳ dự đoán lịch sử`;
+    }
+
+    if (filtered.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="p-8 text-center text-neutral-400">
+                    <i class="fa-solid fa-filter-circle-xmark text-2xl text-neutral-600 mb-2"></i>
+                    <p class="text-sm font-bold text-neutral-300">Không tìm thấy bản ghi nào phù hợp với bộ lọc.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tableBody.innerHTML = filtered.map((item, idx) => {
+        const formattedTarget = formatToDayMonthYear(item.targetDate);
+        const formattedSource = formatToDayMonthYear(item.sourceDate);
+
+        // Render từng Top
+        const renderCellTop = (topObj, label, textColor) => {
+            const pair = topObj?.pair || '--';
+            const isHit = topObj?.eval?.hit;
+            const hitsCount = topObj?.eval?.hits_count || 0;
+            const matchedList = topObj?.eval?.matched || [];
+
+            let badgeHtml = '';
+            if (item.isPending) {
+                badgeHtml = `<span class="text-[10px] text-neutral-500 font-mono">Đang chờ</span>`;
+            } else if (isHit) {
+                badgeHtml = `<span class="inline-flex items-center gap-1 text-[10px] font-black text-emerald-300 bg-emerald-950/90 border border-emerald-500/60 px-1.5 py-0.5 rounded shadow-[0_0_8px_rgba(16,185,129,0.3)]">Nổ ${matchedList.join(', ')} (${hitsCount}n)</span>`;
+            } else {
+                badgeHtml = `<span class="text-[10px] text-neutral-500 font-mono">Xịt</span>`;
+            }
+
+            return `
+                <div class="text-center py-1">
+                    <div class="font-black text-sm ${textColor}">${pair}</div>
+                    <div class="mt-0.5">${badgeHtml}</div>
+                </div>
+            `;
+        };
+
+        // Cột Kết quả nổ trúng
+        let resultColHtml = '';
+        if (item.isPending) {
+            resultColHtml = `
+                <span class="text-xs font-bold text-amber-300 flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-clock text-amber-400"></i> Chờ mở thưởng 18h15
+                </span>
+            `;
+        } else if (item.summary?.isWin) {
+            resultColHtml = `
+                <div class="text-center">
+                    <span class="text-xs font-black text-emerald-400 font-mono">Nổ ${item.summary.hitPairs}/3 cặp</span>
+                    <div class="text-[11px] text-yellow-300 font-bold font-mono">Tổng: ${item.summary.totalHits} nháy</div>
+                </div>
+            `;
+        } else {
+            resultColHtml = `
+                <span class="text-xs font-semibold text-neutral-500 font-mono">Gãy cả 3 cặp</span>
+            `;
+        }
+
+        // Cột Đánh giá (Badge Win/Lose/Pending)
+        let evalBadgeHtml = '';
+        if (item.isPending) {
+            evalBadgeHtml = `<span class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-300 bg-amber-950/80 border border-amber-500/50">⏳ CHỜ KQ</span>`;
+        } else if (item.summary?.isWin) {
+            evalBadgeHtml = `<span class="px-2.5 py-1 rounded-lg text-[11px] font-black text-emerald-300 bg-emerald-950/90 border border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]">🎯 THẮNG (WIN)</span>`;
+        } else {
+            evalBadgeHtml = `<span class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-neutral-400 bg-neutral-900 border border-neutral-700">❌ TRƯỢT</span>`;
+        }
+
+        return `
+            <tr class="hover:bg-neutral-800/40 transition border-b border-neutral-800/60">
+                <td class="p-3 text-center text-neutral-400 font-bold">${idx + 1}</td>
+                <td class="p-3">
+                    <div class="font-black text-white text-xs">${formattedTarget}</div>
+                    <div class="text-[10px] text-neutral-500 font-mono">Soi: ${formattedSource}</div>
+                </td>
+                <td class="p-2.5">${renderCellTop(item.top1, 'Top 1', 'text-yellow-400 font-mono text-base')}</td>
+                <td class="p-2.5">${renderCellTop(item.top2, 'Top 2', 'text-cyan-400 font-mono text-base')}</td>
+                <td class="p-2.5">${renderCellTop(item.top3, 'Top 3', 'text-emerald-400 font-mono text-base')}</td>
+                <td class="p-3 text-center">${resultColHtml}</td>
+                <td class="p-3 text-center">${evalBadgeHtml}</td>
+                <td class="p-3 text-center">
+                    <div class="flex items-center justify-center gap-1.5">
+                        <button type="button" onclick="applyHistoryDateToTop3('${item.targetDate}')" 
+                                class="px-2.5 py-1 rounded-lg text-[11px] font-black bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 transition cursor-pointer shadow-sm"
+                                title="Nạp lại kết quả ngày này lên 3 Card Top 3">
+                            <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>Xem lại
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Chuyển tab lọc trong bảng
+function filterTop3HistoryTable(filterKey) {
+    CURRENT_TOP3_HISTORY_FILTER = filterKey;
+
+    const btns = {
+        all: document.getElementById('btn-flt-top3-all'),
+        win: document.getElementById('btn-flt-top3-win'),
+        lose: document.getElementById('btn-flt-top3-lose'),
+        pending: document.getElementById('btn-flt-top3-pending')
+    };
+
+    const activeCls = 'px-2.5 py-1 rounded-lg text-xs font-black bg-amber-500/25 text-amber-300 border border-amber-500/70 transition cursor-pointer';
+    const inactiveCls = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition cursor-pointer';
+
+    Object.keys(btns).forEach(k => {
+        if (btns[k]) btns[k].className = (k === filterKey) ? activeCls : inactiveCls;
+    });
+
+    renderTop3HistoryTableContent();
+}
+
+// Tìm kiếm trong bảng
+function onTop3HistorySearchChange() {
+    renderTop3HistoryTableContent();
+}
+
+// Xuất file Excel / CSV cho bảng lịch sử Top 3
+function exportTop3HistoryExcel() {
+    const history = CURRENT_TOP3_HISTORY_DATA || [];
+    if (history.length === 0) {
+        alert('Không có dữ liệu lịch sử để xuất file.');
+        return;
+    }
+
+    let csvContent = '\uFEFF'; // BOM UTF-8 để mở tiếng Việt trên Excel không bị lỗi font
+    csvContent += 'STT,Ky Mo Thuong,Ngay Soi Cau,Top 1 De Xuat,Ket Qua Top 1,Top 2 De Xuat,Ket Qua Top 2,Top 3 De Xuat,Ket Qua Top 3,So Cap No,Tong So Nhay,Danh Gia,Trang Thai\n';
+
+    history.forEach((item, idx) => {
+        const targetDate = item.targetDate;
+        const sourceDate = item.sourceDate;
+        const top1Pair = `"${item.top1?.pair || ''}"`;
+        const top1Res = item.top1?.eval?.hit ? `"No ${item.top1.eval.matched.join(' ')} (${item.top1.eval.hits_count} nhay)"` : (item.isPending ? '"Dang cho"' : '"Xit"');
+        const top2Pair = `"${item.top2?.pair || ''}"`;
+        const top2Res = item.top2?.eval?.hit ? `"No ${item.top2.eval.matched.join(' ')} (${item.top2.eval.hits_count} nhay)"` : (item.isPending ? '"Dang cho"' : '"Xit"');
+        const top3Pair = `"${item.top3?.pair || ''}"`;
+        const top3Res = item.top3?.eval?.hit ? `"No ${item.top3.eval.matched.join(' ')} (${item.top3.eval.hits_count} nhay)"` : (item.isPending ? '"Dang cho"' : '"Xit"');
+        const hitPairs = item.summary?.hitPairs || 0;
+        const totalHits = item.summary?.totalHits || 0;
+        const evalStr = item.isPending ? '"Dang cho mo thuong"' : (item.summary?.isWin ? `"Thang (No ${hitPairs}/3 cap)"` : '"Truot"');
+        const statusStr = item.isPending ? '"PENDING"' : (item.summary?.isWin ? '"WIN"' : '"LOSE"');
+
+        csvContent += `${idx + 1},${targetDate},${sourceDate},${top1Pair},${top1Res},${top2Pair},${top2Res},${top3Pair},${top3Res},${hitPairs},${totalHits},${evalStr},${statusStr}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Lich_Su_Du_Doan_Top3_XSMB_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
 // Aliases toàn cục an toàn
 window.initTop3DateSelector = initTop3DateSelector;
 window.selectTop3Date = selectTop3Date;
 window.openTop3HistoryModal = openTop3HistoryModal;
 window.closeTop3HistoryModal = closeTop3HistoryModal;
 window.applyHistoryDateToTop3 = applyHistoryDateToTop3;
+window.loadTop3HistoryTable = loadTop3HistoryTable;
+window.filterTop3HistoryTable = filterTop3HistoryTable;
+window.onTop3HistorySearchChange = onTop3HistorySearchChange;
+window.exportTop3HistoryExcel = exportTop3HistoryExcel;
 
 // Aliases tương thích ngược an toàn
 window.openAutoPatternDatePicker = openDrawBridgeDatePicker;
