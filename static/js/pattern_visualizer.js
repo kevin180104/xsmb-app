@@ -233,7 +233,7 @@ async function initAutoPatternTab() {
     }
     window.SELECTED_DRAW_DATE = initDate;
     syncDrawBridgeDateDisplay(initDate);
-    
+
     const activeDateText = document.getElementById('draw-bridge-active-date-text');
     if (activeDateText) {
         const parts = initDate.split('-');
@@ -246,12 +246,280 @@ async function initAutoPatternTab() {
     await loadPredictionHistory(true);
 
     // 2. Tải Top 3 đề xuất theo snapshot cố định của ngày hiện tại (nếu chưa tải)
+    // 2. Khởi tạo bộ chọn ngày cho Top 3
+    initTop3DateSelector();
+
+    // 3. Tải Top 3 đề xuất theo snapshot cố định của ngày hiện tại (nếu chưa tải)
     if (!CURRENT_SCAN_DATA) {
         await triggerAutoDiscovery(null, false);
     } else {
         setTimeout(redrawCurrentSvg, 150);
     }
 }
+
+// =========================================================================
+// QUẢN LÝ MỐC NGÀY XEM TOP 3 ĐỀ XUẤT & LỊCH SỬ KẾT QUẢ ĐỐI CHIẾU
+// =========================================================================
+
+// Khởi tạo danh sách ngày vào dropdown Top 3
+async function initTop3DateSelector() {
+    const selectEl = document.getElementById('top3-date-select');
+    if (!selectEl) return;
+
+    try {
+        const res = await fetch('/api/patterns/top3-history?limit=all');
+        const data = await res.json();
+
+        const draws = await getCachedDrawResults();
+        const latestRealDate = getLatestAvailableDrawDate(draws);
+        const tomorrowStr = getVietnamTomorrowDate();
+
+        let optionsHtml = '';
+
+        // 1. Mặc định: Kỳ mới nhất (Dự đoán ngày tiếp theo)
+        optionsHtml += `<option value="latest" selected>🌟 Kỳ mới nhất (Dự đoán ${formatToDayMonthYear(tomorrowStr)})</option>`;
+
+        // 2. Hôm qua (Kỳ đã mở thưởng gần nhất)
+        if (latestRealDate) {
+            optionsHtml += `<option value="${latestRealDate}">📅 Hôm qua (${formatToDayMonthYear(latestRealDate)})</option>`;
+        }
+
+        // 3. Danh sách các ngày trong lịch sử từ snapshots
+        if (data && data.history && data.history.length > 0) {
+            data.history.forEach(item => {
+                if (item.targetDate === latestRealDate) return;
+
+                let statusLabel = '';
+                if (item.isPending) {
+                    statusLabel = '⏳ Chờ KQ';
+                } else if (item.summary?.isWin) {
+                    statusLabel = `🎯 Nổ ${item.summary.hitPairs}/3 cặp (${item.summary.totalHits} nháy)`;
+                } else {
+                    statusLabel = '❌ Chưa về';
+                }
+
+                optionsHtml += `<option value="${item.targetDate}">${formatToDayMonthYear(item.targetDate)} - ${statusLabel}</option>`;
+            });
+        }
+
+        selectEl.innerHTML = optionsHtml;
+    } catch (e) {
+        console.error('Lỗi khi nạp danh sách ngày Top 3:', e);
+    }
+}
+
+// Cập nhật trạng thái nút bấm nhanh Top 3
+function updateTop3QuickButtons(currentVal, latestDate, yesterdayDate) {
+    const btnLatest = document.getElementById('btn-top3-quick-latest');
+    const btnYesterday = document.getElementById('btn-top3-quick-yesterday');
+
+    const activeCls = 'px-3 py-1.5 rounded-xl text-xs font-black bg-amber-500/25 text-amber-300 border border-amber-500/70 shadow-[0_0_12px_rgba(245,158,11,0.3)] transition cursor-pointer';
+    const inactiveCls = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition cursor-pointer';
+
+    if (btnLatest) {
+        btnLatest.className = (currentVal === 'latest') ? activeCls : inactiveCls;
+    }
+    if (btnYesterday) {
+        btnYesterday.className = (currentVal === 'yesterday' || currentVal === yesterdayDate) ? activeCls : inactiveCls;
+    }
+}
+
+// Chuyển mốc thời gian xem Top 3
+async function selectTop3Date(dateVal) {
+    if (!dateVal) return;
+
+    const draws = await getCachedDrawResults();
+    const latestRealDate = getLatestAvailableDrawDate(draws);
+
+    let targetDate = null;
+    let valForDropdown = dateVal;
+
+    if (dateVal === 'latest') {
+        targetDate = null;
+        window.CURRENT_AUTO_PATTERN_DATE = null;
+    } else if (dateVal === 'yesterday') {
+        targetDate = latestRealDate;
+        window.CURRENT_AUTO_PATTERN_DATE = latestRealDate;
+        valForDropdown = latestRealDate;
+    } else {
+        targetDate = dateVal;
+        window.CURRENT_AUTO_PATTERN_DATE = dateVal;
+    }
+
+    updateTop3QuickButtons(dateVal, 'latest', latestRealDate);
+    const selectEl = document.getElementById('top3-date-select');
+    if (selectEl) {
+        selectEl.value = valForDropdown;
+    }
+
+    await triggerAutoDiscovery(targetDate, false, dateVal !== 'latest');
+}
+
+// Mở Modal Lịch Sử Top 3
+async function openTop3HistoryModal() {
+    const modal = document.getElementById('top3-history-modal');
+    if (!modal) return;
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    const loadingEl = document.getElementById('top3-history-modal-loading');
+    const listEl = document.getElementById('top3-history-modal-list');
+
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    if (listEl) listEl.innerHTML = '';
+
+    try {
+        const res = await fetch('/api/patterns/top3-history?limit=all');
+        const data = await res.json();
+
+        if (loadingEl) loadingEl.classList.add('hidden');
+
+        if (data.status === 'SUCCESS' && data.history) {
+            renderTop3HistoryModal(data);
+        } else {
+            if (listEl) {
+                listEl.innerHTML = '<div class="p-6 text-center text-neutral-400">Chưa có dữ liệu lịch sử Top 3.</div>';
+            }
+        }
+    } catch (e) {
+        console.error('Lỗi khi tải lịch sử Top 3:', e);
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (listEl) {
+            listEl.innerHTML = '<div class="p-6 text-center text-red-400">Lỗi khi tải dữ liệu từ máy chủ.</div>';
+        }
+    }
+}
+
+// Đóng Modal Lịch Sử Top 3
+function closeTop3HistoryModal() {
+    const modal = document.getElementById('top3-history-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+// Render dữ liệu Modal Lịch Sử Top 3
+function renderTop3HistoryModal(data) {
+    const history = data.history || [];
+
+    // Tính KPI
+    const totalDays = history.length;
+    const completedDays = history.filter(h => !h.isPending);
+    const winDays = completedDays.filter(h => h.summary?.isWin).length;
+    const totalHits = completedDays.reduce((acc, h) => acc + (h.summary?.totalHits || 0), 0);
+    const winRate = completedDays.length > 0 ? ((winDays / completedDays.length) * 100).toFixed(1) : '0.0';
+
+    setElText('modal-top3-stat-total', `${totalDays} kỳ`);
+    setElText('modal-top3-stat-wins', `${winDays}/${completedDays.length} kỳ`);
+    setElText('modal-top3-stat-rate', `${winRate}%`);
+    setElText('modal-top3-stat-hits', `${totalHits} nháy`);
+
+    const listEl = document.getElementById('top3-history-modal-list');
+    if (!listEl) return;
+
+    if (history.length === 0) {
+        listEl.innerHTML = '<div class="p-6 text-center text-neutral-400">Không có bản ghi nào.</div>';
+        return;
+    }
+
+    listEl.innerHTML = history.map(item => {
+        const formattedDate = formatToDayMonthYear(item.targetDate);
+        const sourceFormatted = formatToDayMonthYear(item.sourceDate);
+
+        let statusBadge = '';
+        if (item.isPending) {
+            statusBadge = `
+                <span class="px-3 py-1 rounded-full text-xs font-bold text-amber-300 bg-amber-950/80 border border-amber-500/50 flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.25)]">
+                    <i class="fa-solid fa-clock text-amber-400"></i> Đang chờ mở thưởng 18h15
+                </span>
+            `;
+        } else if (item.summary?.isWin) {
+            statusBadge = `
+                <span class="px-3 py-1 rounded-full text-xs font-black text-emerald-300 bg-emerald-950/80 border border-emerald-500/50 flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.3)]">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> NỔ ${item.summary.hitPairs}/3 CẶP (${item.summary.totalHits} NHÁY)
+                </span>
+            `;
+        } else {
+            statusBadge = `
+                <span class="px-3 py-1 rounded-full text-xs font-semibold text-neutral-400 bg-neutral-900 border border-neutral-700 flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-xmark text-red-400"></i> Chưa về kỳ này
+                </span>
+            `;
+        }
+
+        const renderPairBadge = (topObj, label, colorCls, borderCls) => {
+            const pair = topObj?.pair || '--';
+            const isHit = topObj?.eval?.hit;
+            const hitsCount = topObj?.eval?.hits_count || 0;
+            const matchedStr = topObj?.eval?.matched?.join(', ') || '';
+
+            let hitIndicator = '';
+            if (isHit) {
+                hitIndicator = `<span class="ml-1 text-[10px] font-black text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-500/50">Nổ ${matchedStr} (${hitsCount}n)</span>`;
+            }
+
+            return `
+                <div class="p-2.5 rounded-xl bg-black/60 border ${borderCls} flex flex-col justify-between">
+                    <div class="text-[10px] uppercase font-bold text-neutral-400">${label}</div>
+                    <div class="flex items-center justify-between mt-1">
+                        <span class="text-sm font-black font-mono ${colorCls}">${pair}</span>
+                        ${hitIndicator}
+                    </div>
+                </div>
+            `;
+        };
+
+        return `
+            <div class="p-4 sm:p-5 rounded-2xl bg-neutral-900/90 border border-neutral-800 hover:border-amber-500/40 transition space-y-3 shadow-md">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-neutral-800/80 pb-3">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm sm:text-base font-black text-white font-mono flex items-center gap-1.5">
+                                <i class="fa-solid fa-calendar-day text-amber-400"></i> Kỳ dự đoán: ${formattedDate}
+                            </span>
+                            <span class="text-[11px] text-neutral-400 font-mono hidden sm:inline">(Soi từ kỳ: ${sourceFormatted})</span>
+                        </div>
+                    </div>
+                    <div>
+                        ${statusBadge}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    ${renderPairBadge(item.top1, '🏆 TOP #1', 'text-yellow-300', 'border-yellow-500/40')}
+                    ${renderPairBadge(item.top2, 'TOP #2', 'text-cyan-400', 'border-cyan-500/40')}
+                    ${renderPairBadge(item.top3, 'TOP #3', 'text-emerald-400', 'border-emerald-500/40')}
+                </div>
+
+                <div class="flex justify-end pt-1">
+                    <button type="button" onclick="applyHistoryDateToTop3('${item.targetDate}')"
+                            class="px-4 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white shadow transition hover:scale-105 active:scale-95 flex items-center gap-1.5 cursor-pointer">
+                        <i class="fa-solid fa-eye text-yellow-300"></i>
+                        <span>Xem Lại Kỳ Này Trên Trang Chủ</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Nạp một ngày từ lịch sử vào trang chủ và cuộn đến khu vực Top 3
+async function applyHistoryDateToTop3(targetDate) {
+    closeTop3HistoryModal();
+    await selectTop3Date(targetDate);
+    const topSection = document.getElementById('pattern-top-section');
+    if (topSection) {
+        topSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// Aliases toàn cục an toàn
+window.initTop3DateSelector = initTop3DateSelector;
+window.selectTop3Date = selectTop3Date;
+window.openTop3HistoryModal = openTop3HistoryModal;
+window.closeTop3HistoryModal = closeTop3HistoryModal;
+window.applyHistoryDateToTop3 = applyHistoryDateToTop3;
 
 // Aliases tương thích ngược an toàn
 window.openAutoPatternDatePicker = openDrawBridgeDatePicker;
@@ -302,7 +570,7 @@ async function triggerAutoDiscovery(anchorDateOverride = null, forceRefresh = fa
         if (data.status === 'SUCCESS') {
             CURRENT_SCAN_DATA = data;
             window.CURRENT_AUTO_PATTERN_DATE = data.targetDate;
-            
+
             // Lưu vào map toàn cục để tránh lỗi JSON stringify trong HTML onclick
             window.ALL_LOADED_PATTERNS = {};
             if (data.patterns) {
@@ -397,8 +665,8 @@ function renderTopHighlightCards(patterns) {
         const confPct = (p.metrics.confidenceScore * 100).toFixed(1);
 
         // Trích xuất bản ghi dự đoán lùi lại tới ngày activeDate
-        const targetHist = (activeDate && p.recentHistory) 
-            ? (p.recentHistory.find(h => h.targetDate === activeDate) || p.recentHistory[0]) 
+        const targetHist = (activeDate && p.recentHistory)
+            ? (p.recentHistory.find(h => h.targetDate === activeDate) || p.recentHistory[0])
             : null;
 
         let displayPredNumbers = '';
@@ -513,8 +781,8 @@ function renderPatternsTable(patterns) {
         }[p.metrics.statisticalStrength] || 'bg-neutral-800 text-neutral-400';
 
         // Lùi lại dự đoán tới activeDate
-        const targetHist = (activeDate && p.recentHistory) 
-            ? (p.recentHistory.find(h => h.targetDate === activeDate) || p.recentHistory[0]) 
+        const targetHist = (activeDate && p.recentHistory)
+            ? (p.recentHistory.find(h => h.targetDate === activeDate) || p.recentHistory[0])
             : null;
 
         let tablePredHtml = '';
@@ -542,7 +810,7 @@ function renderPatternsTable(patterns) {
                 <td class="p-3 font-mono text-center font-black text-xs text-yellow-300">${confPct}%</td>
                 <td class="p-3 font-mono text-center text-xs text-cyan-300">${p.metrics.lift}x</td>
                 <td class="p-3 text-center">
-                    ${p.currentStreak > 0 
+                    ${p.currentStreak > 0
                         ? `<span class="px-2 py-0.5 rounded-full font-mono text-xs font-black bg-red-600 text-white">${p.currentStreak}</span>`
                         : `<span class="text-neutral-500 font-mono text-xs">0</span>`}
                 </td>
@@ -591,8 +859,8 @@ function filterPatternsTable() {
     // Sắp xếp tương ứng theo chuẩn Cầu Thứ: Độ % ổn định -> Chuỗi ăn thông -> Độ tin cậy -> Lượt nổ
     filtered.sort((a, b) => {
         if (sortBy === 'hitRate') {
-            return (b.metrics.rawHitRate - a.metrics.rawHitRate) || 
-                   (b.currentStreak - a.currentStreak) || 
+            return (b.metrics.rawHitRate - a.metrics.rawHitRate) ||
+                   (b.currentStreak - a.currentStreak) ||
                    (b.metrics.confidenceScore - a.metrics.confidenceScore) ||
                    (b.hits - a.hits);
         }
@@ -626,7 +894,7 @@ function openPatternDetailDrawerById(patternId) {
 async function selectPatternForVisualization(pattern, shouldScroll = false, anchorDate = null) {
     if (!pattern) return;
     CURRENT_ACTIVE_PATTERN = pattern;
-    
+
     // Ưu tiên mốc thời gian vẽ đường cầu độc lập SELECTED_DRAW_DATE
     const targetAnchorDate = anchorDate || window.SELECTED_DRAW_DATE || CURRENT_ACTIVE_PATTERN.anchorDate || null;
     if (targetAnchorDate) {
@@ -892,7 +1160,7 @@ function renderSingleDrawCardHtml(card) {
                     <span class="font-black text-sm text-white">${card.dayOfWeek} Ngày ${card.dateDisplay}</span>
                     <span class="text-[10px] font-mono text-neutral-400 bg-neutral-900 px-2 py-0.5 rounded border border-neutral-800">${dt}</span>
                 </div>
-                
+
                 <div class="flex flex-wrap items-center gap-2.5 w-full xl:w-auto justify-start xl:justify-end">
                     ${incomingHtml}
                     ${outgoingHtml}
@@ -1002,7 +1270,7 @@ function drawSvgOverlay(graph) {
                 // Đường nối từ kỳ dưới (p1) LÊN kỳ trên (p2)
                 const dx = p2.x - p1.x;
                 const dy = p2.y - p1.y; // dy < 0 vì p2 ở bên trên p1
-                
+
                 // Bézier hướng lên mượt mà
                 const cx1 = p1.x + dx * 0.15;
                 const cy1 = p1.y + dy * 0.45;
@@ -1023,7 +1291,7 @@ function drawSvgOverlay(graph) {
                 // Đường cong vút chỉ thẳng lên hộp dự đoán của kỳ mở thưởng tiếp theo (màu vàng kim VIP)
                 const dx = p2.x - p1.x;
                 const dy = p2.y - p1.y; // dy < 0
-                
+
                 const cx1 = p1.x + dx * 0.15;
                 const cy1 = p1.y + dy * 0.45;
                 const cx2 = p2.x - dx * 0.15;
@@ -1150,7 +1418,7 @@ function openPatternDetailDrawer(pattern) {
             const st = h.hit
                 ? `<span class="px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-600 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]"><i class="fa-solid fa-check mr-1"></i>TRÚNG (${h.matchedNumbers.join(', ')})</span>`
                 : `<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 text-neutral-400 border border-neutral-700"><i class="fa-solid fa-xmark mr-1"></i>TRƯỢT</span>`;
-            
+
             const isLatest = idx === 0;
             return `
                 <div class="p-3 rounded-xl ${isLatest ? 'bg-neutral-900 border-2 border-yellow-500/70 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'bg-neutral-900/90 border border-neutral-800'} flex justify-between items-center text-xs transition hover:border-neutral-700">
@@ -1379,8 +1647,8 @@ function renderStreakKpis(data) {
             topNumContainer.innerHTML = `<span class="text-xs text-neutral-500 italic">Không có số nào</span>`;
         } else {
             topNumContainer.innerHTML = data.topNumbers.slice(0, 6).map(n => {
-                const isHitCls = n.isHit 
-                    ? 'bg-emerald-600 text-white font-black shadow-[0_0_10px_rgba(16,185,129,0.5)] border-emerald-400' 
+                const isHitCls = n.isHit
+                    ? 'bg-emerald-600 text-white font-black shadow-[0_0_10px_rgba(16,185,129,0.5)] border-emerald-400'
                     : 'bg-neutral-800 text-neutral-300 font-bold border-neutral-700';
                 return `
                     <span class="px-2 py-0.5 rounded-lg text-xs font-mono border ${isHitCls} flex items-center gap-1" title="${n.bridgesCount} cầu báo, ${n.hitBridgesCount} cầu nổ">
@@ -1453,8 +1721,8 @@ function renderStreakTable() {
         // Cột kết quả
         let outcomeBadge = '';
         if (b.isHit === true) {
-            const locInfo = b.hitLocations && b.hitLocations.length > 0 
-                ? b.hitLocations.map(l => l.prize).slice(0, 2).join(', ') 
+            const locInfo = b.hitLocations && b.hitLocations.length > 0
+                ? b.hitLocations.map(l => l.prize).slice(0, 2).join(', ')
                 : '';
             outcomeBadge = `
                 <div class="flex flex-col items-center">
@@ -1509,13 +1777,13 @@ function renderStreakTable() {
                 </td>
                 <td class="p-3 text-center">
                     <div class="flex items-center justify-center gap-1.5">
-                        <button onclick="openStreakDetailModalByIndex(${idx})" 
-                                class="px-2.5 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white font-bold text-xs transition border border-neutral-700 flex items-center gap-1 shadow cursor-pointer active:scale-95" 
+                        <button onclick="openStreakDetailModalByIndex(${idx})"
+                                class="px-2.5 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white font-bold text-xs transition border border-neutral-700 flex items-center gap-1 shadow cursor-pointer active:scale-95"
                                 title="Xem chi tiết kết quả trúng hay xịt của cầu này">
                             <i class="fa-solid fa-circle-info text-cyan-400"></i> Chi Tiết
                         </button>
-                        <button onclick="visualizeStreakBridgeByIndex(${idx})" 
-                                class="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs transition shadow flex items-center justify-center gap-1 cursor-pointer border border-red-400/50 active:scale-95" 
+                        <button onclick="visualizeStreakBridgeByIndex(${idx})"
+                                class="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs transition shadow flex items-center justify-center gap-1 cursor-pointer border border-red-400/50 active:scale-95"
                                 title="Vẽ sơ đồ cầu SVG này tại ngày soi">
                             <i class="fa-solid fa-bezier-curve"></i> Vẽ Cầu
                         </button>
@@ -1658,8 +1926,8 @@ function openStreakDetailModal(b) {
                 if (h.isPending) {
                     statusBadge = `<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-yellow-950/80 text-yellow-300 border border-yellow-700/60 flex items-center gap-1"><i class="fa-solid fa-clock animate-pulse"></i> Chờ xổ</span>`;
                 } else if (h.isHit) {
-                    const locsText = h.hitLocations && h.hitLocations.length > 0 
-                        ? h.hitLocations.map(l => l.prize).slice(0, 2).join(', ') 
+                    const locsText = h.hitLocations && h.hitLocations.length > 0
+                        ? h.hitLocations.map(l => l.prize).slice(0, 2).join(', ')
                         : '';
                     statusBadge = `
                         <div class="text-right">
@@ -1674,7 +1942,7 @@ function openStreakDetailModal(b) {
                 }
 
                 const isOutcome = h.isOutcomeDay;
-                const borderCls = isOutcome 
+                const borderCls = isOutcome
                     ? (h.isHit ? 'border-2 border-emerald-500/80 bg-emerald-950/30' : h.isPending ? 'border-2 border-yellow-500/80 bg-yellow-950/30' : 'border-2 border-red-500/80 bg-red-950/30')
                     : 'border border-neutral-800 bg-neutral-900/60';
 

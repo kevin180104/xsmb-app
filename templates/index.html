@@ -302,13 +302,44 @@
                 <!-- 2. TOP ĐƯỜNG CẦU HIỆU QUẢ CAO NHẤT (TOP 1, TOP 2, TOP 3)                 -->
                 <!-- ========================================================================= -->
                 <div id="pattern-top-section" class="space-y-3">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                        <h3 class="text-base font-black text-white uppercase tracking-wider flex items-center gap-2">
-                            <i class="fa-solid fa-crown text-yellow-400"></i> TOP ĐƯỜNG CẦU ĂN THÔNG 4 NGÀY HIỆU QUẢ CAO NHẤT
-                        </h3>
-                        <span id="pattern-top-date-indicator" class="text-xs text-neutral-400 font-mono bg-neutral-900 px-3 py-1 rounded-lg border border-neutral-800">
-                            Tính đến: <b class="text-yellow-400 font-bold">Kỳ mới nhất</b>
-                        </span>
+                    <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 bg-neutral-900/90 border border-neutral-800 p-3.5 sm:p-4 rounded-2xl shadow-md">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-base sm:text-lg font-black text-white uppercase tracking-wider flex items-center gap-2">
+                                    <i class="fa-solid fa-crown text-yellow-400"></i> TOP ĐƯỜNG CẦU ĂN THÔNG 4 NGÀY HIỆU QUẢ CAO NHẤT
+                                </h3>
+                            </div>
+                            <p class="text-xs text-neutral-400 mt-0.5">
+                                Các cặp số đề xuất theo thuật toán Vectorized Mining &amp; Wilson Score 95% có chuỗi ăn 4 ngày liên tiếp.
+                            </p>
+                        </div>
+
+                        <!-- Cụm điều khiển chọn mốc thời gian xem Top 3 & nút Lịch sử -->
+                        <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto justify-start xl:justify-end">
+                            <!-- Nút Kỳ mới nhất -->
+                            <button type="button" id="btn-top3-quick-latest" onclick="selectTop3Date('latest')"
+                                    class="px-3 py-1.5 rounded-xl text-xs font-black bg-amber-500/25 text-amber-300 border border-amber-500/70 shadow-[0_0_12px_rgba(245,158,11,0.3)] transition cursor-pointer">
+                                Kỳ mới nhất
+                            </button>
+                            <!-- Nút Hôm qua -->
+                            <button type="button" id="btn-top3-quick-yesterday" onclick="selectTop3Date('yesterday')"
+                                    class="px-3 py-1.5 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition cursor-pointer">
+                                Hôm qua
+                            </button>
+                            <!-- Dropdown chọn ngày cụ thể trong quá khứ -->
+                            <select id="top3-date-select" onchange="selectTop3Date(this.value)"
+                                    class="bg-black border border-neutral-700 text-neutral-200 text-xs font-bold rounded-xl px-2.5 py-1.5 focus:border-amber-500 focus:outline-none cursor-pointer">
+                                <option value="latest">Đang nạp ngày...</option>
+                            </select>
+
+                            <!-- Nút Xem Toàn Bộ Lịch Sử Top 3 (Popup) -->
+                            <button type="button" id="btn-open-top3-history" onclick="openTop3HistoryModal()"
+                                    class="px-3.5 py-1.5 rounded-xl text-xs font-black text-black bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 border border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)] transition hover:scale-105 active:scale-95 flex items-center gap-1.5 cursor-pointer ml-auto sm:ml-0"
+                                    title="Mở bảng theo dõi lịch sử kết quả đề xuất Top 3 qua các ngày">
+                                <i class="fa-solid fa-clock-rotate-left"></i>
+                                <span>LỊCH SỬ TOP 3</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-2 text-sm">
                         <label>Từ ngày <input id="prediction-history-start" type="date" class="bg-neutral-800 rounded p-2"></label>
@@ -318,10 +349,20 @@
                         <button id="prediction-history-more" onclick="loadPredictionHistory(false)" class="bg-neutral-800 rounded p-2" hidden>Xem thêm</button>
                         <span id="prediction-history-message" role="status" aria-live="polite"></span>
                     </div>
+
+                    <!-- Nhãn hiển thị trạng thái ngày đang xem -->
+                    <div class="flex justify-between items-center px-1">
+                        <span id="pattern-top-date-indicator" class="text-xs text-neutral-400 font-mono">
+                            Dự đoán tới ngày: <b class="text-amber-400 font-bold">Kỳ mới nhất</b>
+                        </span>
+                        <span id="top3-lock-status-badge" class="text-xs font-bold text-neutral-400"></span>
+                    </div>
+
                     <div id="pattern-top-cards-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <!-- Populated by JS -->
                     </div>
                 </div>
+
 
                 <!-- KHU VỰC TRỰC QUAN HÓA BẢNG VẼ ĐƯỜNG CẦU SVG (Section IX & X) -->
                 <div id="pattern-visualization-section" class="bg-neutral-900 border-2 border-red-500/60 rounded-2xl p-5 md:p-6 shadow-2xl space-y-5">
@@ -2735,6 +2776,80 @@
                 </button>
                 <button onclick="closeFireworksModal()" class="px-5 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-sm border border-neutral-700 transition">
                     Tuyệt Vời, Cảm Ơn!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL POPUP: LỊCH SỬ ĐỀ XUẤT TOP 3 CÁC NGÀY TRƯỚC                       -->
+    <!-- ========================================================================= -->
+    <div id="top3-history-modal" class="fixed inset-0 z-[99990] bg-black/80 backdrop-blur-md hidden items-center justify-center p-3 sm:p-5 transition-opacity duration-200">
+        <div class="bg-gradient-to-b from-neutral-900 via-neutral-900/98 to-neutral-950 border-2 border-amber-500/60 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-[0_0_50px_rgba(245,158,11,0.25)] relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <!-- Glow background -->
+            <div class="absolute -right-24 -top-24 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -left-24 -bottom-24 w-80 h-80 bg-red-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <!-- Modal Header -->
+            <div class="p-5 sm:p-6 border-b border-neutral-800 flex justify-between items-start gap-4 relative z-10">
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="px-3 py-0.5 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/50 uppercase tracking-wider">
+                            <i class="fa-solid fa-lock text-amber-400 mr-1"></i> Snapshot Bất Biến
+                        </span>
+                        <span class="text-xs text-neutral-400 font-mono">Đối chiếu kết quả thực tế</span>
+                    </div>
+                    <h3 class="text-lg sm:text-2xl font-black text-white flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-amber-400"></i> LỊCH SỬ ĐỀ XUẤT TOP 3 CÁC KỲ TRƯỚC
+                    </h3>
+                    <p class="text-xs text-neutral-400">
+                        Danh sách Top 3 cặp số đã đề xuất theo từng ngày kèm kết quả nổ/gãy thực tế ngày hôm đó. Bấm vào bất kỳ kỳ nào để nạp lại lên bảng Top 3 trang chủ.
+                    </p>
+                </div>
+                <button type="button" onclick="closeTop3HistoryModal()" class="w-9 h-9 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white flex items-center justify-center transition cursor-pointer text-base flex-shrink-0">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- KPI Tóm Tắt Nhanh -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-4 sm:p-6 pb-2 border-b border-neutral-800/60 bg-black/40 relative z-10">
+                <div class="p-3 bg-neutral-900/90 border border-neutral-800 rounded-xl text-center">
+                    <div class="text-[10px] text-neutral-400 uppercase font-bold">Số Kỳ Đã Lưu</div>
+                    <div id="modal-top3-stat-total" class="text-lg font-black text-white font-mono mt-0.5">--</div>
+                </div>
+                <div class="p-3 bg-neutral-900/90 border border-neutral-800 rounded-xl text-center">
+                    <div class="text-[10px] text-emerald-400 uppercase font-bold">Số Kỳ Ăn Lô (Win)</div>
+                    <div id="modal-top3-stat-wins" class="text-lg font-black text-emerald-400 font-mono mt-0.5">--</div>
+                </div>
+                <div class="p-3 bg-neutral-900/90 border border-neutral-800 rounded-xl text-center">
+                    <div class="text-[10px] text-yellow-400 uppercase font-bold">Tỷ Lệ Ăn Kỳ %</div>
+                    <div id="modal-top3-stat-rate" class="text-lg font-black text-yellow-300 font-mono mt-0.5">--</div>
+                </div>
+                <div class="p-3 bg-neutral-900/90 border border-neutral-800 rounded-xl text-center">
+                    <div class="text-[10px] text-cyan-400 uppercase font-bold">Tổng Nháy Đã Nổ</div>
+                    <div id="modal-top3-stat-hits" class="text-lg font-black text-cyan-300 font-mono mt-0.5">--</div>
+                </div>
+            </div>
+
+            <!-- Modal Body (Danh sách cuộn) -->
+            <div class="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3 relative z-10 custom-scrollbar">
+                <div id="top3-history-modal-loading" class="p-8 text-center text-neutral-400 space-y-2">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl text-amber-400"></i>
+                    <p class="text-xs font-bold">Đang tải lịch sử các kỳ...</p>
+                </div>
+                <div id="top3-history-modal-list" class="space-y-3">
+                    <!-- Được render động từ JS -->
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 border-t border-neutral-800 bg-black/60 flex justify-between items-center relative z-10">
+                <div class="text-[11px] text-neutral-400 font-mono flex items-center gap-1.5">
+                    <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+                    Dữ liệu snapshot lưu trong SQLite, bất biến và không bị ghi đè.
+                </div>
+                <button type="button" onclick="closeTop3HistoryModal()" class="px-5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs transition cursor-pointer">
+                    Đóng
                 </button>
             </div>
         </div>
