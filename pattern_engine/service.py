@@ -111,8 +111,9 @@ def scan_patterns_service(
             target_date_disp = target_date
 
     # 2. KIỂM TRA SNAPSHOT ĐÃ LƯU TRONG DATABASE (Bảo đảm tính bất biến)
+    streak_val = exact_streak if exact_streak is not None else 4
     if saved_only or not force_refresh:
-        saved_snapshot = database.get_top3_snapshot(target_date)
+        saved_snapshot = database.get_top3_snapshot(target_date, streak=streak_val)
         if saved_snapshot:
             patterns = saved_snapshot.get("patterns", [])
             scan_summary = saved_snapshot.get("scan_summary", {})
@@ -167,6 +168,7 @@ def scan_patterns_service(
                 "status": "SUCCESS",
                 "isSnapshot": True,
                 "isHistorical": (actual_result is not None),
+                "exactStreak": streak_val,
                 "targetDate": target_date,
                 "anchorDate": target_date,
                 "anchorDateDisplay": target_date_disp,
@@ -244,7 +246,8 @@ def scan_patterns_service(
         date_display=target_date_disp,
         source_date=source_date,
         patterns=patterns,
-        scan_summary=scan_summary
+        scan_summary=scan_summary,
+        streak=streak_val
     )
 
     return {
@@ -252,6 +255,7 @@ def scan_patterns_service(
         "isSnapshot": True,
         "justGenerated": True,
         "isHistorical": (actual_result is not None),
+        "exactStreak": streak_val,
         "targetDate": target_date,
         "anchorDate": target_date,
         "anchorDateDisplay": target_date_disp,
@@ -612,12 +616,12 @@ def get_streak_bridges_service(
     return res_payload
 
 
-def get_top3_history_service(limit: int = 30) -> Dict[str, Any]:
+def get_top3_history_service(limit: int = 30, streak: int = 4) -> Dict[str, Any]:
     """
-    Lấy danh sách các snapshot Top 3 theo từng ngày,
+    Lấy danh sách các snapshot Top 3 theo từng ngày và chuỗi thông (mặc định streak=4),
     kèm theo đối chiếu kết quả thực tế (Hit/Miss, số nháy nổ) cho mỗi ngày.
     """
-    raw_snapshots = database.get_all_top3_snapshots(limit=limit)
+    raw_snapshots = database.get_all_top3_snapshots(limit=limit, streak=streak)
     history = []
 
     for snap in raw_snapshots:
@@ -680,6 +684,7 @@ def get_top3_history_service(limit: int = 30) -> Dict[str, Any]:
 
     return {
         "status": "SUCCESS",
+        "streak": streak,
         "total": len(history),
         "history": history
     }

@@ -90,6 +90,29 @@ def init_db():
         """)
 
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS daily_streak_top3_snapshots (
+                target_date TEXT NOT NULL,
+                streak INTEGER NOT NULL,
+                date_display TEXT NOT NULL,
+                source_date TEXT NOT NULL,
+                top1_pair TEXT NOT NULL,
+                top2_pair TEXT NOT NULL,
+                top3_pair TEXT NOT NULL,
+                top1_name TEXT,
+                top2_name TEXT,
+                top3_name TEXT,
+                patterns_json TEXT NOT NULL,
+                scan_summary_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY(target_date, streak)
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_streak_top3_target_date ON daily_streak_top3_snapshots(target_date DESC, streak);
+        """)
+
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS daily_streak_bridges_snapshots (
                 query_date TEXT NOT NULL,
                 streak INTEGER NOT NULL,
@@ -438,15 +461,16 @@ def save_top3_snapshot(snapshot_dict=None, **kwargs):
     if not target_date:
         return False
 
+    streak = int(data.get("streak", 4) or 4)
     patterns = data.get("patterns", [])
-    # Tự động trích xuất Top 1, Top 2, Top 3 nếu chưa có trong data
-    streak4_patterns = [p for p in patterns if p.get("currentStreak") == 4]
-    if not streak4_patterns:
-        streak4_patterns = patterns
+    # Tự động trích xuất Top 1, Top 2, Top 3 theo đúng chuỗi streak
+    streak_patterns = [p for p in patterns if p.get("currentStreak") == streak]
+    if not streak_patterns:
+        streak_patterns = patterns
 
-    top1 = streak4_patterns[0] if len(streak4_patterns) > 0 else {}
-    top2 = streak4_patterns[1] if len(streak4_patterns) > 1 else {}
-    top3 = streak4_patterns[2] if len(streak4_patterns) > 2 else {}
+    top1 = streak_patterns[0] if len(streak_patterns) > 0 else {}
+    top2 = streak_patterns[1] if len(streak_patterns) > 1 else {}
+    top3 = streak_patterns[2] if len(streak_patterns) > 2 else {}
 
     top1_pair = data.get("top1_pair") or " - ".join(top1.get("nextPrediction", []))
     top2_pair = data.get("top2_pair") or " - ".join(top2.get("nextPrediction", []))
@@ -460,15 +484,16 @@ def save_top3_snapshot(snapshot_dict=None, **kwargs):
     created_at = data.get("created_at") or now_iso
     with get_connection() as conn:
         cursor = conn.cursor()
+        # Lưu vào bảng theo chuỗi streak
         cursor.execute("""
-            INSERT INTO daily_top3_snapshots (
-                target_date, date_display, source_date,
+            INSERT INTO daily_streak_top3_snapshots (
+                target_date, streak, date_display, source_date,
                 top1_pair, top2_pair, top3_pair,
                 top1_name, top2_name, top3_name,
                 patterns_json, scan_summary_json,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(target_date) DO UPDATE SET
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(target_date, streak) DO UPDATE SET
                 top1_pair=excluded.top1_pair,
                 top2_pair=excluded.top2_pair,
                 top3_pair=excluded.top3_pair,
@@ -480,6 +505,7 @@ def save_top3_snapshot(snapshot_dict=None, **kwargs):
                 updated_at=excluded.updated_at
         """, (
             data["target_date"],
+            streak,
             data.get("date_display", ""),
             data.get("source_date", ""),
             top1_pair,
@@ -493,21 +519,61 @@ def save_top3_snapshot(snapshot_dict=None, **kwargs):
             created_at,
             now_iso
         ))
+        # Nếu streak == 4, đồng thời lưu vào bảng cũ daily_top3_snapshots để đảm bảo tương thích 100%
+        if streak == 4:
+            cursor.execute("""
+                INSERT INTO daily_top3_snapshots (
+                    target_date, date_display, source_date,
+                    top1_pair, top2_pair, top3_pair,
+                    top1_name, top2_name, top3_name,
+                    patterns_json, scan_summary_json,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(target_date) DO UPDATE SET
+                    top1_pair=excluded.top1_pair,
+                    top2_pair=excluded.top2_pair,
+                    top3_pair=excluded.top3_pair,
+                    top1_name=excluded.top1_name,
+                    top2_name=excluded.top2_name,
+                    top3_name=excluded.top3_name,
+                    patterns_json=excluded.patterns_json,
+                    scan_summary_json=excluded.scan_summary_json,
+                    updated_at=excluded.updated_at
+            """, (
+                data["target_date"],
+                data.get("date_display", ""),
+                data.get("source_date", ""),
+                top1_pair,
+                top2_pair,
+                top3_pair,
+                top1_name,
+                top2_name,
+                top3_name,
+                json.dumps(patterns, ensure_ascii=False) if isinstance(patterns, list) else data.get("patterns_json", "[]"),
+                json.dumps(data.get("scan_summary", {}), ensure_ascii=False) if isinstance(data.get("scan_summary"), dict) else data.get("scan_summary_json", "{}"),
+                created_at,
+                now_iso
+            ))
         conn.commit()
     return True
 
-def get_top3_snapshot(target_date):
-    """Lấy snapshot Top 3 đã lưu cố định của một ngày cụ thể (YYYY-MM-DD)"""
+def get_top3_snapshot(target_date, streak=4):
+    """Lấy snapshot Top 3 đã lưu cố định của một ngày và chuỗi streak cụ thể"""
     if not target_date:
         return None
+    streak = int(streak) if streak else 4
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM daily_top3_snapshots WHERE target_date = ?", (target_date,))
+        cursor.execute("SELECT * FROM daily_streak_top3_snapshots WHERE target_date = ? AND streak = ?", (target_date, streak))
         row = cursor.fetchone()
+        if not row and streak == 4:
+            cursor.execute("SELECT * FROM daily_top3_snapshots WHERE target_date = ?", (target_date,))
+            row = cursor.fetchone()
     if not row:
         return None
     return {
         "target_date": row["target_date"],
+        "streak": row["streak"] if "streak" in row.keys() else streak,
         "date_display": row["date_display"],
         "source_date": row["source_date"],
         "top1_pair": row["top1_pair"],
@@ -522,24 +588,35 @@ def get_top3_snapshot(target_date):
         "updated_at": row["updated_at"]
     }
 
-def has_top3_snapshot(target_date):
-    """Kiểm tra ngày target_date đã có snapshot hay chưa"""
+def has_top3_snapshot(target_date, streak=4):
+    """Kiểm tra ngày target_date và chuỗi streak đã có snapshot hay chưa"""
     if not target_date:
         return False
+    streak = int(streak) if streak else 4
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT 1 FROM daily_top3_snapshots WHERE target_date = ?", (target_date,))
-        return cursor.fetchone() is not None
+        cursor.execute("SELECT 1 FROM daily_streak_top3_snapshots WHERE target_date = ? AND streak = ?", (target_date, streak))
+        if cursor.fetchone():
+            return True
+        if streak == 4:
+            cursor.execute("SELECT 1 FROM daily_top3_snapshots WHERE target_date = ?", (target_date,))
+            return cursor.fetchone() is not None
+        return False
 
-def get_all_top3_snapshots(limit=30):
-    """Lấy danh sách các snapshot Top 3 gần nhất theo ngày"""
+def get_all_top3_snapshots(limit=30, streak=4):
+    """Lấy danh sách các snapshot Top 3 gần nhất theo ngày và chuỗi thông"""
+    streak = int(streak) if streak else 4
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM daily_top3_snapshots ORDER BY target_date DESC LIMIT ?", (limit,))
+        cursor.execute("SELECT * FROM daily_streak_top3_snapshots WHERE streak = ? ORDER BY target_date DESC LIMIT ?", (streak, limit))
         rows = cursor.fetchall()
+        if not rows and streak == 4:
+            cursor.execute("SELECT * FROM daily_top3_snapshots ORDER BY target_date DESC LIMIT ?", (limit,))
+            rows = cursor.fetchall()
     return [
         {
             "target_date": r["target_date"],
+            "streak": r["streak"] if "streak" in r.keys() else streak,
             "date_display": r["date_display"],
             "source_date": r["source_date"],
             "top1_pair": r["top1_pair"],

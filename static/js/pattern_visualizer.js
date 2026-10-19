@@ -261,6 +261,79 @@ async function initAutoPatternTab() {
 }
 
 // =========================================================================
+// QUẢN LÝ CHUỖI ĂN THÔNG (3 KỲ, 4 KỲ, 5 KỲ)
+// =========================================================================
+
+window.CURRENT_TOP3_STREAK = 4;
+window.CURRENT_TABLE_TOP3_STREAK = 4;
+
+window.setTop3Streak = async function(streak) {
+    const s = parseInt(streak) || 4;
+    window.CURRENT_TOP3_STREAK = s;
+    updateTop3StreakButtons(s);
+
+    const titleStreakEl = document.getElementById('top3-title-streak-num');
+    if (titleStreakEl) titleStreakEl.textContent = `${s} KỲ`;
+    const descStreakEl = document.getElementById('top3-desc-streak-num');
+    if (descStreakEl) descStreakEl.textContent = s;
+
+    // Kích hoạt quét/lấy snapshot cho chuỗi thông mới
+    await triggerAutoDiscovery(window.CURRENT_AUTO_PATTERN_DATE, false, false, s);
+
+    // Đồng bộ bảng lịch sử dự đoán bên dưới
+    setTableTop3Streak(s, true);
+};
+
+function updateTop3StreakButtons(streak) {
+    [3, 4, 5].forEach(s => {
+        const btn = document.getElementById(`btn-top3-streak-${s}`);
+        if (btn) {
+            if (s === streak) {
+                btn.className = 'px-2.5 py-1 rounded-lg text-xs font-black bg-amber-500/25 text-amber-300 border border-amber-500/70 shadow-[0_0_12px_rgba(245,158,11,0.3)] transition cursor-pointer';
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition cursor-pointer';
+            }
+        }
+    });
+}
+
+window.setTableTop3Streak = async function(streak, autoReload = true) {
+    const s = parseInt(streak) || 4;
+    window.CURRENT_TABLE_TOP3_STREAK = s;
+    [3, 4, 5].forEach(num => {
+        const btn = document.getElementById(`btn-tbl-streak-${num}`);
+        if (btn) {
+            if (num === s) {
+                btn.className = 'px-2 py-0.5 rounded text-xs font-black bg-amber-500/25 text-amber-300 border border-amber-500/70 transition cursor-pointer';
+            } else {
+                btn.className = 'px-2 py-0.5 rounded text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition cursor-pointer';
+            }
+        }
+    });
+    if (autoReload) {
+        await loadTop3HistoryTable(true, s);
+    }
+};
+
+window.quickSelectStreakLength = function(len) {
+    const sel = document.getElementById('streak-length-select');
+    if (sel) {
+        sel.value = len.toString();
+    }
+    [3, 4, 5].forEach(s => {
+        const btn = document.getElementById(`btn-quick-streak-${s}`);
+        if (btn) {
+            btn.className = (s === len)
+                ? 'px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500/25 text-amber-300 border border-amber-500/70 transition cursor-pointer'
+                : 'px-1.5 py-0.5 rounded text-[10px] font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition cursor-pointer';
+        }
+    });
+    if (typeof triggerStreakSearch === 'function') {
+        triggerStreakSearch();
+    }
+};
+
+// =========================================================================
 // QUẢN LÝ MỐC NGÀY XEM TOP 3 ĐỀ XUẤT & LỊCH SỬ KẾT QUẢ ĐỐI CHIẾU
 // =========================================================================
 
@@ -525,21 +598,25 @@ let CURRENT_TOP3_HISTORY_DATA = [];
 let CURRENT_TOP3_HISTORY_FILTER = 'all';
 
 // Hàm tải dữ liệu bảng lịch sử Top 3
-async function loadTop3HistoryTable(forceReload = false) {
+async function loadTop3HistoryTable(forceReload = false, streakOverride = null) {
     const tableBody = document.getElementById('top3-history-table-body');
     if (!tableBody) return;
 
-    if (forceReload || !CURRENT_TOP3_HISTORY_DATA || CURRENT_TOP3_HISTORY_DATA.length === 0) {
+    const streak = streakOverride || window.CURRENT_TABLE_TOP3_STREAK || window.CURRENT_TOP3_STREAK || 4;
+    window.CURRENT_TABLE_TOP3_STREAK = streak;
+
+    if (forceReload || !CURRENT_TOP3_HISTORY_DATA || CURRENT_TOP3_HISTORY_DATA.length === 0 || window._lastLoadedTableStreak !== streak) {
+        window._lastLoadedTableStreak = streak;
         tableBody.innerHTML = `
             <tr>
                 <td colspan="8" class="p-8 text-center text-neutral-400">
                     <i class="fa-solid fa-spinner fa-spin text-xl text-amber-400 mb-2"></i>
-                    <p class="font-bold text-xs text-neutral-300">Đang tải dữ liệu lịch sử các kỳ...</p>
+                    <p class="font-bold text-xs text-neutral-300">Đang tải dữ liệu lịch sử cầu ${streak} kỳ thông...</p>
                 </td>
             </tr>
         `;
         try {
-            const res = await fetch('/api/patterns/top3-history?limit=100');
+            const res = await fetch(`/api/patterns/top3-history?limit=100&streak=${streak}`);
             const data = await res.json();
             if (data.status === 'SUCCESS' && data.history) {
                 CURRENT_TOP3_HISTORY_DATA = data.history;
@@ -794,12 +871,26 @@ window.calculateAutoPatternDate = () => {
 // Kích hoạt quét tự động [TỰ TÌM ĐƯỜNG CẦU]
 // forceRefresh: false (mặc định) => Ưu tiên đọc snapshot cố định theo ngày đã lưu trong DB
 // forceRefresh: true => Chủ động quét lại và ghi đè/cập nhật snapshot
-async function triggerAutoDiscovery(anchorDateOverride = null, forceRefresh = false, savedOnly = false) {
+async function triggerAutoDiscovery(anchorDateOverride = null, forceRefresh = false, savedOnly = false, streakOverride = null) {
     const rangeDays = document.getElementById('pattern-range-select')?.value || '60';
     const minOcc = document.getElementById('pattern-min-occ')?.value || '10';
     const minConf = document.getElementById('pattern-min-conf')?.value || '0.40';
     const minStreak = document.getElementById('pattern-min-streak')?.value || '0';
+    const exactStreakSelect = document.getElementById('pattern-exact-streak')?.value;
     const targetType = document.getElementById('pattern-target-type')?.value || 'loto_2digit';
+
+    const activeStreak = streakOverride !== null && streakOverride !== undefined
+        ? streakOverride
+        : (window.CURRENT_TOP3_STREAK || (exactStreakSelect ? (exactStreakSelect === 'all' ? 'all' : parseInt(exactStreakSelect)) : 4));
+
+    if (activeStreak !== 'all') {
+        window.CURRENT_TOP3_STREAK = parseInt(activeStreak) || 4;
+        updateTop3StreakButtons(window.CURRENT_TOP3_STREAK);
+        const titleStreakEl = document.getElementById('top3-title-streak-num');
+        if (titleStreakEl) titleStreakEl.textContent = `${window.CURRENT_TOP3_STREAK} KỲ`;
+        const descStreakEl = document.getElementById('top3-desc-streak-num');
+        if (descStreakEl) descStreakEl.textContent = window.CURRENT_TOP3_STREAK;
+    }
 
     const anchorDate = anchorDateOverride || window.CURRENT_AUTO_PATTERN_DATE || null;
 
@@ -815,7 +906,8 @@ async function triggerAutoDiscovery(anchorDateOverride = null, forceRefresh = fa
     if (resultsContainer) resultsContainer.classList.add('opacity-40');
 
     try {
-        let url = `/api/patterns/scan?days=${encodeURIComponent(rangeDays)}&min_occurrences=${minOcc}&min_confidence=${minConf}&min_streak=${minStreak}&exact_streak=4&target_type=${targetType}&top_n=50`;
+        const streakArg = (activeStreak === 'all') ? 'all' : (window.CURRENT_TOP3_STREAK || 4);
+        let url = `/api/patterns/scan?days=${encodeURIComponent(rangeDays)}&min_occurrences=${minOcc}&min_confidence=${minConf}&min_streak=${minStreak}&exact_streak=${streakArg}&target_type=${targetType}&top_n=50`;
         if (anchorDate) {
             url += `&anchor_date=${encodeURIComponent(anchorDate)}`;
         }
@@ -844,9 +936,10 @@ async function triggerAutoDiscovery(anchorDateOverride = null, forceRefresh = fa
             renderTopHighlightCards(data.patterns);
             renderPatternsTable(data.patterns);
 
-            // Mặc định nạp pattern xếp hạng #1 (cầu ăn thông 4 ngày) vào bảng vẽ SVG tại anchorDate
-            const streak4List = (data.patterns || []).filter(p => p.currentStreak === 4);
-            const chosenList = streak4List.length > 0 ? streak4List : (data.patterns || []);
+            // Mặc định nạp pattern xếp hạng #1 vào bảng vẽ SVG tại anchorDate
+            const targetStreak = window.CURRENT_TOP3_STREAK || 4;
+            const streakList = (data.patterns || []).filter(p => p.currentStreak === targetStreak);
+            const chosenList = streakList.length > 0 ? streakList : (data.patterns || []);
             if (chosenList.length > 0) {
                 const topP = chosenList[0];
                 selectPatternForVisualization(topP, false, anchorDate);
@@ -899,25 +992,27 @@ function renderTopHighlightCards(patterns) {
         topDateInd.innerHTML = `Dự đoán tới ngày: <b class="text-amber-400 font-bold">${activeDateFormatted}</b>${lockBadge}`;
     }
 
-    // Lọc xếp hạng CHỈ CHO CẦU ĂN THÔNG 4 NGÀY theo đúng yêu cầu người dùng
-    const streak4Patterns = (patterns || []).filter(p => p.currentStreak === 4);
+    const activeStreak = window.CURRENT_TOP3_STREAK || 4;
+    // Lọc xếp hạng theo chuỗi ăn thông đang chọn (3, 4, 5 kỳ)
+    const streakPatterns = (patterns || []).filter(p => p.currentStreak === activeStreak);
+    const chosenPatterns = streakPatterns.length > 0 ? streakPatterns : (patterns || []);
 
-    if (streak4Patterns.length === 0) {
+    if (chosenPatterns.length === 0) {
         container.innerHTML = `
             <div class="col-span-full p-8 text-center text-neutral-400 bg-neutral-900/80 rounded-2xl border border-neutral-800 space-y-2">
                 <i class="fa-solid fa-circle-exclamation text-amber-400 text-2xl mb-1"></i>
-                <p class="text-sm font-bold text-white">Không có đường cầu nào đang ăn thông đúng 4 ngày tính đến ngày ${activeDateFormatted}.</p>
-                <p class="text-xs text-neutral-400">Bạn có thể chọn ngày khác ([Hôm qua], [Kỳ mới nhất]...) để xem các đường cầu 4 ngày thông tương ứng.</p>
+                <p class="text-sm font-bold text-white">Không có đường cầu nào đang ăn thông đúng ${activeStreak} kỳ tính đến ngày ${activeDateFormatted}.</p>
+                <p class="text-xs text-neutral-400">Bạn có thể bấm chọn chuỗi khác ([3 Kỳ Thông], [4 Kỳ Thông], [5 Kỳ Thông]) hoặc chọn mốc ngày khác để xem.</p>
             </div>
         `;
         return;
     }
 
-    const top3 = streak4Patterns.slice(0, 3);
+    const top3 = chosenPatterns.slice(0, 3);
     const badges = [
-        { label: '🏆 TOP #1 CẦU 4 NGÀY THÔNG', border: 'border-yellow-500/80', bg: 'bg-yellow-500/15', text: 'text-yellow-300', glow: 'shadow-[0_0_25px_rgba(234,179,8,0.4)]' },
-        { label: 'TOP #2 CẦU 4 NGÀY THÔNG', border: 'border-cyan-500/70', bg: 'bg-cyan-500/10', text: 'text-cyan-400', glow: 'shadow-[0_0_15px_rgba(6,182,212,0.2)]' },
-        { label: 'TOP #3 CẦU 4 NGÀY THÔNG', border: 'border-emerald-500/70', bg: 'bg-emerald-500/10', text: 'text-emerald-400', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.2)]' },
+        { label: `🏆 TOP #1 CẦU ${activeStreak} KỲ THÔNG`, border: 'border-yellow-500/80', bg: 'bg-yellow-500/15', text: 'text-yellow-300', glow: 'shadow-[0_0_25px_rgba(234,179,8,0.4)]' },
+        { label: `TOP #2 CẦU ${activeStreak} KỲ THÔNG`, border: 'border-cyan-500/70', bg: 'bg-cyan-500/10', text: 'text-cyan-400', glow: 'shadow-[0_0_15px_rgba(6,182,212,0.2)]' },
+        { label: `TOP #3 CẦU ${activeStreak} KỲ THÔNG`, border: 'border-emerald-500/70', bg: 'bg-emerald-500/10', text: 'text-emerald-400', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.2)]' },
     ];
 
     container.innerHTML = top3.map((p, idx) => {
@@ -964,7 +1059,7 @@ function renderTopHighlightCards(patterns) {
             `;
         }
 
-        const streakBadge = `<span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-red-600 text-white shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse">Ăn thông 4 ngày</span>`;
+        const streakBadge = `<span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-red-600 text-white shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse">Ăn thông ${p.currentStreak || activeStreak} kỳ</span>`;
 
         return `
             <div class="pattern-draw-card p-5 border-2 ${b.border} ${b.bg} ${b.glow} rounded-2xl flex flex-col justify-between transition hover:scale-[1.02]">

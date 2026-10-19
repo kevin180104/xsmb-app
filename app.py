@@ -437,7 +437,12 @@ def api_pattern_top3_history():
     try:
         limit_arg = request.args.get('limit', '30')
         limit = -1 if limit_arg == 'all' else max(1, int(limit_arg))
-        data = get_top3_history_service(limit=limit)
+        streak_arg = request.args.get('streak', '4')
+        try:
+            streak = int(streak_arg)
+        except ValueError:
+            streak = 4
+        data = get_top3_history_service(limit=limit, streak=streak)
         return jsonify(data)
     except Exception as e:
         return jsonify({"status": "ERROR", "message": str(e)}), 400
