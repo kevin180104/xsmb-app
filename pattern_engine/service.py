@@ -688,3 +688,434 @@ def get_top3_history_service(limit: int = 30, streak: int = 4) -> Dict[str, Any]
         "total": len(history),
         "history": history
     }
+
+
+def get_unified_prediction_history(
+    source: str = "all",
+    time_range: str = "all",
+    status_filter: str = "all",
+    streak: int = 4,
+    page: int = 1,
+    limit: int = 50,
+    search: str = ""
+) -> Dict[str, Any]:
+    """
+    Adapter Service tổng hợp và chuẩn hóa lịch sử dự đoán từ 2 nguồn snapshot:
+    1. TOP_4_KY (từ bảng daily_streak_top3_snapshots)
+    2. TRA_CUU_4_NGAY (từ bảng daily_streak_bridges_snapshots)
+    Đối chiếu trực tiếp với kết quả XSMB thực tế (xsmb_results) và find_matched_locations().
+    Không duplicate database, tuân thủ nguyên tắc Single Source of Truth và Immutability.
+    """
+    def _format_vn_date(date_str: str) -> str:
+        if not date_str:
+            return ""
+        try:
+            return datetime.strptime(date_str, "%Y-%m-%d").strftime("%d/%m/%Y")
+        except Exception:
+            return date_str
+
+    cutoff_date = None
+    if time_range == "7d":
+        cutoff_date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    elif time_range == "30d":
+        cutoff_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+    elif time_range == "90d":
+        cutoff_date = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
+
+    all_records = []
+
+    # Cache kết quả mở thưởng theo target_date để tối ưu query
+    results_cache: Dict[str, Optional[Dict[str, Any]]] = {}
+
+    def _get_actual(target_dt: str) -> Optional[Dict[str, Any]]:
+        if target_dt not in results_cache:
+            results_cache[target_dt] = database.get_result_by_date(target_dt)
+        return results_cache[target_dt]
+
+    # -------------------------------------------------------------
+    # 1. NGUỒN TOP_4_KY (daily_streak_top3_snapshots)
+    # -------------------------------------------------------------
+    raw_top3_snaps = database.get_all_top3_snapshots(limit=500, streak=streak)
+    for snap in raw_top3_snaps:
+        target_date = snap.get("target_date", "")
+        if not target_date:
+            continue
+        if cutoff_date and target_date < cutoff_date:
+            continue
+
+        source_date = snap.get("source_date", "")
+        target_disp = snap.get("date_display") or _format_vn_date(target_date)
+        source_disp = _format_vn_date(source_date)
+        actual = _get_actual(target_date)
+        is_pending = (actual is None)
+        actual_lotos = actual.get("loto_2digit", []) if actual else []
+
+        for rank, key, name_key in [
+            (1, "top1_pair", "top1_name"),
+            (2, "top2_pair", "top2_name"),
+            (3, "top3_pair", "top3_name")
+        ]:
+            pair_str = snap.get(key, "").strip()
+            if not pair_str:
+                continue
+
+            nums = [n.strip() for n in pair_str.split("-") if n.strip()]
+            numbers_detail = []
+            pair_hits = 0
+
+            for num in nums:
+                cnt = actual_lotos.count(num) if not is_pending else 0
+                try:
+                    locs = find_matched_locations([int(num)], actual) if (not is_pending and cnt > 0) else []
+                except Exception:
+                    locs = []
+                pair_hits += cnt
+                numbers_detail.append({
+                    "number": num,
+                    "hit_count": cnt,
+                    "is_hit": (cnt > 0) if not is_pending else None,
+                    "hit_locations": locs
+                })
+
+            pair_is_hit = (pair_hits > 0) if not is_pending else None
+            status = "PENDING" if is_pending else ("WIN" if pair_is_hit else "LOSE")
+
+            all_records.append({
+                "id": f"TOP4_{target_date}_{rank}",
+                "target_date": target_date,
+                "target_date_display": target_disp,
+                "source_date": source_date,
+                "source_date_display": source_disp,
+                "source_type": "TOP_4_KY",
+                "source_label": f"TOP {streak} Kỳ VIP",
+                "rank": rank,
+                "pair": pair_str,
+                "predicted_numbers": nums,
+                "pair_is_hit": pair_is_hit,
+                "pair_total_hits": pair_hits,
+                "status": status,
+                "is_pending": is_pending,
+                "meta": {
+                    "pattern_name": snap.get(name_key, f"Cầu Top #{rank}"),
+                    "streak": streak,
+                    "rank": rank
+                },
+                "numbers_detail": numbers_detail,
+                "created_at": snap.get("created_at", "")
+            })
+
+    # -------------------------------------------------------------
+    # 2. NGUỒN TRA_CUU_4_NGAY (daily_streak_bridges_snapshots)
+    # -------------------------------------------------------------
+    raw_streak_snaps = database.get_all_streak_bridges_snapshots(
+        streak=streak, exact_streak=True, target_type="loto_2digit", limit=200
+    )
+    for s_snap in raw_streak_snaps:
+        target_date = s_snap.get("target_date", "")
+        if not target_date or target_date == "next":
+            continue
+        if cutoff_date and target_date < cutoff_date:
+            continue
+
+        query_date = s_snap.get("query_date", "")
+        snap_data = s_snap.get("data", {})
+        target_disp = snap_data.get("targetDateDisplay") or _format_vn_date(target_date)
+        source_disp = snap_data.get("queryDateDisplay") or _format_vn_date(query_date)
+        actual = _get_actual(target_date)
+        is_pending = (actual is None)
+        actual_lotos = actual.get("loto_2digit", []) if actual else []
+
+        bridges = snap_data.get("bridges", [])
+        for idx, bridge in enumerate(bridges):
+            pair_str = bridge.get("predictionDisplay", "").strip()
+            nums = bridge.get("predictedNumbers", [])
+            if not pair_str and nums:
+                pair_str = " - ".join(nums)
+
+            numbers_detail = []
+            pair_hits = 0
+
+            for num in nums:
+                cnt = actual_lotos.count(num) if not is_pending else 0
+                try:
+                    locs = find_matched_locations([int(num)], actual) if (not is_pending and cnt > 0) else []
+                except Exception:
+                    locs = []
+                pair_hits += cnt
+                numbers_detail.append({
+                    "number": num,
+                    "hit_count": cnt,
+                    "is_hit": (cnt > 0) if not is_pending else None,
+                    "hit_locations": locs
+                })
+
+            pair_is_hit = (pair_hits > 0) if not is_pending else None
+            status = "PENDING" if is_pending else ("WIN" if pair_is_hit else "LOSE")
+            bridge_id = bridge.get("patternId", f"P_{idx}")
+
+            all_records.append({
+                "id": f"TRA4_{target_date}_{bridge_id}_{idx}",
+                "target_date": target_date,
+                "target_date_display": target_disp,
+                "source_date": query_date,
+                "source_date_display": source_disp,
+                "source_type": "TRA_CUU_4_NGAY",
+                "source_label": f"Tra Cứu {streak} Ngày",
+                "rank": idx + 1,
+                "pair": pair_str,
+                "predicted_numbers": nums,
+                "pair_is_hit": pair_is_hit,
+                "pair_total_hits": pair_hits,
+                "status": status,
+                "is_pending": is_pending,
+                "meta": {
+                    "pattern_id": bridge_id,
+                    "label_a": bridge.get("labelA", ""),
+                    "label_b": bridge.get("labelB", ""),
+                    "display_prize_a": bridge.get("displayPrizeA", ""),
+                    "display_prize_b": bridge.get("displayPrizeB", ""),
+                    "streak": bridge.get("streak", streak),
+                    "digits": bridge.get("digits", [])
+                },
+                "numbers_detail": numbers_detail,
+                "created_at": s_snap.get("created_at", "")
+            })
+
+    # -------------------------------------------------------------
+    # 3. TÍNH TOÁN KPI ĐỘC LẬP THEO TỪNG NGUỒN VÀ TỔNG
+    # -------------------------------------------------------------
+    def _calc_kpi(rec_list: List[Dict[str, Any]]) -> Dict[str, Any]:
+        unique_days = len(set(r["target_date"] for r in rec_list))
+        total_pairs = len(rec_list)
+        pending_pairs = sum(1 for r in rec_list if r["is_pending"])
+        completed_recs = [r for r in rec_list if not r["is_pending"]]
+        completed_pairs = len(completed_recs)
+        hit_pairs = sum(1 for r in completed_recs if r["pair_is_hit"] is True)
+        miss_pairs = completed_pairs - hit_pairs
+        total_hits = sum(r["pair_total_hits"] for r in completed_recs)
+        # Công thức nghiêm ngặt: không tính PENDING vào mẫu số
+        hit_rate = round((hit_pairs / completed_pairs) * 100, 1) if completed_pairs > 0 else 0.0
+
+        return {
+            "total_days": unique_days,
+            "total_pairs": total_pairs,
+            "completed_pairs": completed_pairs,
+            "pending_pairs": pending_pairs,
+            "hit_pairs": hit_pairs,
+            "miss_pairs": miss_pairs,
+            "total_hits": total_hits,
+            "hit_rate": hit_rate
+        }
+
+    kpi = {
+        "all": _calc_kpi(all_records),
+        "top_4_ky": _calc_kpi([r for r in all_records if r["source_type"] == "TOP_4_KY"]),
+        "tra_cuu_4_ngay": _calc_kpi([r for r in all_records if r["source_type"] == "TRA_CUU_4_NGAY"])
+    }
+
+    # -------------------------------------------------------------
+    # 4. LỌC VÀ PHÂN TRANG (FILTERING & PAGINATION)
+    # -------------------------------------------------------------
+    filtered = all_records
+
+    # Lọc theo Nguồn
+    source_clean = (source or "all").lower()
+    if source_clean in ("top_4_ky", "top4", "top3"):
+        filtered = [r for r in filtered if r["source_type"] == "TOP_4_KY"]
+    elif source_clean in ("tra_cuu_4_ngay", "streak", "tracuu"):
+        filtered = [r for r in filtered if r["source_type"] == "TRA_CUU_4_NGAY"]
+
+    # Lọc theo Trạng thái
+    status_clean = (status_filter or "all").lower()
+    if status_clean == "win":
+        filtered = [r for r in filtered if r["status"] == "WIN"]
+    elif status_clean == "lose":
+        filtered = [r for r in filtered if r["status"] == "LOSE"]
+    elif status_clean == "pending":
+        filtered = [r for r in filtered if r["status"] == "PENDING"]
+
+    # Lọc theo Tìm kiếm
+    if search:
+        s_low = search.strip().lower()
+        filtered = [
+            r for r in filtered if (
+                s_low in r["target_date"].lower()
+                or s_low in r["target_date_display"].lower()
+                or s_low in r["pair"].lower()
+                or any(s_low in n for n in r["predicted_numbers"])
+                or s_low in r["meta"].get("pattern_name", "").lower()
+                or s_low in r["meta"].get("label_a", "").lower()
+                or s_low in r["meta"].get("label_b", "").lower()
+            )
+        ]
+
+    # Sắp xếp mới nhất lên đầu: target_date DESC, source_type ASC, rank ASC
+    filtered.sort(key=lambda r: (r["target_date"], 0 if r["source_type"] == "TOP_4_KY" else 1, -r["rank"]), reverse=True)
+
+    # Phân trang
+    total_records = len(filtered)
+    limit_val = total_records if (limit == "all" or limit is None or int(limit) <= 0) else max(1, int(limit))
+    page_val = max(1, int(page or 1))
+    total_pages = max(1, (total_records + limit_val - 1) // limit_val)
+    start_idx = (page_val - 1) * limit_val
+    end_idx = start_idx + limit_val
+    page_records = filtered[start_idx:end_idx]
+
+    # Gom nhóm theo ngày để frontend render dạng Grouped theo nhu cầu
+    day_groups: List[Dict[str, Any]] = []
+    current_day_dict: Dict[str, Dict[str, Any]] = {}
+
+    for r in page_records:
+        t_dt = r["target_date"]
+        s_type = r["source_type"]
+        group_key = f"{t_dt}_{s_type}"
+
+        if group_key not in current_day_dict:
+            current_day_dict[group_key] = {
+                "target_date": t_dt,
+                "target_date_display": r["target_date_display"],
+                "source_date": r["source_date"],
+                "source_date_display": r["source_date_display"],
+                "source_type": s_type,
+                "source_label": r["source_label"],
+                "is_pending": r["is_pending"],
+                "items": [],
+                "day_hits": 0,
+                "day_wins": 0,
+                "day_total": 0
+            }
+        g = current_day_dict[group_key]
+        g["items"].append(r)
+        g["day_total"] += 1
+        g["day_hits"] += r["pair_total_hits"]
+        if r["pair_is_hit"] is True:
+            g["day_wins"] += 1
+
+    day_groups = list(current_day_dict.values())
+
+    # -------------------------------------------------------------
+    # 5. XÂY DỰNG DAY SUMMARIES (MÔ HÌNH: NGÀY -> NGUỒN -> TÓM TẮT)
+    # -------------------------------------------------------------
+    day_map: Dict[str, Dict[str, Any]] = {}
+    for r in filtered:
+        t_dt = r["target_date"]
+        s_type = r["source_type"]
+        g_key = f"{t_dt}_{s_type}"
+
+        if g_key not in day_map:
+            day_map[g_key] = {
+                "id": g_key,
+                "target_date": t_dt,
+                "target_date_display": r["target_date_display"],
+                "source_date": r["source_date"],
+                "source_date_display": r["source_date_display"],
+                "source_type": s_type,
+                "source_label": r["source_label"],
+                "is_pending": r["is_pending"],
+                "items": [],
+                "distinct_pairs_set": set(),
+                "wins_count": 0,
+                "misses_count": 0,
+                "pending_count": 0,
+                "total_hits": 0,
+            }
+        dm = day_map[g_key]
+        dm["items"].append(r)
+        dm["distinct_pairs_set"].add(r["pair"])
+        dm["total_hits"] += r["pair_total_hits"]
+        if r["is_pending"]:
+            dm["pending_count"] += 1
+        elif r["status"] == "WIN":
+            dm["wins_count"] += 1
+        elif r["status"] == "LOSE":
+            dm["misses_count"] += 1
+
+    all_day_summaries: List[Dict[str, Any]] = []
+    for g_key, dm in day_map.items():
+        items = dm["items"]
+        s_type = dm["source_type"]
+        total_items = len(items)
+        wins = dm["wins_count"]
+        misses = dm["misses_count"]
+        is_pend = dm["is_pending"] or (dm["pending_count"] == total_items)
+        
+        completed_items = wins + misses
+        hit_rate = round((wins / completed_items * 100), 1) if completed_items > 0 else 0.0
+
+        summary_entry: Dict[str, Any] = {
+            "id": dm["id"],
+            "target_date": dm["target_date"],
+            "target_date_display": dm["target_date_display"],
+            "source_date": dm["source_date"],
+            "source_date_display": dm["source_date_display"],
+            "source_type": s_type,
+            "source_label": dm["source_label"],
+            "is_pending": is_pend,
+            "total_items": total_items,
+            "distinct_pairs_count": len(dm["distinct_pairs_set"]),
+            "wins_count": wins,
+            "misses_count": misses,
+            "total_hits": dm["total_hits"],
+            "hit_rate": hit_rate,
+            "items": items
+        }
+
+        if s_type == "TOP_4_KY":
+            top_dict = {it["rank"]: it for it in items}
+            summary_entry["top1"] = top_dict.get(1)
+            summary_entry["top2"] = top_dict.get(2)
+            summary_entry["top3"] = top_dict.get(3)
+        elif s_type == "TRA_CUU_4_NGAY":
+            pair_bridge_counts: Dict[str, Dict[str, Any]] = {}
+            for it in items:
+                p_str = it["pair"]
+                if p_str not in pair_bridge_counts:
+                    pair_bridge_counts[p_str] = {
+                        "pair": p_str,
+                        "bridges_count": 0,
+                        "status": it["status"],
+                        "pair_total_hits": it["pair_total_hits"],
+                        "predicted_numbers": it["predicted_numbers"],
+                        "numbers_detail": it["numbers_detail"],
+                        "sample_bridges": []
+                    }
+                pbc = pair_bridge_counts[p_str]
+                pbc["bridges_count"] += 1
+                pbc["sample_bridges"].append({
+                    "id": it["id"],
+                    "pattern_id": it["meta"].get("pattern_id"),
+                    "label_a": it["meta"].get("label_a"),
+                    "label_b": it["meta"].get("label_b"),
+                    "display_prize_a": it["meta"].get("display_prize_a"),
+                    "display_prize_b": it["meta"].get("display_prize_b"),
+                })
+            
+            sorted_consensus = sorted(
+                pair_bridge_counts.values(),
+                key=lambda x: (x["bridges_count"], x["pair_total_hits"]),
+                reverse=True
+            )
+            summary_entry["consensus_pairs"] = sorted_consensus
+
+        all_day_summaries.append(summary_entry)
+
+    all_day_summaries.sort(
+        key=lambda d: (d["target_date"], 0 if d["source_type"] == "TOP_4_KY" else 1),
+        reverse=True
+    )
+
+    return {
+        "status": "SUCCESS",
+        "streak": streak,
+        "kpi": kpi,
+        "pagination": {
+            "page": page_val,
+            "limit": limit_val,
+            "total_records": total_records,
+            "total_pages": total_pages,
+            "total_days": len(all_day_summaries)
+        },
+        "records": page_records,
+        "day_summaries": all_day_summaries,
+        "day_groups": day_groups
+    }

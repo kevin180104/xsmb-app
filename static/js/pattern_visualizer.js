@@ -591,262 +591,865 @@ async function applyHistoryDateToTop3(targetDate) {
 }
 
 // =========================================================================
-// QUẢN LÝ BẢNG LỊCH SỬ DỰ ĐOÁN TOP 3 TRÊN TRANG CHỦ (IN-PAGE TABLE)
+// QUẢN LÝ BẢNG LỊCH SỬ DỰ ĐOÁN THỐNG NHẤT (TOP 4 KỲ & TRA CỨU CẦU THÔNG)
 // =========================================================================
 
-let CURRENT_TOP3_HISTORY_DATA = [];
-let CURRENT_TOP3_HISTORY_FILTER = 'all';
+window.CURRENT_PRED_SOURCE = 'all'; // 'all', 'TOP_4_KY', 'TRA_CUU_4_NGAY'
+window.CURRENT_PRED_RANGE = 'all';  // '7d', '30d', '90d', 'all'
+window.CURRENT_PRED_STATUS = 'all'; // 'all', 'win', 'lose', 'pending'
+window.CURRENT_PRED_PAGE = 1;
+window.CURRENT_PRED_STREAK = 4;
+window.CURRENT_PRED_RESPONSE = null;
+window.PRED_CACHE_RECORDS = {};
+window.PRED_CACHE_DAYS = {};
+window.CURRENT_MODAL_STREAK_DAY = null;
+window.CURRENT_MODAL_FILTER = 'all';
 
-// Hàm tải dữ liệu bảng lịch sử Top 3
-async function loadTop3HistoryTable(forceReload = false, streakOverride = null) {
+// Hàm tải dữ liệu lịch sử dự đoán thống nhất
+async function loadUnifiedPredictionHistoryTable(forceReload = false) {
     const tableBody = document.getElementById('top3-history-table-body');
     if (!tableBody) return;
 
-    const streak = streakOverride || window.CURRENT_TABLE_TOP3_STREAK || window.CURRENT_TOP3_STREAK || 4;
-    window.CURRENT_TABLE_TOP3_STREAK = streak;
+    const streak = window.CURRENT_PRED_STREAK || 4;
+    const searchVal = document.getElementById('pred-history-search-input')?.value?.trim() || '';
 
-    if (forceReload || !CURRENT_TOP3_HISTORY_DATA || CURRENT_TOP3_HISTORY_DATA.length === 0 || window._lastLoadedTableStreak !== streak) {
-        window._lastLoadedTableStreak = streak;
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="8" class="p-8 text-center text-neutral-400">
-                    <i class="fa-solid fa-spinner fa-spin text-xl text-amber-400 mb-2"></i>
-                    <p class="font-bold text-xs text-neutral-300">Đang tải dữ liệu lịch sử cầu ${streak} kỳ thông...</p>
-                </td>
-            </tr>
-        `;
-        try {
-            const res = await fetch(`/api/patterns/top3-history?limit=100&streak=${streak}`);
-            const data = await res.json();
-            if (data.status === 'SUCCESS' && data.history) {
-                CURRENT_TOP3_HISTORY_DATA = data.history;
-            } else {
-                CURRENT_TOP3_HISTORY_DATA = [];
-            }
-        } catch (err) {
-            console.error('Lỗi tải lịch sử Top 3:', err);
-            CURRENT_TOP3_HISTORY_DATA = [];
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="5" class="p-8 text-center text-neutral-400">
+                <i class="fa-solid fa-spinner fa-spin text-xl text-amber-400 mb-2"></i>
+                <p class="font-bold text-xs text-neutral-300">Đang tải lịch sử dự đoán snapshot theo ngày...</p>
+            </td>
+        </tr>
+    `;
+
+    try {
+        const queryParams = new URLSearchParams({
+            source: window.CURRENT_PRED_SOURCE || 'all',
+            range: window.CURRENT_PRED_RANGE || 'all',
+            status: window.CURRENT_PRED_STATUS || 'all',
+            streak: streak.toString(),
+            page: (window.CURRENT_PRED_PAGE || 1).toString(),
+            limit: '50',
+            search: searchVal
+        });
+
+        const res = await fetch(`/api/prediction-history?${queryParams.toString()}`);
+        const data = await res.json();
+        if (data.status === 'SUCCESS') {
+            window.CURRENT_PRED_RESPONSE = data;
+
+            // Lưu cache records
+            (data.records || []).forEach(r => {
+                window.PRED_CACHE_RECORDS[r.id] = r;
+            });
+
+            // Lưu cache day summaries
+            (data.day_summaries || []).forEach(d => {
+                window.PRED_CACHE_DAYS[d.id] = d;
+                (d.items || []).forEach(r => {
+                    window.PRED_CACHE_RECORDS[r.id] = r;
+                });
+            });
+
+            renderPredictionHistoryTable(data);
+        } else {
+            tableBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-400 font-bold">Lỗi: ${data.message || 'Không thể tải lịch sử dự đoán.'}</td></tr>`;
+        }
+    } catch (err) {
+        console.error('Lỗi khi tải lịch sử dự đoán:', err);
+        tableBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-400 font-bold">Lỗi kết nối máy chủ khi nạp lịch sử.</td></tr>`;
+    }
+}
+
+// Render dữ liệu bảng và thẻ KPI phân tách
+function renderPredictionHistoryTable(data) {
+    const tableBody = document.getElementById('top3-history-table-body');
+    const summaryEl = document.getElementById('top3-history-table-summary');
+    const paginationEl = document.getElementById('pred-pagination-controls');
+    if (!tableBody || !data) return;
+
+    // 1. Cập nhật 2 KHỐI KPI RIÊNG BIỆT (TOP 4 KỲ VIP & TRA CỨU 4 NGÀY)
+    const kpiTop = data.kpi?.top_4_ky || {};
+    const kpiStreak = data.kpi?.tra_cuu_4_ngay || {};
+    const kpiAll = data.kpi?.all || {};
+
+    // Cập nhật Panel TOP 4 KỲ VIP
+    setElText('top4-kpi-days', `${kpiTop.total_days || 0} ngày`);
+    setElText('top4-kpi-pairs', `${kpiTop.completed_pairs || 0}${kpiTop.pending_pairs > 0 ? ` (+${kpiTop.pending_pairs} chờ)` : ''}`);
+    setElText('top4-kpi-wins', `${kpiTop.hit_pairs || 0} cặp`);
+    setElText('top4-kpi-hits', `${kpiTop.total_hits || 0} nháy`);
+    setElText('top4-kpi-rate', `${kpiTop.hit_rate !== undefined ? kpiTop.hit_rate : '0.0'}%`);
+
+    // Cập nhật Panel TRA CỨU 4 NGÀY
+    setElText('streak4-kpi-days', `${kpiStreak.total_days || 0} ngày`);
+    setElText('streak4-kpi-bridges', `${kpiStreak.total_pairs || 0} cầu`);
+    setElText('streak4-kpi-wins', `${kpiStreak.hit_pairs || 0} cầu`);
+    setElText('streak4-kpi-hits', `${kpiStreak.total_hits || 0} nháy`);
+    setElText('streak4-kpi-rate', `${kpiStreak.hit_rate !== undefined ? kpiStreak.hit_rate : '0.0'}%`);
+
+    // Điều chỉnh độ sáng của 2 panel theo nguồn đang chọn
+    const pTop = document.getElementById('panel-kpi-top4');
+    const pStreak = document.getElementById('panel-kpi-streak4');
+    if (pTop && pStreak) {
+        if (window.CURRENT_PRED_SOURCE === 'TOP_4_KY') {
+            pTop.className = 'bg-black/90 border-2 border-amber-500/80 rounded-xl p-3.5 flex flex-col justify-between shadow-[0_0_20px_rgba(245,158,11,0.2)] transition';
+            pStreak.className = 'bg-black/40 border border-neutral-800/80 opacity-60 rounded-xl p-3.5 flex flex-col justify-between transition';
+        } else if (window.CURRENT_PRED_SOURCE === 'TRA_CUU_4_NGAY') {
+            pStreak.className = 'bg-black/90 border-2 border-cyan-500/80 rounded-xl p-3.5 flex flex-col justify-between shadow-[0_0_20px_rgba(6,182,212,0.2)] transition';
+            pTop.className = 'bg-black/40 border border-neutral-800/80 opacity-60 rounded-xl p-3.5 flex flex-col justify-between transition';
+        } else {
+            pTop.className = 'bg-black/70 border border-amber-500/40 rounded-xl p-3.5 flex flex-col justify-between shadow-sm transition';
+            pStreak.className = 'bg-black/70 border border-cyan-500/40 rounded-xl p-3.5 flex flex-col justify-between shadow-sm transition';
         }
     }
 
-    renderTop3HistoryTableContent();
-}
+    // Cập nhật số đếm trên các nút filter trạng thái
+    let activeKpi = kpiAll;
+    if (window.CURRENT_PRED_SOURCE === 'TOP_4_KY') activeKpi = kpiTop;
+    else if (window.CURRENT_PRED_SOURCE === 'TRA_CUU_4_NGAY') activeKpi = kpiStreak;
 
-// Cập nhật thống kê và render nội dung bảng
-function renderTop3HistoryTableContent() {
-    const history = CURRENT_TOP3_HISTORY_DATA || [];
-    const tableBody = document.getElementById('top3-history-table-body');
-    const summaryEl = document.getElementById('top3-history-table-summary');
-    if (!tableBody) return;
+    setElText('cnt-pred-all', activeKpi.total_pairs || 0);
+    setElText('cnt-pred-win', activeKpi.hit_pairs || 0);
+    setElText('cnt-pred-lose', activeKpi.miss_pairs || 0);
+    setElText('cnt-pred-pending', activeKpi.pending_pairs || 0);
 
-    // Tính KPI tổng
-    const totalDays = history.length;
-    const completedDays = history.filter(h => !h.isPending);
-    const winDays = completedDays.filter(h => h.summary?.isWin).length;
-    const totalHits = completedDays.reduce((acc, h) => acc + (h.summary?.totalHits || 0), 0);
-    const winRate = completedDays.length > 0 ? ((winDays / completedDays.length) * 100).toFixed(1) : '0.0';
-
-    setElText('table-top3-stat-total', `${totalDays} kỳ`);
-    setElText('table-top3-stat-wins', `${winDays}/${completedDays.length} kỳ`);
-    setElText('table-top3-stat-rate', `${winRate}%`);
-    setElText('table-top3-stat-hits', `${totalHits} nháy`);
-
-    // Cập nhật số đếm trên các nút filter
-    const countAll = totalDays;
-    const countWin = winDays;
-    const countLose = completedDays.filter(h => !h.summary?.isWin).length;
-    const countPending = history.filter(h => h.isPending).length;
-
-    setElText('cnt-flt-all', countAll);
-    setElText('cnt-flt-win', countWin);
-    setElText('cnt-flt-lose', countLose);
-    setElText('cnt-flt-pending', countPending);
-
-    // Lọc theo search keyword
-    const searchVal = document.getElementById('top3-history-search-input')?.value?.trim().toLowerCase() || '';
-
-    // Lọc theo status filter
-    let filtered = history.filter(item => {
-        if (CURRENT_TOP3_HISTORY_FILTER === 'win') return !item.isPending && item.summary?.isWin;
-        if (CURRENT_TOP3_HISTORY_FILTER === 'lose') return !item.isPending && !item.summary?.isWin;
-        if (CURRENT_TOP3_HISTORY_FILTER === 'pending') return item.isPending;
-        return true;
-    });
-
-    if (searchVal) {
-        filtered = filtered.filter(item => {
-            const dateStr = item.targetDate || '';
-            const p1 = item.top1?.pair || '';
-            const p2 = item.top2?.pair || '';
-            const p3 = item.top3?.pair || '';
-            return dateStr.includes(searchVal) || p1.includes(searchVal) || p2.includes(searchVal) || p3.includes(searchVal);
-        });
-    }
+    // 2. Render các dòng của bảng theo NGÀY (MÔ HÌNH: NGÀY -> NGUỒN -> TÓM TẮT)
+    const daySummaries = data.day_summaries || [];
+    const totalDays = daySummaries.length;
+    const limitDays = 10;
+    const totalPages = Math.max(1, Math.ceil(totalDays / limitDays));
+    const page = Math.min(Math.max(1, window.CURRENT_PRED_PAGE || 1), totalPages);
+    const startIdx = (page - 1) * limitDays;
+    const pageDays = daySummaries.slice(startIdx, startIdx + limitDays);
 
     if (summaryEl) {
-        summaryEl.innerHTML = `Hiển thị <b>${filtered.length}</b> / <b>${totalDays}</b> kỳ dự đoán lịch sử`;
+        summaryEl.innerHTML = `Hiển thị <b>${pageDays.length}</b> / <b>${totalDays}</b> ngày có snapshot dự đoán (Trang ${page}/${totalPages})`;
     }
 
-    if (filtered.length === 0) {
+    // Render nút phân trang
+    if (paginationEl) {
+        if (totalPages <= 1) {
+            paginationEl.innerHTML = '';
+        } else {
+            paginationEl.innerHTML = `
+                <button type="button" onclick="onPredChangePage(${page - 1})" ${page <= 1 ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-neutral-700 cursor-pointer"'} 
+                        class="px-2.5 py-1 rounded-lg bg-neutral-800 text-xs text-neutral-300 border border-neutral-700 transition">
+                    <i class="fa-solid fa-chevron-left"></i> Trước
+                </button>
+                <span class="text-xs font-bold text-amber-300 font-mono px-1">Trang ${page}/${totalPages}</span>
+                <button type="button" onclick="onPredChangePage(${page + 1})" ${page >= totalPages ? 'disabled class="opacity-40 cursor-not-allowed"' : 'class="hover:bg-neutral-700 cursor-pointer"'} 
+                        class="px-2.5 py-1 rounded-lg bg-neutral-800 text-xs text-neutral-300 border border-neutral-700 transition">
+                    Sau <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            `;
+        }
+    }
+
+    if (pageDays.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="8" class="p-8 text-center text-neutral-400">
+                <td colspan="5" class="p-8 text-center text-neutral-400">
                     <i class="fa-solid fa-filter-circle-xmark text-2xl text-neutral-600 mb-2"></i>
-                    <p class="text-sm font-bold text-neutral-300">Không tìm thấy bản ghi nào phù hợp với bộ lọc.</p>
+                    <p class="text-sm font-bold text-neutral-300">Không tìm thấy ngày dự đoán nào phù hợp với bộ lọc.</p>
                 </td>
             </tr>
         `;
         return;
     }
 
-    tableBody.innerHTML = filtered.map((item, idx) => {
-        const formattedTarget = formatToDayMonthYear(item.targetDate);
-        const formattedSource = formatToDayMonthYear(item.sourceDate);
+    tableBody.innerHTML = pageDays.map(d => {
+        const isTop4 = d.source_type === 'TOP_4_KY';
 
-        // Render từng Top
-        const renderCellTop = (topObj, label, textColor) => {
-            const pair = topObj?.pair || '--';
-            const isHit = topObj?.eval?.hit;
-            const hitsCount = topObj?.eval?.hits_count || 0;
-            const matchedList = topObj?.eval?.matched || [];
+        // 1. Cột Kỳ Mở Thưởng
+        const dateColHtml = `
+            <div>
+                <div class="font-black text-white text-xs">${d.target_date_display}</div>
+                <div class="text-[10px] text-neutral-500 font-mono">Soi: ${d.source_date_display}</div>
+            </div>
+        `;
 
-            let badgeHtml = '';
-            if (item.isPending) {
-                badgeHtml = `<span class="text-[10px] text-neutral-500 font-mono">Đang chờ</span>`;
-            } else if (isHit) {
-                badgeHtml = `<span class="inline-flex items-center gap-1 text-[10px] font-black text-emerald-300 bg-emerald-950/90 border border-emerald-500/60 px-1.5 py-0.5 rounded shadow-[0_0_8px_rgba(16,185,129,0.3)]">Nổ ${matchedList.join(', ')} (${hitsCount}n)</span>`;
-            } else {
-                badgeHtml = `<span class="text-[10px] text-neutral-500 font-mono">Xịt</span>`;
-            }
-
-            return `
-                <div class="text-center py-1">
-                    <div class="font-black text-sm ${textColor}">${pair}</div>
-                    <div class="mt-0.5">${badgeHtml}</div>
-                </div>
-            `;
-        };
-
-        // Cột Kết quả nổ trúng
-        let resultColHtml = '';
-        if (item.isPending) {
-            resultColHtml = `
-                <span class="text-xs font-bold text-amber-300 flex items-center justify-center gap-1">
-                    <i class="fa-solid fa-clock text-amber-400"></i> Chờ mở thưởng 18h15
+        // 2. Cột Nguồn Dự Đoán
+        const sourceBadgeHtml = isTop4 ? `
+            <div class="text-center">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/50 inline-flex items-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-crown text-amber-400"></i> TOP 4 KỲ
                 </span>
-            `;
-        } else if (item.summary?.isWin) {
-            resultColHtml = `
+            </div>
+        ` : `
+            <div class="text-center">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-950/70 text-cyan-300 border border-cyan-500/50 inline-flex items-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-fire text-cyan-400"></i> Tra Cứu 4 Ngày
+                </span>
+            </div>
+        `;
+
+        // 3. Cột Tóm Tắt Dự Đoán & Kết Quả
+        let summaryColHtml = '';
+        if (isTop4) {
+            const tops = [d.top1, d.top2, d.top3].filter(Boolean);
+            if (d.is_pending) {
+                summaryColHtml = `
+                    <div class="flex flex-wrap items-center gap-2">
+                        ${tops.map((t, i) => `
+                            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-neutral-900 border border-neutral-800 text-xs">
+                                <span class="text-[10px] font-bold text-neutral-400">TOP ${i + 1}:</span>
+                                <span class="font-black text-yellow-300 font-mono">${t.pair}</span>
+                                <span class="text-amber-400 text-[10px] font-bold">⏳ Chờ</span>
+                            </span>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                summaryColHtml = `
+                    <div class="flex flex-wrap items-center gap-2">
+                        ${tops.map((t, i) => {
+                            const isHit = t.status === 'WIN';
+                            const badgeCls = isHit ? 'text-emerald-400 font-black' : 'text-neutral-400 font-normal';
+                            const hitText = isHit ? `✓ ${t.pair_total_hits}n` : '✕ Trượt';
+                            return `
+                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-neutral-900 border ${isHit ? 'border-emerald-500/40 bg-emerald-950/20' : 'border-neutral-800'} text-xs">
+                                    <span class="text-[10px] font-bold text-neutral-400">TOP ${i + 1}:</span>
+                                    <span class="font-black ${isHit ? 'text-emerald-300' : 'text-white'} font-mono">${t.pair}</span>
+                                    <span class="${badgeCls} text-[11px]">${hitText}</span>
+                                </span>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }
+        } else {
+            // TRA_CUU_4_NGAY
+            if (d.is_pending) {
+                summaryColHtml = `
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="text-white font-black">${d.total_items} đường cầu</span>
+                            <span class="text-neutral-600">•</span>
+                            <span class="text-neutral-300">${d.distinct_pairs_count} cặp số khác nhau</span>
+                        </div>
+                        <div class="text-[11px] text-amber-400 font-mono">
+                            ⏳ Chờ mở thưởng 18h15
+                        </div>
+                    </div>
+                `;
+            } else {
+                summaryColHtml = `
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="text-white font-black">${d.total_items} đường cầu</span>
+                            <span class="text-neutral-600">•</span>
+                            <span class="text-neutral-300">${d.distinct_pairs_count} cặp số khác nhau</span>
+                        </div>
+                        <div class="text-[11px] text-neutral-400 flex flex-wrap items-center gap-2 font-mono">
+                            <span class="text-emerald-400 font-bold">${d.wins_count} cầu trúng</span>
+                            <span class="text-neutral-600">•</span>
+                            <span class="text-red-400">${d.misses_count} cầu trượt</span>
+                            <span class="text-neutral-600">•</span>
+                            <span class="text-cyan-300 font-bold">Tổng ${d.total_hits} nháy nổ</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // 4. Cột Đánh Giá Ngày
+        let evalColHtml = '';
+        if (d.is_pending) {
+            evalColHtml = `
                 <div class="text-center">
-                    <span class="text-xs font-black text-emerald-400 font-mono">Nổ ${item.summary.hitPairs}/3 cặp</span>
-                    <div class="text-[11px] text-yellow-300 font-bold font-mono">Tổng: ${item.summary.totalHits} nháy</div>
+                    <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-950/70 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1">
+                        <i class="fa-solid fa-clock animate-pulse"></i> CHỜ KẾT QUẢ
+                    </span>
+                </div>
+            `;
+        } else if (isTop4) {
+            const tops = [d.top1, d.top2, d.top3].filter(Boolean);
+            const badgeMarks = tops.map((t, idx) => {
+                const mark = t?.pair_is_hit ? '<span class="text-emerald-400 font-bold">✓</span>' : '<span class="text-red-400">✕</span>';
+                return `T${idx + 1} ${mark}`;
+            }).join(' | ');
+
+            evalColHtml = `
+                <div class="text-center">
+                    <div class="font-black ${d.wins_count > 0 ? 'text-emerald-400' : 'text-neutral-400'} text-xs">
+                        ${d.wins_count}/${d.total_items} TOP trúng
+                    </div>
+                    <div class="text-[11px] text-neutral-400 font-mono">
+                        ${d.total_hits} nháy • ${d.hit_rate}%
+                    </div>
+                    <div class="text-[10px] text-neutral-400 font-mono mt-0.5">${badgeMarks}</div>
                 </div>
             `;
         } else {
-            resultColHtml = `
-                <span class="text-xs font-semibold text-neutral-500 font-mono">Gãy cả 3 cặp</span>
+            evalColHtml = `
+                <div class="text-center">
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${d.hit_rate >= 30 ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-500/40' : 'bg-neutral-900 text-neutral-400 border border-neutral-800'}">
+                        ${d.hit_rate}% Cầu Thắng
+                    </span>
+                    <div class="text-[10px] text-neutral-400 mt-1 font-mono">${d.wins_count}/${d.total_items} cầu nổ</div>
+                </div>
             `;
         }
 
-        // Cột Đánh giá (Badge Win/Lose/Pending)
-        let evalBadgeHtml = '';
-        if (item.isPending) {
-            evalBadgeHtml = `<span class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-300 bg-amber-950/80 border border-amber-500/50">⏳ CHỜ KQ</span>`;
-        } else if (item.summary?.isWin) {
-            evalBadgeHtml = `<span class="px-2.5 py-1 rounded-lg text-[11px] font-black text-emerald-300 bg-emerald-950/90 border border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]">🎯 THẮNG (WIN)</span>`;
-        } else {
-            evalBadgeHtml = `<span class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-neutral-400 bg-neutral-900 border border-neutral-700">❌ TRƯỢT</span>`;
-        }
+        // 5. Cột Thao Tác
+        const actionColHtml = isTop4 ? `
+            <div class="text-center">
+                <button type="button" onclick="openTop4DayModal('${d.id}')"
+                        class="px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-amber-300 hover:text-white border border-neutral-700 transition cursor-pointer flex items-center gap-1 mx-auto shadow-sm active:scale-95"
+                        title="Xem chi tiết các giải nổ của Top 1, Top 2, Top 3 ngày ${d.target_date_display}">
+                    <i class="fa-solid fa-circle-info text-amber-400"></i> Chi Tiết
+                </button>
+            </div>
+        ` : `
+            <div class="text-center">
+                <button type="button" onclick="openStreakDayModal('${d.id}')"
+                        class="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-950/50 hover:bg-cyan-900/70 text-cyan-300 hover:text-white border border-cyan-700/50 transition cursor-pointer flex items-center gap-1 mx-auto shadow-sm active:scale-95"
+                        title="Xem toàn bộ ${d.total_items} đường cầu và độ hội tụ ngày ${d.target_date_display}">
+                    <i class="fa-solid fa-list-check text-cyan-400"></i> Xem ${d.total_items} Cầu
+                </button>
+            </div>
+        `;
 
         return `
             <tr class="hover:bg-neutral-800/40 transition border-b border-neutral-800/60">
-                <td class="p-3 text-center text-neutral-400 font-bold">${idx + 1}</td>
-                <td class="p-3">
-                    <div class="font-black text-white text-xs">${formattedTarget}</div>
-                    <div class="text-[10px] text-neutral-500 font-mono">Soi: ${formattedSource}</div>
-                </td>
-                <td class="p-2.5">${renderCellTop(item.top1, 'Top 1', 'text-yellow-400 font-mono text-base')}</td>
-                <td class="p-2.5">${renderCellTop(item.top2, 'Top 2', 'text-cyan-400 font-mono text-base')}</td>
-                <td class="p-2.5">${renderCellTop(item.top3, 'Top 3', 'text-emerald-400 font-mono text-base')}</td>
-                <td class="p-3 text-center">${resultColHtml}</td>
-                <td class="p-3 text-center">${evalBadgeHtml}</td>
-                <td class="p-3 text-center">
-                    <div class="flex items-center justify-center gap-1.5">
-                        <button type="button" onclick="applyHistoryDateToTop3('${item.targetDate}')" 
-                                class="px-2.5 py-1 rounded-lg text-[11px] font-black bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 transition cursor-pointer shadow-sm"
-                                title="Nạp lại kết quả ngày này lên 3 Card Top 3">
-                            <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>Xem lại
-                        </button>
+                <td class="p-3 whitespace-nowrap">${dateColHtml}</td>
+                <td class="p-3">${sourceBadgeHtml}</td>
+                <td class="p-3">${summaryColHtml}</td>
+                <td class="p-3">${evalColHtml}</td>
+                <td class="p-3 whitespace-nowrap">${actionColHtml}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Mở Modal Chi Tiết Ngày TOP 4 KỲ VIP
+function openTop4DayModal(dayId) {
+    const modal = document.getElementById('top4-day-modal');
+    const container = document.getElementById('t4m-cards-container');
+    const dateBadge = document.getElementById('t4m-date-badge');
+    const statsEl = document.getElementById('t4m-summary-stats');
+    if (!modal || !container) return;
+
+    const day = window.PRED_CACHE_DAYS[dayId];
+    if (!day) {
+        alert('Không tìm thấy dữ liệu ngày.');
+        return;
+    }
+
+    if (dateBadge) {
+        dateBadge.textContent = `Kỳ ngày: ${day.target_date_display} (Soi từ: ${day.source_date_display})`;
+    }
+    if (statsEl) {
+        statsEl.innerHTML = day.is_pending
+            ? `<span class="text-amber-400 font-bold">⏳ Kỳ quay mở thưởng đang chờ kết quả 18h15</span>`
+            : `<span class="text-emerald-400 font-black">${day.wins_count}/${day.total_items} TOP trúng</span> • <span>Tổng ${day.total_hits} nháy</span> • <span>Tỷ lệ ${day.hit_rate}%</span>`;
+    }
+
+    const tops = [day.top1, day.top2, day.top3].filter(Boolean);
+    container.innerHTML = tops.map((t, idx) => {
+        const isHit = t.status === 'WIN';
+        return `
+            <div class="p-4 bg-black/60 border ${isHit ? 'border-emerald-500/50 bg-emerald-950/10' : 'border-neutral-800'} rounded-2xl space-y-3">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-neutral-800/80 pb-2.5">
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            👑 TOP #${idx + 1} VIP
+                        </span>
+                        <span class="text-xl font-black text-yellow-300 font-mono tracking-wider">${t.pair}</span>
                     </div>
+                    <div>
+                        ${t.is_pending 
+                            ? `<span class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-amber-950 text-amber-300 border border-amber-500/50">⏳ CHỜ KẾT QUẢ</span>`
+                            : (isHit 
+                                ? `<span class="px-2.5 py-0.5 rounded-lg text-xs font-black bg-emerald-950 text-emerald-300 border border-emerald-500/60">🟢 TRÚNG ${t.pair_total_hits} NHÁY</span>`
+                                : `<span class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-neutral-900 text-neutral-400 border border-neutral-700">🔴 TRƯỢT (0 NHÁY)</span>`
+                            )
+                        }
+                    </div>
+                </div>
+
+                <div class="text-xs text-neutral-400 font-sans">
+                    <span class="text-neutral-500 font-bold">Đường cầu:</span> ${t.meta?.pattern_name || 'Cầu Top VIP'}
+                </div>
+
+                <div class="space-y-2 pt-1 font-mono text-xs">
+                    <div class="text-[11px] font-bold text-neutral-400 uppercase">Chi tiết các số trong cặp:</div>
+                    ${(t.numbers_detail || []).map(n => `
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded-xl bg-neutral-900/60 border border-neutral-800 gap-1.5">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-lg bg-neutral-800 text-white flex items-center justify-center font-black text-xs font-mono border border-neutral-700">
+                                    ${n.number}
+                                </span>
+                                <span class="font-bold text-neutral-200">Số ${n.number}:</span>
+                                <span class="${n.is_hit ? 'text-emerald-400 font-black' : 'text-neutral-500'}">
+                                    ${n.is_hit ? `Trúng ${n.hit_count} nháy` : 'Trượt (0n)'}
+                                </span>
+                            </div>
+                            <div class="text-[11px] text-neutral-400 flex flex-wrap gap-1">
+                                ${(n.hit_locations || []).map(loc => `
+                                    <span class="px-1.5 py-0.5 rounded bg-black border border-neutral-700 text-yellow-300 font-bold">
+                                        ${loc.prize} (...<b class="text-emerald-400">${loc.hitNumber}</b>)
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeTop4DayModal() {
+    const modal = document.getElementById('top4-day-modal');
+    if (modal) {
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+}
+
+// Mở Modal Chi Tiết Ngày TRA CỨU 4 NGÀY (Consensus + Bridges List)
+function openStreakDayModal(dayId) {
+    const modal = document.getElementById('streak-day-modal');
+    const dateBadge = document.getElementById('sdm-date-badge');
+    const statsEl = document.getElementById('sdm-summary-stats');
+    const consensusContainer = document.getElementById('sdm-consensus-container');
+    const bridgesCountEl = document.getElementById('sdm-bridges-count');
+    if (!modal) return;
+
+    const day = window.PRED_CACHE_DAYS[dayId];
+    if (!day) {
+        alert('Không tìm thấy dữ liệu tra cứu của ngày này.');
+        return;
+    }
+
+    window.CURRENT_MODAL_STREAK_DAY = day;
+    window.CURRENT_MODAL_FILTER = 'all';
+
+    if (dateBadge) {
+        dateBadge.textContent = `Kỳ ngày: ${day.target_date_display} (Soi từ: ${day.source_date_display})`;
+    }
+    if (bridgesCountEl) {
+        bridgesCountEl.textContent = day.total_items;
+    }
+    if (statsEl) {
+        statsEl.innerHTML = day.is_pending
+            ? `<span class="text-amber-400 font-bold">⏳ Kỳ quay mở thưởng đang chờ kết quả 18h15</span>`
+            : `<span class="text-white font-bold">${day.total_items} cầu</span> • <span class="text-neutral-300">${day.distinct_pairs_count} cặp</span> • <span class="text-emerald-400 font-black">${day.wins_count} trúng</span> • <span class="text-red-400">${day.misses_count} trượt</span> • <span class="text-cyan-300 font-black">Tổng ${day.total_hits} nháy</span> • <span class="text-yellow-300 font-black">${day.hit_rate}%</span>`;
+    }
+
+    // 1. Render Khối 1: CÁC CẶP ĐƯỢC NHIỀU CẦU CÙNG BÁO (ĐỘ HỘI TỤ ĐƯỜNG CẦU)
+    const consensus = day.consensus_pairs || [];
+    if (consensusContainer) {
+        if (consensus.length === 0) {
+            consensusContainer.innerHTML = `<div class="text-neutral-500 italic text-xs py-2">Không có dữ liệu hội tụ.</div>`;
+        } else {
+            consensusContainer.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
+                    ${consensus.slice(0, 12).map((cp, idx) => {
+                        const isHit = cp.status === 'WIN';
+                        return `
+                            <div class="p-2.5 bg-neutral-900/80 border ${isHit ? 'border-emerald-500/40 bg-emerald-950/10' : 'border-neutral-800'} rounded-xl flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-neutral-500 w-4">${idx + 1}.</span>
+                                    <span class="text-sm font-black font-mono ${isHit ? 'text-emerald-300' : 'text-yellow-300'} bg-black px-2 py-0.5 rounded border border-neutral-700">
+                                        ${cp.pair}
+                                    </span>
+                                    <span class="text-[11px] text-neutral-300 font-bold">
+                                        <b class="text-amber-400">${cp.bridges_count}</b> cầu
+                                    </span>
+                                </div>
+                                <div>
+                                    ${cp.status === 'PENDING'
+                                        ? `<span class="text-amber-400 text-[10px] font-bold">⏳ Chờ</span>`
+                                        : (isHit 
+                                            ? `<span class="text-emerald-400 font-black text-[11px]">✓ ${cp.pair_total_hits} nháy</span>` 
+                                            : `<span class="text-neutral-400 text-[11px]">✕ Trượt</span>`
+                                        )
+                                    }
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+    }
+
+    // 2. Render Khối 2: DANH SÁCH TOÀN BỘ ĐƯỜNG CẦU
+    renderModalBridgesList();
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeStreakDayModal() {
+    const modal = document.getElementById('streak-day-modal');
+    if (modal) {
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+}
+
+// Lọc và Tìm kiếm danh sách Bridges trong Modal
+function filterModalBridges(filterType) {
+    window.CURRENT_MODAL_FILTER = filterType;
+    ['all', 'win', 'lose'].forEach(t => {
+        const btn = document.getElementById(`sdm-btn-filter-${t}`);
+        if (btn) {
+            btn.className = (t === filterType)
+                ? 'px-2 py-0.5 rounded font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/50'
+                : 'px-2 py-0.5 rounded font-bold text-neutral-400 hover:bg-neutral-800';
+        }
+    });
+    renderModalBridgesList();
+}
+
+function searchModalBridges() {
+    renderModalBridgesList();
+}
+
+function renderModalBridgesList() {
+    const tbody = document.getElementById('sdm-bridges-table-body');
+    if (!tbody || !window.CURRENT_MODAL_STREAK_DAY) return;
+
+    const day = window.CURRENT_MODAL_STREAK_DAY;
+    const items = day.items || [];
+    const filterType = window.CURRENT_MODAL_FILTER || 'all';
+    const searchVal = document.getElementById('sdm-search-input')?.value?.trim()?.toLowerCase() || '';
+
+    let filtered = items;
+    if (filterType === 'win') {
+        filtered = filtered.filter(it => it.status === 'WIN');
+    } else if (filterType === 'lose') {
+        filtered = filtered.filter(it => it.status === 'LOSE');
+    }
+
+    if (searchVal) {
+        filtered = filtered.filter(it => {
+            return (
+                it.pair.toLowerCase().includes(searchVal) ||
+                (it.meta?.label_a || '').toLowerCase().includes(searchVal) ||
+                (it.meta?.label_b || '').toLowerCase().includes(searchVal) ||
+                (it.meta?.display_prize_a || '').toLowerCase().includes(searchVal) ||
+                (it.meta?.display_prize_b || '').toLowerCase().includes(searchVal)
+            );
+        });
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-neutral-500 italic">Không tìm thấy đường cầu nào phù hợp.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map((it, idx) => {
+        const isHit = it.status === 'WIN';
+        const prizeInfo = `${it.meta?.display_prize_a || it.meta?.label_a || 'A'} x ${it.meta?.display_prize_b || it.meta?.label_b || 'B'}`;
+        const labelInfo = `${it.meta?.label_a || ''} • ${it.meta?.label_b || ''}`;
+
+        return `
+            <tr class="hover:bg-neutral-800/40 transition">
+                <td class="p-2.5 text-center text-neutral-500 font-bold">${idx + 1}</td>
+                <td class="p-2.5 whitespace-nowrap">
+                    <div class="text-white font-bold">${prizeInfo}</div>
+                    <div class="text-[10px] text-neutral-500">${labelInfo}</div>
+                </td>
+                <td class="p-2.5 text-center whitespace-nowrap">
+                    <span class="px-2 py-0.5 rounded bg-black border border-neutral-700 font-mono font-black ${isHit ? 'text-emerald-300' : 'text-yellow-300'}">
+                        ${it.pair}
+                    </span>
+                </td>
+                <td class="p-2.5 text-center whitespace-nowrap">
+                    ${it.is_pending 
+                        ? `<span class="text-amber-400 font-bold">⏳ Chờ</span>`
+                        : (isHit 
+                            ? `<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check"></i> Trúng</span>`
+                            : `<span class="text-neutral-400"><i class="fa-solid fa-circle-xmark text-red-500"></i> Trượt</span>`
+                        )
+                    }
+                </td>
+                <td class="p-2.5 text-center whitespace-nowrap font-bold ${isHit ? 'text-emerald-400' : 'text-neutral-500'}">
+                    ${it.pair_total_hits} nháy
+                </td>
+                <td class="p-2.5 text-center whitespace-nowrap">
+                    <button type="button" onclick="openPredictionDetailModal('${it.id}')"
+                            class="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-800 hover:bg-neutral-700 text-cyan-300 border border-neutral-700 transition">
+                        Chi tiết
+                    </button>
                 </td>
             </tr>
         `;
     }).join('');
 }
 
-// Chuyển tab lọc trong bảng
-function filterTop3HistoryTable(filterKey) {
-    CURRENT_TOP3_HISTORY_FILTER = filterKey;
+// Đổi Tab Nguồn Dự Đoán (Tất Cả / TOP 4 Kỳ / Tra Cứu 4 Ngày)
+function setPredSourceFilter(sourceKey) {
+    window.CURRENT_PRED_SOURCE = sourceKey;
+    window.CURRENT_PRED_PAGE = 1;
 
     const btns = {
-        all: document.getElementById('btn-flt-top3-all'),
-        win: document.getElementById('btn-flt-top3-win'),
-        lose: document.getElementById('btn-flt-top3-lose'),
-        pending: document.getElementById('btn-flt-top3-pending')
+        all: document.getElementById('btn-src-all'),
+        TOP_4_KY: document.getElementById('btn-src-top4'),
+        TRA_CUU_4_NGAY: document.getElementById('btn-src-streak4')
     };
 
     const activeCls = 'px-2.5 py-1 rounded-lg text-xs font-black bg-amber-500/25 text-amber-300 border border-amber-500/70 transition cursor-pointer';
     const inactiveCls = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition cursor-pointer';
 
     Object.keys(btns).forEach(k => {
-        if (btns[k]) btns[k].className = (k === filterKey) ? activeCls : inactiveCls;
+        if (btns[k]) btns[k].className = (k === sourceKey) ? activeCls : inactiveCls;
     });
 
-    renderTop3HistoryTableContent();
+    loadUnifiedPredictionHistoryTable(true);
 }
 
-// Tìm kiếm trong bảng
-function onTop3HistorySearchChange() {
-    renderTop3HistoryTableContent();
+// Đổi Khoảng Thời Gian (7d / 30d / 90d / all)
+function setPredTimeRange(rangeKey) {
+    window.CURRENT_PRED_RANGE = rangeKey;
+    window.CURRENT_PRED_PAGE = 1;
+
+    const btns = {
+        '7d': document.getElementById('btn-rng-7d'),
+        '30d': document.getElementById('btn-rng-30d'),
+        '90d': document.getElementById('btn-rng-90d'),
+        'all': document.getElementById('btn-rng-all')
+    };
+
+    const activeCls = 'px-2.5 py-1 rounded-lg text-xs font-black bg-amber-500/25 text-amber-300 border border-amber-500/70 transition cursor-pointer';
+    const inactiveCls = 'px-2 py-1 rounded-lg text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition cursor-pointer';
+
+    Object.keys(btns).forEach(k => {
+        if (btns[k]) btns[k].className = (k === rangeKey) ? activeCls : inactiveCls;
+    });
+
+    loadUnifiedPredictionHistoryTable(true);
 }
 
-// Xuất file Excel / CSV cho bảng lịch sử Top 3
-function exportTop3HistoryExcel() {
-    const history = CURRENT_TOP3_HISTORY_DATA || [];
-    if (history.length === 0) {
+// Đổi Trạng Thái Lọc (all / win / lose / pending)
+function setPredStatusFilter(statusKey) {
+    window.CURRENT_PRED_STATUS = statusKey;
+    window.CURRENT_PRED_PAGE = 1;
+
+    const btns = {
+        all: document.getElementById('btn-st-all'),
+        win: document.getElementById('btn-st-win'),
+        lose: document.getElementById('btn-st-lose'),
+        pending: document.getElementById('btn-st-pending')
+    };
+
+    const activeCls = 'px-2.5 py-1 rounded-lg text-xs font-black bg-amber-500/25 text-amber-300 border border-amber-500/70 transition cursor-pointer';
+    const inactiveCls = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition cursor-pointer';
+
+    Object.keys(btns).forEach(k => {
+        if (btns[k]) btns[k].className = (k === statusKey) ? activeCls : inactiveCls;
+    });
+
+    loadUnifiedPredictionHistoryTable(true);
+}
+
+// Tìm kiếm nhanh trong lịch sử
+let _predSearchDebounce = null;
+function onPredSearchChange() {
+    clearTimeout(_predSearchDebounce);
+    _predSearchDebounce = setTimeout(() => {
+        window.CURRENT_PRED_PAGE = 1;
+        loadUnifiedPredictionHistoryTable(true);
+    }, 250);
+}
+
+// Chuyển trang phân trang
+function onPredChangePage(newPage) {
+    if (newPage < 1) return;
+    window.CURRENT_PRED_PAGE = newPage;
+    loadUnifiedPredictionHistoryTable(true);
+}
+
+// Mở Modal Chi Tiết Kết Quả Của 1 Cặp Số / Ngày
+function openPredictionDetailModal(recordId) {
+    const modal = document.getElementById('pred-detail-modal');
+    const content = document.getElementById('pdm-content');
+    const sourceBadge = document.getElementById('pdm-source-badge');
+    const dateBadge = document.getElementById('pdm-date-badge');
+    if (!modal || !content) return;
+
+    const r = window.PRED_CACHE_RECORDS[recordId];
+    if (!r) {
+        alert('Không tìm thấy bản ghi chi tiết.');
+        return;
+    }
+
+    if (sourceBadge) {
+        sourceBadge.textContent = r.source_label || r.source_type;
+        sourceBadge.className = r.source_type === 'TOP_4_KY'
+            ? 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/50'
+            : 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-600/20 text-rose-300 border border-red-500/50';
+    }
+
+    if (dateBadge) {
+        dateBadge.textContent = `Kỳ mở thưởng: ${r.target_date_display} (Soi ngày: ${r.source_date_display})`;
+    }
+
+    // Render nội dung chi tiết
+    let html = `
+        <div class="p-3.5 bg-neutral-900/90 border border-neutral-800 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div>
+                <div class="text-[11px] text-neutral-400 uppercase font-bold">Cặp Số Dự Đoán</div>
+                <div class="text-2xl font-black text-yellow-300 font-mono mt-0.5">${r.pair}</div>
+                <div class="text-[11px] text-neutral-400 mt-0.5">${r.meta?.pattern_name || (r.meta?.label_a ? `${r.meta.display_prize_a || r.meta.label_a} + ${r.meta.display_prize_b || r.meta.label_b}` : '')}</div>
+            </div>
+            <div class="text-right">
+                <div class="text-[11px] text-neutral-400 uppercase font-bold">Đánh Giá Tổng Hợp</div>
+                <div class="mt-1">
+                    ${r.is_pending
+                        ? `<span class="px-3 py-1 rounded-xl text-xs font-bold bg-amber-950/80 text-amber-300 border border-amber-500/50">⏳ CHỜ MỞ THƯỞNG 18h15</span>`
+                        : (r.pair_is_hit
+                            ? `<span class="px-3 py-1 rounded-xl text-xs font-black bg-emerald-950/90 text-emerald-300 border border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]">🟢 TRÚNG ${r.pair_total_hits} NHÁY</span>`
+                            : `<span class="px-3 py-1 rounded-xl text-xs font-bold bg-neutral-900 text-neutral-400 border border-neutral-700">🔴 TRƯỢT (0 NHÁY)</span>`
+                        )
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-3 pt-2">
+            <div class="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-list-check text-amber-400"></i> Chi Tiết Từng Con Số Trong Cặp:
+            </div>
+    `;
+
+    if (r.is_pending) {
+        html += `
+            <div class="p-6 bg-black/60 border border-neutral-800 rounded-2xl text-center text-neutral-400 space-y-2">
+                <i class="fa-solid fa-clock text-3xl text-amber-400 animate-pulse"></i>
+                <div class="text-sm font-bold text-white">Kỳ quay mở thưởng ${r.target_date_display} đang chờ kết quả</div>
+                <p class="text-xs text-neutral-400">Kết quả XSMB chính thức sẽ được cập nhật tự động sau 18h30 hàng ngày.</p>
+            </div>
+        `;
+    } else {
+        (r.numbers_detail || []).forEach(n => {
+            if (n.is_hit) {
+                html += `
+                    <div class="p-4 bg-emerald-950/30 border border-emerald-500/50 rounded-2xl space-y-2.5">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-2">
+                                <span class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-sm font-mono shadow-sm">
+                                    ${n.number}
+                                </span>
+                                <span class="font-black text-sm text-emerald-300 font-mono">Số ${n.number}</span>
+                            </div>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-600 text-white shadow-sm flex items-center gap-1">
+                                <i class="fa-solid fa-check"></i> Trúng ${n.hit_count} nháy
+                            </span>
+                        </div>
+                        <div class="space-y-1.5 pl-10 text-xs">
+                            <div class="text-[11px] font-bold text-neutral-400">Vị trí xuất hiện trong 27 giải:</div>
+                            ${(n.hit_locations || []).map(loc => `
+                                <div class="flex items-center gap-2 text-neutral-200">
+                                    <span class="px-2 py-0.5 rounded bg-black/80 border border-neutral-700 text-yellow-300 font-bold">${loc.prize}</span>
+                                    <span class="text-neutral-400">→</span>
+                                    <span class="font-mono bg-neutral-900 px-2 py-0.5 rounded border border-neutral-800 font-bold text-white tracking-wider">
+                                        ...<span class="text-emerald-400 font-black">${loc.hitNumber}</span> (${loc.value})
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="p-3.5 bg-neutral-900/50 border border-neutral-800 rounded-2xl flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-xl bg-neutral-800 text-neutral-400 flex items-center justify-center font-bold text-sm font-mono border border-neutral-700">
+                                ${n.number}
+                            </span>
+                            <span class="font-bold text-sm text-neutral-400 font-mono">Số ${n.number}</span>
+                        </div>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-900 text-neutral-500 border border-neutral-800 flex items-center gap-1">
+                            <i class="fa-solid fa-xmark"></i> Trượt (0 nháy)
+                        </span>
+                    </div>
+                `;
+            }
+        });
+
+        html += `
+            <div class="p-3.5 bg-black/80 border border-neutral-800 rounded-xl text-center text-xs">
+                Tổng cộng cặp <b>${r.pair}</b>: ${r.pair_is_hit
+                    ? `<span class="text-emerald-400 font-black text-sm ml-1">${r.pair_total_hits} NHÁY</span>`
+                    : `<span class="text-neutral-400 font-bold text-sm ml-1">0 NHÁY (Gãy)</span>`
+                }
+            </div>
+        `;
+    }
+
+    html += `</div>`;
+    content.innerHTML = html;
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closePredictionDetailModal() {
+    const modal = document.getElementById('pred-detail-modal');
+    if (modal) {
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+}
+
+// Xuất Excel / CSV cho bảng lịch sử dự đoán thống nhất
+function exportUnifiedHistoryExcel() {
+    const res = window.CURRENT_PRED_RESPONSE;
+    const records = res?.records || [];
+    if (records.length === 0) {
         alert('Không có dữ liệu lịch sử để xuất file.');
         return;
     }
 
-    let csvContent = '\uFEFF'; // BOM UTF-8 để mở tiếng Việt trên Excel không bị lỗi font
-    csvContent += 'STT,Ky Mo Thuong,Ngay Soi Cau,Top 1 De Xuat,Ket Qua Top 1,Top 2 De Xuat,Ket Qua Top 2,Top 3 De Xuat,Ket Qua Top 3,So Cap No,Tong So Nhay,Danh Gia,Trang Thai\n';
+    let csvContent = '\uFEFF'; // BOM UTF-8
+    csvContent += 'STT,Ky Mo Thuong,Ngay Soi,Nguon Du Doan,Thu Hang,Cap Du Doan,Ket Qua,Tong Nhay,Chi Tiet Cac So,Thong Tin Cau\n';
 
-    history.forEach((item, idx) => {
-        const targetDate = item.targetDate;
-        const sourceDate = item.sourceDate;
-        const top1Pair = `"${item.top1?.pair || ''}"`;
-        const top1Res = item.top1?.eval?.hit ? `"No ${item.top1.eval.matched.join(' ')} (${item.top1.eval.hits_count} nhay)"` : (item.isPending ? '"Dang cho"' : '"Xit"');
-        const top2Pair = `"${item.top2?.pair || ''}"`;
-        const top2Res = item.top2?.eval?.hit ? `"No ${item.top2.eval.matched.join(' ')} (${item.top2.eval.hits_count} nhay)"` : (item.isPending ? '"Dang cho"' : '"Xit"');
-        const top3Pair = `"${item.top3?.pair || ''}"`;
-        const top3Res = item.top3?.eval?.hit ? `"No ${item.top3.eval.matched.join(' ')} (${item.top3.eval.hits_count} nhay)"` : (item.isPending ? '"Dang cho"' : '"Xit"');
-        const hitPairs = item.summary?.hitPairs || 0;
-        const totalHits = item.summary?.totalHits || 0;
-        const evalStr = item.isPending ? '"Dang cho mo thuong"' : (item.summary?.isWin ? `"Thang (No ${hitPairs}/3 cap)"` : '"Truot"');
-        const statusStr = item.isPending ? '"PENDING"' : (item.summary?.isWin ? '"WIN"' : '"LOSE"');
-
-        csvContent += `${idx + 1},${targetDate},${sourceDate},${top1Pair},${top1Res},${top2Pair},${top2Res},${top3Pair},${top3Res},${hitPairs},${totalHits},${evalStr},${statusStr}\n`;
+    records.forEach((r, idx) => {
+        const details = (r.numbers_detail || []).map(n => `${n.number}:${n.hit_count}n`).join(' ');
+        const metaStr = r.meta?.pattern_name || (r.meta?.label_a ? `${r.meta.display_prize_a || r.meta.label_a} + ${r.meta.display_prize_b || r.meta.label_b}` : '');
+        csvContent += `${idx + 1},${r.target_date},${r.source_date},"${r.source_label}",${r.rank},"${r.pair}","${r.status}",${r.pair_total_hits},"${details}","${metaStr}"\n`;
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Lich_Su_Du_Doan_Top3_XSMB_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute('download', `Lich_Su_Du_Doan_XSMB_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 }
+
+// Đăng ký an toàn các hàm toàn cục
+window.loadUnifiedPredictionHistoryTable = loadUnifiedPredictionHistoryTable;
+window.setPredSourceFilter = setPredSourceFilter;
+window.setPredTimeRange = setPredTimeRange;
+window.setPredStatusFilter = setPredStatusFilter;
+window.onPredSearchChange = onPredSearchChange;
+window.onPredChangePage = onPredChangePage;
+window.openPredictionDetailModal = openPredictionDetailModal;
+window.closePredictionDetailModal = closePredictionDetailModal;
+window.openTop4DayModal = openTop4DayModal;
+window.closeTop4DayModal = closeTop4DayModal;
+window.openStreakDayModal = openStreakDayModal;
+window.closeStreakDayModal = closeStreakDayModal;
+window.filterModalBridges = filterModalBridges;
+window.searchModalBridges = searchModalBridges;
+window.exportUnifiedHistoryExcel = exportUnifiedHistoryExcel;
+
+// Aliases tương thích ngược để giữ nguyên các nút và sự kiện cũ
+window.loadTop3HistoryTable = loadUnifiedPredictionHistoryTable;
+window.filterTop3HistoryTable = (flt) => setPredStatusFilter(flt);
+window.onTop3HistorySearchChange = onPredSearchChange;
+window.exportTop3HistoryExcel = exportUnifiedHistoryExcel;
 
 // Aliases toàn cục an toàn
 window.initTop3DateSelector = initTop3DateSelector;

@@ -24,7 +24,7 @@ import pattern_engine
 from pattern_engine.service import (
     scan_patterns_service, get_pattern_visualization_service,
     get_streak_bridges_service, invalidate_pattern_cache,
-    get_top3_history_service
+    get_top3_history_service, get_unified_prediction_history
 )
 
 app = Flask(__name__)
@@ -443,6 +443,45 @@ def api_pattern_top3_history():
         except ValueError:
             streak = 4
         data = get_top3_history_service(limit=limit, streak=streak)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"status": "ERROR", "message": str(e)}), 400
+
+@app.route('/api/prediction-history')
+def api_prediction_history():
+    """
+    Lấy bảng lịch sử dự đoán thống nhất từ 2 nguồn: TOP_4_KY và TRA_CUU_4_NGAY.
+    Hỗ trợ lọc theo source (all, TOP_4_KY, TRA_CUU_4_NGAY),
+    range (7d, 30d, 90d, all), status (all, win, lose, pending),
+    streak, page, limit, search.
+    """
+    try:
+        source = request.args.get('source', 'all')
+        time_range = request.args.get('range', 'all')
+        status_flt = request.args.get('status', 'all')
+        streak_arg = request.args.get('streak', '4')
+        try:
+            streak_val = int(streak_arg)
+        except ValueError:
+            streak_val = 4
+        page_arg = request.args.get('page', '1')
+        try:
+            page_val = int(page_arg)
+        except ValueError:
+            page_val = 1
+        limit_arg = request.args.get('limit', '50')
+        limit_val = -1 if limit_arg == 'all' else int(limit_arg)
+        search_val = request.args.get('search', '').strip()
+
+        data = get_unified_prediction_history(
+            source=source,
+            time_range=time_range,
+            status_filter=status_flt,
+            streak=streak_val,
+            page=page_val,
+            limit=limit_val,
+            search=search_val
+        )
         return jsonify(data)
     except Exception as e:
         return jsonify({"status": "ERROR", "message": str(e)}), 400

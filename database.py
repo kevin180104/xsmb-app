@@ -670,6 +670,33 @@ def get_streak_bridges_snapshot(query_date, streak, exact_streak, target_type):
         return None
     return json.loads(row["data_json"]) if row["data_json"] else None
 
+def get_all_streak_bridges_snapshots(streak=4, exact_streak=True, target_type="loto_2digit", limit=100):
+    """Lấy toàn bộ các snapshot tra cứu cầu thông đã lưu theo chuỗi streak"""
+    exact_int = 1 if exact_streak else 0
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT query_date, streak, exact_streak, target_type, target_date, data_json, created_at, updated_at
+            FROM daily_streak_bridges_snapshots 
+            WHERE streak = ? AND exact_streak = ? AND target_type = ?
+            ORDER BY target_date DESC 
+            LIMIT ?
+        """, (int(streak), exact_int, target_type, limit))
+        rows = cursor.fetchall()
+        return [
+            {
+                "query_date": r["query_date"],
+                "streak": r["streak"],
+                "exact_streak": bool(r["exact_streak"]),
+                "target_type": r["target_type"],
+                "target_date": r["target_date"],
+                "data": json.loads(r["data_json"]) if r["data_json"] else {},
+                "created_at": r["created_at"],
+                "updated_at": r["updated_at"]
+            }
+            for r in rows
+        ]
+
 
 
 def list_top3_history(before=None, start=None, end=None, limit=30):
