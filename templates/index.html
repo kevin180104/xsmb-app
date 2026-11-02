@@ -396,6 +396,7 @@
                 <!-- ========================================================================= -->
                 <!-- 3. BẢNG LỊCH SỬ DỰ ĐOÁN (TOP 4 KỲ & TRA CỨU CẦU THÔNG)                    -->
                 <!-- ========================================================================= -->
+                {% include 'quality_trial.html' %}
                 <div id="top3-history-table-section" class="bg-gradient-to-b from-neutral-900 via-neutral-900/95 to-neutral-950 border-2 border-amber-500/60 rounded-2xl p-5 md:p-6 shadow-[0_0_35px_rgba(245,158,11,0.2)] space-y-5 relative overflow-hidden">
                     <!-- Ambient Glow -->
                     <div class="absolute -right-20 -top-20 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -3325,6 +3326,7 @@
         <span id="toast-text">Thông báo</span>
     </div>
 
+    <script src="{{ url_for('static', filename='js/quality_trial.js') }}?v=1"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}?v=5.0"></script>
     <script src="{{ url_for('static', filename='js/pattern_visualizer.js') }}?v=5.0"></script>
 </body>

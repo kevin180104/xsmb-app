@@ -4,9 +4,13 @@ from pathlib import Path
 # Thư mục gốc dự án
 BASE_DIR = Path(__file__).resolve().parent
 
-# Đường dẫn cơ sở dữ liệu và file xuất JSON
-DB_PATH = os.path.join(BASE_DIR, "xsmb.db")
-JSON_PATH = os.path.join(BASE_DIR, "xsmb_results.json")
+# Railway supplies its persistent mount path automatically. Local runs keep the
+# existing location; operators can explicitly override the data directory.
+DATA_DIR = Path(os.environ.get("XSMB_DATA_DIR") or
+                os.environ.get("RAILWAY_VOLUME_MOUNT_PATH") or BASE_DIR)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DB_PATH = os.path.join(DATA_DIR, "xsmb.db")
+JSON_PATH = os.path.join(DATA_DIR, "xsmb_results.json")
 
 # Nguồn dữ liệu cào
 SOURCE_URL_TEMPLATE = "https://xskt.com.vn/xsmb/ngay-{date_str}"
