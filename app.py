@@ -51,6 +51,8 @@ def serve_calculator_assets(filename):
 
 # Khởi tạo bảng dữ liệu một lần duy nhất khi ứng dụng nạp (không gọi lặp lại ở từng route)
 database.init_db()
+from pattern_engine import trial
+trial.init_table()
 
 # Tự động chạy tiến trình ngầm kiểm tra và cào bù kết quả mới nhất đến hôm nay
 import threading
@@ -67,7 +69,36 @@ def _auto_sync_on_startup():
     except Exception as e:
         print(f"[AutoSync] Lỗi khi đồng bộ kết quả: {e}")
 
-threading.Thread(target=_auto_sync_on_startup, daemon=True).start()
+def _trial_sync_loop():
+    # Gunicorn workers may each run this: insert-once decisions are safe across workers.
+    import time
+    while True:
+        _auto_sync_on_startup()
+        try:
+            trial.capture_upcoming()
+        except Exception:
+            app.logger.exception("Không thể ghi nhận theo dõi thử")
+        time.sleep(900)
+
+
+if os.environ.get('XSMB_DISABLE_BACKGROUND_SYNC') != '1':
+    threading.Thread(target=_trial_sync_loop, daemon=True).start()
+
+
+@app.route('/api/quality-trial')
+def api_quality_trial():
+    try:
+        stake = request.args.get('stake')
+        payout = request.args.get('payout')
+        return jsonify(trial.report(float(stake) if stake else None,
+                                    float(payout) if payout else None))
+    except ValueError as exc:
+        return jsonify({'message': str(exc)}), 400
+
+
+@app.route('/api/quality-trial/capture', methods=['POST'])
+def api_quality_trial_capture():
+    return jsonify({'status': trial.capture_upcoming()})
 
 @app.route('/')
 def index():
