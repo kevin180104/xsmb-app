@@ -26,7 +26,9 @@ Web worker đồng bộ kết quả và thử ghi quyết định mỗi 15 phút
 
 GET /api/quality-trial chỉ đọc. POST /api/quality-trial/capture thử ghi quyết định. GET hỗ trợ stake và payout (phải đi cùng nhau, hữu hạn, >0 và ≤10^12).
 
-Trước khi đưa lên Railway, cần xác nhận file xsmb.db hiện tại nằm trên vùng lưu bền và sao lưu file này bằng công cụ quản trị của Railway. Cấu hình hiện tại trỏ vào thư mục mã nguồn; không thể xác nhận cơ chế lưu bền chỉ từ URL công khai. Không thay thế file dữ liệu đang chạy bằng xsmb.db cũ trong GitHub. Bản thay đổi này không sửa file xsmb.db được theo dõi trong Git.
+Trước khi đưa lên Railway, sao lưu nhất quán file SQLite đang chạy bằng sqlite3.Connection.backup, tải bản sao ra ngoài máy chủ và kiểm tra PRAGMA integrity_check. Tạo ổ lưu bền sau khi chủ tài khoản đồng ý chi phí, gắn tại /data, rồi khôi phục bản sao vào /data/xsmb.db trước khi triển khai mã mới. Không thay thế lịch sử đang dùng bằng xsmb.db cũ trong GitHub. Bản thay đổi này không sửa file xsmb.db được theo dõi trong Git.
+
+config.py tự chọn thư mục theo thứ tự XSMB_DATA_DIR → RAILWAY_VOLUME_MOUNT_PATH → thư mục mã nguồn. Railway tự cung cấp RAILWAY_VOLUME_MOUNT_PATH khi gắn ổ. Cả SQLite và file JSON xuất đều nằm trong thư mục dữ liệu. Chạy tại máy cá nhân vẫn giữ đường dẫn cũ. Sau triển khai phải xác nhận đường dẫn DB, integrity_check và số bản ghi so với bản sao.
 
 ## Các bước kiểm tra bằng tay
 
